@@ -1,0 +1,116 @@
+/**
+ * GET   /api/academic-upgrades/results  — fetch student result card or class sheet
+ * POST  /api/academic-upgrades/results  — bulk score entry for a student
+ * PATCH /api/academic-upgrades/results  — toggle DECLARED / DRAFT for a class term
+ *
+ * Authorization:
+ *   GET   — any role with results.read
+ *   POST  — roles with results.create (TEACHER, ADMIN, SUPER_ADMIN)
+ *   PATCH — roles with results.update (ADMIN, SUPER_ADMIN)
+ */
+import { NextRequest } from 'next/server'
+import { auth } from '@/lib/auth'
+import { checkPermission } from '@/lib/rbac'
+import { errors, successResponse } from '@/lib/api-response'
+import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { submitScoresSchema, declareResultSchema } from '@/lib/validation/academic-upgrades'
+import type { Role } from '@prisma/client'
+
+export async function GET(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return errors.unauthorized()
+
+  const role = session.user.role as Role
+  if (!checkPermission(role, 'results', 'read')) return errors.forbidden()
+
+  const { searchParams } = new URL(request.url)
+  const studentId      = searchParams.get('studentId')
+  const examSessionId  = searchParams.get('examSessionId')
+  const classSectionId = searchParams.get('classSectionId')
+
+  const declaredOnly = role === 'STUDENT' || role === 'GUARDIAN'
+
+  try {
+    if (studentId) {
+      const card = await AcademicUpgradesService.getStudentTermResults(
+        studentId,
+        examSessionId ?? undefined,
+        declaredOnly
+      )
+      return successResponse(card)
+    }
+
+    if (classSectionId && examSessionId) {
+      const sheet = await AcademicUpgradesService.getClassResultsSheet(classSectionId, examSessionId)
+      return successResponse(sheet)
+    }
+
+    return errors.badRequest(
+      'Provide either studentId, or both classSectionId and examSessionId.',
+    )
+  } catch (err: any) {
+    return errors.badRequest(err.message ?? 'Failed to fetch results.')
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return errors.unauthorized()
+
+  const role = session.user.role as Role
+  if (!checkPermission(role, 'results', 'create')) return errors.forbidden()
+  // Enforce view-only for SUPER_ADMIN on result mutations — teacher ownership enforced via teacherId
+  if (role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for academic results')
+
+  let body: unknown
+  try { body = await request.json() }
+  catch { return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never) }
+
+  const parsed = submitScoresSchema.safeParse(body)
+  if (!parsed.success) return errors.validation(parsed.error)
+
+  try {
+    const result = await AcademicUpgradesService.submitStudentScores({
+      ...parsed.data,
+      teacherId: session.user.id,
+    })
+    return successResponse(result, 'Scores submitted. Overall percentage and grade recalculated.')
+  } catch (err: any) {
+    return errors.badRequest(err.message ?? 'Failed to submit scores.')
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return errors.unauthorized()
+
+  const role = session.user.role as Role
+  if (!checkPermission(role, 'results', 'update')) return errors.forbidden()
+  // Prevent SUPER_ADMIN from toggling declarations via this endpoint (view-only)
+  if (role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for academic results')
+
+  let body: unknown
+  try { body = await request.json() }
+  catch { return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never) }
+
+  const parsed = declareResultSchema.safeParse(body)
+  if (!parsed.success) return errors.validation(parsed.error)
+
+  const { classSectionId, examSessionId, declare } = parsed.data
+
+  try {
+    const status = await AcademicUpgradesService.toggleResultDeclaration(
+      classSectionId,
+      examSessionId,
+      declare,
+    )
+    return successResponse(
+      status,
+      declare
+        ? 'Results declared. Class positions have been calculated.'
+        : 'Results reverted to draft. Positions cleared.',
+    )
+  } catch (err: any) {
+    return errors.badRequest(err.message ?? 'Failed to toggle result declaration.')
+  }
+}

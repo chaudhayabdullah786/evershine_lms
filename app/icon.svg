@@ -1,0 +1,60 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EverShine Academy">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- App icon background — rounded square -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
+
+  <!-- Three gold stars (center, left, right) -->
+  <g fill="#FBBF24">
+    <!-- Center star -->
+    <polygon points="256,62 264,88 292,88 270,104 278,130 256,114 234,130 242,104 220,88 248,88"/>
+    <!-- Left star -->
+    <polygon points="156,80 162,100 184,100 166,112 173,132 156,120 139,132 146,112 128,100 150,100"/>
+    <!-- Right star -->
+    <polygon points="356,80 362,100 384,100 366,112 373,132 356,120 339,132 346,112 328,100 350,100"/>
+  </g>
+
+  <!-- Laurel — simplified left arc -->
+  <g stroke="#F59E0B" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85">
+    <path d="M 126 190 C 100 240 92 300 100 360"/>
+    <path d="M 140 210 C 118 255 112 310 118 365"/>
+    <path d="M 156 228 C 136 268 132 318 138 368"/>
+  </g>
+  <!-- Laurel — simplified right arc -->
+  <g stroke="#F59E0B" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85">
+    <path d="M 386 190 C 412 240 420 300 412 360"/>
+    <path d="M 372 210 C 394 255 400 310 394 365"/>
+    <path d="M 356 228 C 376 268 380 318 374 368"/>
+  </g>
+
+  <!-- Shield outer (red) -->
+  <path d="M 144 152 C 144 128 188 110 256 110 C 324 110 368 128 368 152 C 368 236 348 278 348 318 C 348 376 310 422 256 450 C 202 422 164 376 164 318 C 164 278 144 236 144 152 Z"
+        fill="#DC2626" stroke="#991B1B" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- Shield inner (white fill) -->
+  <path d="M 160 158 C 160 138 196 122 256 122 C 316 122 352 138 352 158 C 352 236 334 274 334 312 C 334 366 300 408 256 434 C 212 408 178 366 178 312 C 178 274 160 236 160 158 Z"
+        fill="white" opacity="0.96"/>
+
+  <!-- Graduation cap (mortarboard) -->
+  <polygon points="256,192 304,212 256,232 208,212" fill="#1e3a8a"/>
+  <!-- Cap top board -->
+  <rect x="244" y="170" width="24" height="26" fill="#1e3a8a"/>
+  <rect x="232" y="164" width="48" height="14" rx="4" fill="#1e3a8a"/>
+  <!-- Tassel -->
+  <line x1="304" y1="212" x2="304" y2="234" stroke="#FBBF24" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="304" cy="238" r="5" fill="#FBBF24"/>
+
+  <!-- Gown / body of graduate -->
+  <path d="M 210 232 Q 206 278 206 310 Q 228 324 256 324 Q 284 324 306 310 Q 306 278 302 232 L 256 248 Z"
+        fill="#1e3a8a"/>
+
+  <!-- Pen nib (vertical) — the academic pen symbol inside the shield -->
+  <path d="M 248 310 L 248 370 L 256 382 L 264 370 L 264 310 Z"
+        fill="#1e3a8a" opacity="0.7"/>
+  <line x1="256" y1="352" x2="256" y2="376" stroke="white" stroke-width="4" stroke-linecap="round"/>
+</svg>

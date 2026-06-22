@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EverShine Academy Shield Icon">
+  <!-- Three gold stars: center, left, right -->
+  <g fill="#FBBF24">
+    <polygon points="256,20 265,50 296,50 272,68 281,98 256,80 231,98 240,68 216,50 247,50"/>
+    <polygon points="148,44 155,68 180,68 160,82 168,106 148,92 128,106 136,82 116,68 141,68"/>
+    <polygon points="364,44 371,68 396,68 376,82 384,106 364,92 344,106 352,82 332,68 357,68"/>
+  </g>
+
+  <!-- Laurel wreath — left side (3 arcing strokes) -->
+  <g stroke="#F59E0B" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.90">
+    <path d="M 116 174 C 88 228 80 296 90 360"/>
+    <path d="M 134 198 C 110 246 104 308 112 368"/>
+    <path d="M 152 220 C 130 264 126 320 134 372"/>
+  </g>
+  <!-- Laurel wreath — right side -->
+  <g stroke="#F59E0B" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.90">
+    <path d="M 396 174 C 424 228 432 296 422 360"/>
+    <path d="M 378 198 C 402 246 408 308 400 368"/>
+    <path d="M 360 220 C 382 264 386 320 378 372"/>
+  </g>
+
+  <!-- Shield outer — crimson red -->
+  <path d="M 136 142 C 136 116 182 96 256 96 C 330 96 376 116 376 142 C 376 234 354 278 354 320 C 354 382 314 430 256 460 C 198 430 158 382 158 320 C 158 278 136 234 136 142 Z"
+        fill="#DC2626" stroke="#991B1B" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- Shield inner — white fill (slightly transparent to keep vibrancy) -->
+  <path d="M 154 148 C 154 126 192 108 256 108 C 320 108 358 126 358 148 C 358 234 338 274 338 314 C 338 372 304 416 256 444 C 208 416 174 372 174 314 C 174 274 154 234 154 148 Z"
+        fill="white" opacity="0.97"/>
+
+  <!-- Graduation cap — mortarboard top board + diamond -->
+  <polygon points="256,182 308,204 256,226 204,204" fill="#1e3a8a"/>
+  <!-- Vertical pole -->
+  <rect x="243" y="158" width="26" height="28" fill="#1e3a8a"/>
+  <!-- Flat cap brim -->
+  <rect x="228" y="152" width="56" height="16" rx="5" fill="#1e3a8a"/>
+  <!-- Tassel string + ball -->
+  <line x1="308" y1="204" x2="308" y2="228" stroke="#FBBF24" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="308" cy="232" r="6" fill="#FBBF24"/>
+
+  <!-- Graduate gown / body -->
+  <path d="M 206 226 Q 202 274 202 308 Q 226 322 256 322 Q 286 322 310 308 Q 310 274 306 226 L 256 244 Z"
+        fill="#1e3a8a"/>
+
+  <!-- Fountain pen nib — the academic writing symbol -->
+  <path d="M 248 304 L 248 372 L 256 386 L 264 372 L 264 304 Z" fill="#1e3a8a" opacity="0.65"/>
+  <line x1="256" y1="355" x2="256" y2="380" stroke="white" stroke-width="5" stroke-linecap="round"/>
+</svg>

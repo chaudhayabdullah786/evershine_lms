@@ -1,0 +1,200 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Evershine Academy LMS — Production .gitignore
+# Last updated: 2026-06-20
+# Policy: Track ONLY production source code, configs, public assets, and docs.
+#         Exclude all secrets, build artifacts, dev tools, raw media, and scratch files.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ── 2. Build & Runtime Artifacts ──────────────────────────────────────────────
+.next/
+out/
+build/
+dist/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+build-output.txt
+
+# ── 3. Security & Secrets ────────────────────────────────────────────────────
+# CRITICAL: No credentials, API keys, passwords, or connection strings in VCS
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+secrets/
+*.pem
+*.key
+*.pfx
+*.p12
+credentials.json
+service-account.json
+oauth.json
+
+# ── 4. Database ───────────────────────────────────────────────────────────────
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/*.sqlite
+/prisma/*.sqlite-journal
+*.sqlite
+*.sqlite3
+dump.sql
+backup.sql
+prisma-init-log.txt
+
+# ── 5. Test & Coverage ────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+.pytest_cache/
+test-results/
+test-report.html
+*.lcov
+
+# ── 6. IDE & Editor Configs ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+.code-workspace
+
+# ── 7. OS Files ───────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# ── 8. Logs & Cache ──────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+logs/
+debug_fee.log
+.cache/
+.eslintcache
+.stylelintcache
+__pycache__/
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 9. AI TOOL CONFIGS — Private assistant memory, never expose to public repos
+# ═══════════════════════════════════════════════════════════════════════════════
+.agents/
+.claude/
+.antigravitycli/
+.hermes.md
+.mcp.json
+AGENTS.md
+CLAUDE.md
+skills-lock.json
+summary_chat.md
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 10. SHELL PROFILE CONFIGS — Dev machine artifacts, not project files
+# ═══════════════════════════════════════════════════════════════════════════════
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.gitmodules
+.ripgreprc
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 11. SCRATCH / DEBUG SCRIPTS — One-off utilities, not part of the application
+# ═══════════════════════════════════════════════════════════════════════════════
+check-db.js
+check-users.js
+check-users.ts
+check_db.ts
+delete-admissions.js
+fix_imports.js
+query_db.js
+rename.js
+scratch_query.js
+trigger-setup.js
+clean_structure.js
+copy-assets.js
+copy-landing-assets.sh
+copy-final-ones.js
+copy-final-ones.sh
+main.py
+proxy.ts
+hello.mp3
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 12. INTERNAL / CONFIDENTIAL DOCUMENTATION — Planning docs, not for public repo
+# ═══════════════════════════════════════════════════════════════════════════════
+/Documentation/
+ADMIN_TEACHER_ROADMAP.md
+ADMISSION_WORKFLOW_IMPLEMENTATION.md
+COMPREHENSIVE_TESTING_GUIDE.md
+EXECUTIVE_SUMMARY.md
+FINAL_IMPLEMENTATION_GUIDE.md
+FRONTEND_ARCHITECTURE_ANALYSIS.md
+FRONTEND_IMPLEMENTATION_PLAN.md
+IMPLEMENTATION_CHECKLIST.md
+PHASE_*.md
+QUICK_REFERENCE.md
+QUICK_START_GUIDE.md
+QUICK_TEST_CHECKLIST.md
+README_ROADMAP.md
+SCENARIO_BASED_TESTING.md
+TESTING_TROUBLESHOOTING_GUIDE.md
+PROMOTIONS_GUIDE.md
+START_HERE.md
+docs/.CHAT_MEMORY.md
+docs/.SYSTEM_INSTRUCTIONS.md
+docs/ACADEMIC_MIGRATION.md
+docs/ACADEMIC_SMOKE_TEST.md
+docs/EXPORT_TESTING.md
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 13. NON-PRODUCTION DIRECTORIES — Raw assets, archives, mockups, other projects
+# ═══════════════════════════════════════════════════════════════════════════════
+/landing_page/
+/new_changes/
+/last changes/
+/updations /
+/updations/
+/pink-proxima/
+/archive/
+.ipynb_checkpoints/
+
+# ── Design scratch files (keep PNGs for PDF generation, exclude scripts) ─────
+designs/crop_logo.py
+designs/row_profile.txt
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 14. UPLOADS & USER DATA — Never commit user-generated content
+# ═══════════════════════════════════════════════════════════════════════════════
+/public/uploads/*
+!/public/uploads/.gitkeep
+/uploads/
+/temp/
+/tmp/
+*.zip

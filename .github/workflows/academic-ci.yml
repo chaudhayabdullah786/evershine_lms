@@ -1,0 +1,96 @@
+name: Academic Engine CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Academic engine unit tests
+        run: npm run test:academic
+
+  api-smoke:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lms_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/lms_test
+      NEXTAUTH_SECRET: ci-test-secret-min-32-chars-long!!
+      NEXTAUTH_URL: http://localhost:5000
+      CRON_SECRET: ci-cron-secret
+      NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY: 'true'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Push schema to test database
+        run: npx prisma db push --skip-generate
+
+      - name: Seed academic engine (CI)
+        run: ACADEMIC_SEED_DEMO=true npm run db:seed:academic
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start server
+        run: PORT=5000 npm run start &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null -w "%{http_code}" http://localhost:5000/login | grep -qE '200|307'; then
+              echo "Server up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Server failed to start"
+          exit 1
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Academic API smoke tests
+        run: npm run test:academic:api

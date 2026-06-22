@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="img" aria-label="EverShine Academy Monochrome Black Logo">
+  <rect width="760" height="260" fill="transparent" />
+  <g transform="translate(0 0) scale(0.34)">
+    <path d="M 120 180 C 120 140 160 110 250 110 C 340 110 380 140 380 180 C 380 240 360 280 360 310 C 360 380 310 450 250 490 C 190 450 140 380 140 310 C 140 280 120 240 120 180 Z"
+      fill="#000000"
+      stroke="#000000"
+      stroke-width="18"
+      stroke-linejoin="round" />
+    <g fill="none" stroke="#000000" stroke-width="12" stroke-linecap="round">
+      <path d="M 225 74 C 182 122 140 184 118 244" />
+      <path d="M 415 74 C 458 122 500 184 522 244" />
+      <path d="M 98 284 C 122 344 156 384 194 414" />
+      <path d="M 542 284 C 518 344 484 384 446 414" />
+    </g>
+    <g fill="#000000" transform="translate(320 70)">
+      <path d="M 0,-18 L 5,-5 L 18,-5 L 7,3 L 12,17 L 0,9 L -12,17 L -7,3 L -18,-5 L -5,-5 Z" />
+      <path d="M 80,-18 L 85,-5 L 98,-5 L 87,3 L 92,17 L 80,9 L 68,17 L 73,3 L 62,-5 L 75,-5 Z" />
+      <path d="M -80,-18 L -75,-5 L -62,-5 L -73,3 L -68,17 L -80,9 L -92,17 L -87,3 L -98,-5 L -85,-5 Z" />
+    </g>
+    <g transform="translate(250 200)">
+      <path d="M -60 0 L 0 -24 L 60 0 L 0 24 Z" fill="#000000" />
+      <path d="M -80 20 Q -60 -8 0 -28 Q 60 -8 80 20 Q 70 40 60 40 Q 50 40 45 32 Q 38 24 30 22 Q 22 20 14 20 Q 2 20 -2 28 Q -8 34 -16 34 Q -24 34 -32 26 Q -40 18 -50 18 Q -70 18 -80 20 Z" fill="#000000" />
+      <path d="M -10 0 L 10 0 L 10 100 L -10 100 Z" fill="#000000" />
+      <circle cx="0" cy="68" r="8" fill="#ffffff" />
+    </g>
+  </g>
+  <g transform="translate(280 48)">
+    <text fill="#000000" font-family="Georgia,serif" font-weight="800" font-size="52" letter-spacing="5">EVERSHINE</text>
+    <text y="62" fill="#000000" font-family="Georgia,serif" font-weight="700" font-size="32" letter-spacing="4">ACADEMY</text>
+  </g>
+</svg>

@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/fee-penalties",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/teacher-attendance",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/fee-reminder",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/birthday-check",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

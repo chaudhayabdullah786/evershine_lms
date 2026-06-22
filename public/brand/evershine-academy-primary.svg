@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 760" role="img" aria-label="Evershine Academy Primary Logo">
+  <title>Evershine Academy Primary Logo</title>
+  <defs>
+    <linearGradient id="shieldGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="100%" stopColor="#f8fafc" />
+    </linearGradient>
+    <path id="star" d="M 0,-18 L 5,-5 L 18,-5 L 7,3 L 12,17 L 0,9 L -12,17 L -7,3 L -18,-5 L -5,-5 Z" />
+    <path id="leftArc" d="M 160 160 A 160 220 0 0 0 160 400" />
+    <path id="rightArc" d="M 340 160 A 160 220 0 0 1 340 400" />
+  </defs>
+
+  <rect width="640" height="760" fill="transparent" />
+
+  <g fill="none" stroke="#F59E0B" strokeWidth="16" strokeLinecap="round">
+    <path d="M 225 74 C 182 122 140 184 118 244" />
+    <path d="M 415 74 C 458 122 500 184 522 244" />
+    <path d="M 98 284 C 122 344 156 384 194 414" />
+    <path d="M 542 284 C 518 344 484 384 446 414" />
+  </g>
+
+  <g fill="#FBBF24" transform="translate(320 70)">
+    <use href="#star" transform="translate(-80 0)" />
+    <use href="#star" transform="translate(0 -14)" />
+    <use href="#star" transform="translate(80 0)" />
+  </g>
+
+  <path d="M 120 180 C 120 140 160 110 250 110 C 340 110 380 140 380 180 C 380 240 360 280 360 310 C 360 380 310 450 250 490 C 190 450 140 380 140 310 C 140 280 120 240 120 180 Z"
+        fill="url(#shieldGradient)"
+        stroke="#DC2626"
+        strokeWidth="18"
+        strokeLinejoin="round" />
+
+  <g transform="translate(250 200)">
+    <path d="M -60 0 L 0 -24 L 60 0 L 0 24 Z" fill="#1D4ED8" />
+    <path d="M -80 20 Q -60 -8 0 -28 Q 60 -8 80 20 Q 70 40 60 40 Q 50 40 45 32 Q 38 24 30 22 Q 22 20 14 20 Q 2 20 -2 28 Q -8 34 -16 34 Q -24 34 -32 26 Q -40 18 -50 18 Q -70 18 -80 20 Z"
+          fill="#1D4ED8" />
+    <path d="M -10 0 L 10 0 L 10 100 L -10 100 Z" fill="#1D4ED8" />
+    <circle cx="0" cy="68" r="8" fill="#ffffff" />
+  </g>
+
+  <text fill="#1D4ED8" fontFamily="system-ui, sans-serif" fontWeight="700" fontSize="24">
+    <textPath href="#leftArc" startOffset="50%" textAnchor="middle">Recognize</textPath>
+  </text>
+  <text fill="#1D4ED8" fontFamily="system-ui, sans-serif" fontWeight="700" fontSize="24">
+    <textPath href="#rightArc" startOffset="50%" textAnchor="middle">Yourself</textPath>
+  </text>
+
+  <text fill="#0F172A" fontFamily="Georgia,serif" fontWeight="800" fontSize="48" letterSpacing="6" textAnchor="middle" x="320" y="660">
+    EVERSHINE
+  </text>
+  <text fill="#0F172A" fontFamily="Georgia,serif" fontWeight="700" fontSize="32" letterSpacing="4" textAnchor="middle" x="320" y="705">
+    ACADEMY
+  </text>
+</svg>

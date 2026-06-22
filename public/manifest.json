@@ -1,0 +1,59 @@
+{
+  "name": "EverShine Academy LMS",
+  "short_name": "EverShine LMS",
+  "description": "Professional Learning Management System for EverShine Academy",
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/brand/logo-icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/logo-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/logo-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Sign In",
+      "short_name": "Login",
+      "description": "Access your portal account",
+      "url": "/login",
+      "icons": [
+        {
+          "src": "/brand/logo-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/brand/logo-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
