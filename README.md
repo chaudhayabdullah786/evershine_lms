@@ -552,4 +552,6 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 
 > **Version:** 3.0.0 — Multi-Shift Academic Engine Release
 > **Last Updated:** June 2026
-> **Author:** [Ibadat Ali](https://github.com/Ibadat-Ali86)
+> **Author:**
+> [Ibadat Ali](https://github.com/Ibadat-Ali86)
+> [Muhammad Abdullah](https://github.com/chaudhayabdullah786)
