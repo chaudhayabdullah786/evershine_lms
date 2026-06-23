@@ -130,7 +130,7 @@ export function HomepageUpdates() {
         <motion.div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '20px',
           }}
           variants={containerVariants}
