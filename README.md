@@ -1,557 +1,606 @@
 # 🎓 Evershine Academy Management System
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-336791?logo=postgresql&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Version](https://img.shields.io/badge/Version-3.0.0-blue)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![MySQL](https://img.shields.io/badge/MySQL-Production-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Deployment](https://img.shields.io/badge/Deployment-Hostinger-673DE6?logo=hostinger&logoColor=white)](https://www.hostinger.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-3.0.0-blue.svg)](package.json)
 
-> **Enterprise-grade Academy Management System** for multi-campus educational institutions — featuring multi-shift academic workflows, institutional finance, attendance tracking, recruitment pipeline, and branded document generation.
+> A production-deployed academy management, learning management, and education ERP platform for multi-campus educational institutions.
 
----
-
-## 📌 Problem Statement
-
-Educational institutions in Pakistan struggle with fragmented manual systems for managing admissions, academics, attendance, fees, payroll, and reporting. Data silos, paper-based workflows, and lack of real-time visibility lead to operational inefficiencies, delayed decision-making, and poor student outcomes.
-
-**Evershine Academy Management System** solves this by providing:
-
-- ✅ Unified academic workflow (enrollment → attendance → grading → results → reporting)
-- ✅ Multi-shift scheduling (Morning 9am–12pm, Evening 3pm–6pm, Night 6pm–9pm)
-- ✅ Institutional finance with profit/loss tracking and reserve fund management
-- ✅ Multi-role dashboards (SuperAdmin, Admin, Teacher, Accountant, Student, Parent, Guardian)
-- ✅ Landing page recruitment pipeline (visitor inquiries, admissions, staff applications)
-- ✅ Branded Excel/PDF reporting for administrative transparency
-- ✅ Audit-ready compliance and immutable transaction logs
+<p align="center">
+  <a href="https://evershineacadmey.com/"><strong>🌐 Live Application</strong></a>
+  ·
+  <a href="https://github.com/chaudhayabdullah786/evershine_lms"><strong>💻 Source Code</strong></a>
+  ·
+  <a href="docs/HOSTINGER_DEPLOYMENT.md"><strong>🚀 Deployment Guide</strong></a>
+</p>
 
 ---
 
-## ✨ Key Features
+## 📖 Overview
+
+**Evershine Academy Management System** centralizes the academic and administrative operations of an educational institution in one full-stack web application.
+
+The platform supports admissions, student enrollment, attendance, academic scheduling, examinations, performance tracking, fees, payroll, expenses, recruitment, reports, certificates, notifications, and role-based dashboards.
+
+It is designed for institutions that operate multiple campuses and shifts while requiring secure access for administrators, teachers, accountants, students, parents, and guardians.
+
+---
+
+## 🎯 Problem Statement
+
+Many educational institutions still manage critical workflows through spreadsheets, paper records, messaging applications, and disconnected software.
+
+This creates several problems:
+
+- Duplicate and inconsistent records
+- Slow admission and approval workflows
+- Limited visibility into attendance and performance
+- Difficult fee, payroll, and expense reconciliation
+- Weak access control between campuses and user roles
+- Time-consuming PDF and Excel report preparation
+- Poor auditability of administrative actions
+
+Evershine Academy Management System addresses these issues through a centralized, permission-based platform with structured academic, financial, recruitment, and reporting workflows.
+
+---
+
+## ✨ Core Features
 
 ### 🎓 Academic Management
 
-| Feature | Details |
-|---------|---------|
-| **Multi-Shift Scheduling** | 9am–9pm operating window: Morning, Evening, Night shifts with canonical validation |
-| **Student Enrollment & Attendance** | Multi-campus enrollment with daily/period-wise attendance tracking; Excel export |
-| **Exam Date Sheets** | Per-section exam scheduling with student-level overrides |
-| **Grade Entry & Results** | Teacher-owned result entry with draft/declare workflow; view-only for SuperAdmin |
-| **Daily Performance Tracking** | Teacher scoring: attendance %, discipline, homework; aggregate by class |
-| **Monthly Comparison** | Side-by-side monthly test results with trend analysis |
-| **Target vs Achievement** | Marks targets per student/subject with visual performance gaps |
-| **Result Card PDF** | Branded result cards with signature blocks and custom fields |
+- Multi-campus academic structure
+- Morning, evening, and night shift scheduling
+- Student enrollment and section allocation
+- Subject offerings and teacher assignments
+- Student and teacher attendance
+- Timetable and room allocation
+- Examination date sheets
+- Teacher-managed grade entry
+- Draft and declared result workflows
+- Daily performance scoring
+- Monthly result comparison
+- Target-versus-achievement tracking
+- Student promotion and academic-year workflows
+- Branded result cards and academic reports
 
-### 💰 Finance & Accounting
+### 💰 Finance and Accounting
 
-| Feature | Details |
-|---------|---------|
-| **Fee Management** | Monthly challan generation, payment tracking, proof uploads, automated penalties |
-| **Expense Ledger** | Unified ledger of operational expenses + paid salary slips; branded Excel export |
-| **Salary Slip Generation** | Monthly salary slips with audit trail, PDF download |
-| **Profit/Loss & Reserve Fund** | Monthly P&L snapshots with SuperAdmin 15%/5% allocation; append-only ledger |
+- Monthly fee invoice and challan generation
+- Payment and payment-proof tracking
+- Partial payment and overdue status handling
+- Configurable penalties and late fees
+- Operational expense ledger
+- Salary-slip generation
+- Profit-and-loss reporting
+- Reserve-fund ledger
+- Branded PDF and Excel exports
+- Transaction-based financial operations
 
-### 📋 Recruitment & Leads
+### 📝 Admissions, Recruitment, and Leads
 
-| Feature | Details |
-|---------|---------|
-| **Visitor Inquiry System** | Contact form → database with auto-acknowledgement, admin reply/resolve/spam |
-| **Student Admission Pipeline** | Full online admission wizard (6-step) with admin review, branded Excel export |
-| **Staff Application Pipeline** | Teacher/Accountant/Admin recruitment with CNIC dedup, 90-day cooldown, atomic provisioning |
-| **Branded Excel Reports** | Server-side `.xlsx` with academy branding, zebra striping, status coloring |
+- Public contact and inquiry forms
+- Multi-step online student admission workflow
+- Admin review, approval, and rejection
+- Staff application pipeline
+- Teacher, accountant, and admin recruitment
+- Applicant status management
+- CNIC-based duplicate protection
+- Document upload support
+- Administrative Excel exports
 
-### 🏗️ Core Infrastructure
+### 👥 Role-Based Portals
 
-| Component | Details |
-|-----------|---------|
-| **Multi-Campus Isolation** | Independent Boys/Girls campuses with data segregation |
-| **RBAC System** | 7 roles with fine-grained permission matrix |
-| **Academic Engine** | AcademicYear → Shift → ClassSection → SubjectOffering → StudentEnrollment |
-| **Timetable Management** | Shift-based scheduling with room allocation and teacher assignments |
-| **Notification System** | Email notifications via Resend for all status transitions |
-| **Audit Logging** | Immutable transaction log for all mutations with JSON delta |
-| **Certificate Generation** | Bonafide letters, ID cards, achievement certificates, date sheets |
-| **Landing Page** | Conversion-optimized with 20+ sections, WhatsApp widget, dynamic content |
+The application includes permission-based experiences for:
+
+| Role | Primary Access |
+|---|---|
+| `SUPER_ADMIN` | System-wide configuration, users, reports, audits, and financial oversight |
+| `ADMIN` | Campus-scoped operations, admissions, staff, academics, and approvals |
+| `TEACHER` | Attendance, classes, grades, performance, tasks, and leave requests |
+| `ACCOUNTANT` | Fees, payments, salary slips, expenses, and finance reports |
+| `STUDENT` | Personal profile, attendance, fees, tasks, and published results |
+| `PARENT` | Linked student information, fees, attendance, and academic progress |
+| `GUARDIAN` | Authorized access to linked student records and feedback workflows |
+
+### 📄 Documents and Communication
+
+- Student and teacher ID cards
+- Result cards
+- Certificates and bonafide letters
+- Exam date sheets
+- Salary slips
+- Fee challans
+- Excel administrative reports
+- Email notification workflows
+- In-app notifications
+- Announcements and calendar events
+- QR code generation
+
+### 🔐 Platform Infrastructure
+
+- Role-based access control
+- Campus-scoped data access
+- Prisma-backed relational data model
+- Zod validation at API boundaries
+- Argon2id password hashing
+- NextAuth.js session management
+- Audit logging
+- Cloudinary file storage
+- Redis-compatible rate-limiting support
+- Unit and end-to-end testing
+- Responsive public landing page
+- Production deployment on Hostinger
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│  PRESENTATION LAYER                                         │
-│  Next.js 16 App Router (React 19) + Tailwind 4 + ShadCN UI │
-│  • Role-based dashboards (Admin, Teacher, Student, Parent)  │
-│  • TanStack React Query for server state                    │
-│  • Framer Motion animations on landing page                 │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│  API LAYER                                                   │
-│  Next.js API Routes + Zod Validation + RBAC Middleware       │
-│  • 70+ RESTful endpoints                                    │
-│  • Input validation at system boundary                      │
-│  • Rate limiting (Upstash Redis)                             │
-│  • Audit logging on all mutations                            │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│  SERVICE LAYER                                               │
-│  Business logic (Prisma + Transactions)                      │
-│  • AcademicUpgradesService (results, performance)            │
-│  • FinanceService (P&L, reserve fund ledger)                 │
-│  • RecruitmentService (staff approval, account provisioning) │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│  DATA LAYER                                                  │
-│  Prisma ORM → PostgreSQL 16+ (Neon Serverless)              │
-│  • 90+ models (2,400+ lines schema)                         │
-│  • Soft deletes for audit compliance                         │
-│  • Connection pooling (PgBouncer)                            │
+│ Presentation Layer                                          │
+│ Next.js App Router + React + TypeScript + Tailwind CSS      │
+│ Role-based dashboards, forms, tables, charts, and reports   │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│ Application and API Layer                                   │
+│ Next.js Route Handlers + Zod Validation + RBAC              │
+│ Authentication, authorization, APIs, notifications, exports │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│ Service Layer                                                │
+│ Academic, finance, recruitment, reporting, and audit logic   │
+│ Prisma transactions for consistency-sensitive operations    │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│ Data Layer                                                   │
+│ Prisma ORM + MySQL                                           │
+│ Relational models, indexes, constraints, and audit records   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Tech Stack
+---
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | Next.js 16, React 19, TypeScript 5 | Full-stack framework with App Router |
-| **UI** | Tailwind CSS 4, ShadCN UI | Responsive, accessible components |
-| **State** | Zustand (client), React Query (server) | Client + server state management |
-| **Animation** | Framer Motion | Landing page transitions and micro-interactions |
-| **ORM** | Prisma 5 | Type-safe database access |
-| **Database** | PostgreSQL 16+ (Neon) | Relational DB with serverless scaling |
-| **Auth** | NextAuth.js v5 + Argon2id | Session-based auth with strong hashing |
-| **Validation** | Zod 3.x | Schema validation at all API boundaries |
-| **Documents** | jsPDF, ExcelJS | Branded PDF/Excel generation |
-| **Email** | Resend | Transactional email notifications |
-| **Storage** | Cloudinary | Cloud asset management |
-| **Rate Limiting** | Upstash Redis | Serverless rate limiting |
-| **Testing** | Vitest, Playwright | Unit + E2E testing |
-| **Deployment** | Vercel | Serverless hosting with auto-scaling |
+## 🧰 Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Full-stack framework | Next.js 16 |
+| Frontend | React 19 |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4, ShadCN/Radix UI |
+| Client state | Zustand |
+| Server state | TanStack React Query |
+| Forms | React Hook Form |
+| Validation | Zod |
+| Authentication | NextAuth.js 5 |
+| Password hashing | Argon2id |
+| ORM | Prisma 5 |
+| Database | MySQL |
+| Charts | Recharts |
+| Animation | Framer Motion |
+| PDF generation | jsPDF, html2canvas |
+| Spreadsheet generation | ExcelJS, SheetJS |
+| File storage | Cloudinary |
+| Email | Resend |
+| Rate limiting/cache | Upstash Redis |
+| Testing | Vitest, Playwright, Testing Library |
+| Deployment | Hostinger Node.js hosting |
 
 ---
 
-## 📊 Data Model (90+ Models)
+## 🗃️ Main Data Domains
 
-Seven core domains:
+The Prisma schema is organized around the following domains:
 
-| Domain | Key Models |
-|--------|-----------|
-| **Identity & Access** | `User`, `Session`, `Account`, `Student`, `Teacher`, `Admin`, `Accountant`, `Parent`, `Guardian` |
-| **Academic Structure** | `AcademicYear`, `Shift`, `Campus`, `ClassSection`, `SubjectOffering`, `StudentEnrollment`, `Batch`, `House` |
-| **Grading & Results** | `TermResult`, `SubjectResult`, `DailyPerformanceScore`, `AssessmentScore`, `ExamDateSheet` |
-| **Finance & Payroll** | `FeeInvoice`, `FeePayment`, `SalarySlip`, `Expense`, `ProfitLossStatement`, `ReserveFundLedger` |
-| **Attendance** | `Attendance`, `TeacherAttendance`, `LeaveRequest`, `StudentLeaveRequest` |
-| **Recruitment** | `LandingInquiry`, `StaffApplicationRequest`, `AdmissionRequest` |
-| **Communication** | `Announcement`, `CalendarEvent`, `Notification`, `Certificate`, `MonthlyMonitoringReport` |
+| Domain | Representative Models |
+|---|---|
+| Identity and access | `User`, `Session`, `Admin`, `Teacher`, `Accountant`, `Student`, `Parent`, `Guardian` |
+| Campus structure | `Campus`, `Batch`, `House`, `Class`, `Room` |
+| Academic engine | `AcademicYear`, `Shift`, `ClassSection`, `SubjectOffering`, `StudentEnrollment` |
+| Attendance | `Attendance`, `TeacherAttendance`, `TeacherAvailability` |
+| Results and performance | `TermResult`, `SubjectResult`, `DailyPerformanceScore`, `AssessmentScore` |
+| Finance | `FeeInvoice`, `FeePayment`, `Expense`, `SalarySlip`, `ProfitLossStatement` |
+| Admissions and recruitment | `AdmissionRequest`, `LandingInquiry`, `StaffApplicationRequest` |
+| Communication | `Notification`, `Announcement`, `CalendarEvent` |
+| Documents | `Certificate`, result cards, ID cards, reports, and export records |
+| Governance | `AuditLog`, permissions, role-assumption records, and workflow histories |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Local Development
 
 ### Prerequisites
 
-- **Node.js** 20+ (LTS)
-- **npm** 10+
-- **PostgreSQL** 16+ (or [Neon](https://neon.tech) serverless)
+Install the following before starting:
 
-### Installation
+- Node.js 20 or newer
+- npm 10 or newer
+- MySQL 8-compatible database
+- Git
+
+Optional external services:
+
+- Cloudinary for images and documents
+- Resend for transactional email
+- Upstash Redis for distributed rate limiting and caching
+
+### 1. Clone the Repository
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Ibadat-Ali86/evershine_lms.git
+git clone https://github.com/chaudhayabdullah786/evershine_lms.git
 cd evershine_lms
-
-# 2. Install dependencies
-npm install
-
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env with your DATABASE_URL, NEXTAUTH_SECRET, etc.
-
-# 4. Generate Prisma Client and apply schema
-npx prisma generate
-npx prisma db push
-
-# 5. Seed initial data
-npm run db:seed
-
-# 6. Bootstrap Academic Engine (shifts, sections, enrollments)
-npm run db:setup:academic
-
-# 7. Start development server
-npm run dev
-# Open http://localhost:5000
 ```
 
-### Available Commands
+### 2. Install Dependencies
 
 ```bash
-# Development
-npm run dev                  # Start dev server (port 5000)
-npm run build                # Production build
-npm run start                # Run production server
-npm run lint                 # ESLint checks
-
-# Database
-npm run db:generate          # Generate Prisma Client
-npm run db:migrate           # Run migrations
-npm run db:push              # Push schema changes
-npm run db:seed              # Seed sample data
-npm run db:setup:academic    # Bootstrap academic engine
-npm run db:studio            # Open Prisma Studio GUI
-
-# Testing
-npm run test                 # Run Vitest unit tests
-npm run test:academic        # Run academic engine tests
-npm run test:visual          # Run Playwright E2E tests
+npm install
 ```
+
+### 3. Configure Environment Variables
+
+```bash
+cp .env.example .env
+```
+
+Update `.env` using your own credentials:
+
+```env
+# MySQL
+DATABASE_URL="mysql://DATABASE_USER:DATABASE_PASSWORD@DATABASE_HOST:3306/DATABASE_NAME"
+
+# Authentication
+NEXTAUTH_SECRET="generate-a-long-random-secret"
+NEXTAUTH_URL="http://localhost:5000"
+
+# Public application settings
+NEXT_PUBLIC_APP_URL="http://localhost:5000"
+NEXT_PUBLIC_APP_NAME="Evershine Academy LMS"
+NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY="true"
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=""
+CLOUDINARY_API_KEY=""
+CLOUDINARY_API_SECRET=""
+CLOUDINARY_UPLOAD_FOLDER="evershine"
+
+# Resend
+RESEND_API_KEY=""
+RESEND_FROM_EMAIL=""
+RESEND_FROM_NAME="Evershine Academy"
+
+# Upstash Redis
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
+
+# Protected scheduled endpoints
+CRON_SECRET=""
+```
+
+> **Security:** Never commit `.env`, production credentials, API secrets, private keys, database passwords, or real user records to GitHub.
+
+Generate a secure authentication secret:
+
+```bash
+openssl rand -hex 32
+```
+
+### 4. Generate the Prisma Client
+
+```bash
+npm run db:generate
+```
+
+### 5. Apply the Database Schema
+
+For a local or controlled development database:
+
+```bash
+npm run db:push
+```
+
+For a migration-based development workflow:
+
+```bash
+npm run db:migrate
+```
+
+### 6. Seed Development Data
+
+```bash
+npm run db:seed
+```
+
+Academic-engine scripts are also available:
+
+```bash
+npm run db:seed:academic
+npm run db:migrate:academic
+```
+
+Review existing legacy data and back up the database before running migration scripts against a shared or production database.
+
+### 7. Start the Development Server
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5000
+```
+
+---
+
+## 📜 Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server on port 5000 |
+| `npm run build` | Create a production build |
+| `npm run start` | Start the production server |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run the Vitest test suite |
+| `npm run test:academic` | Run academic-engine tests |
+| `npm run test:academic:api` | Run academic API tests with Playwright |
+| `npm run test:visual` | Run Playwright end-to-end tests |
+| `npm run test:export` | Test document export behavior |
+| `npm run db:generate` | Generate the Prisma Client |
+| `npm run db:push` | Synchronize the schema in a development environment |
+| `npm run db:migrate` | Create/apply development migrations |
+| `npm run db:seed` | Seed initial development data |
+| `npm run db:seed:academic` | Seed academic-engine data |
+| `npm run db:migrate:academic` | Migrate compatible legacy academic data |
+| `npm run db:setup:academic` | Run academic seed and legacy migration scripts |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run db:reset` | Reset the development database |
 
 ---
 
 ## 📁 Project Structure
 
-```
-evershine-academy/
-├── app/                        # Next.js App Router
-│   ├── api/                    # 70+ RESTful API endpoints
-│   │   ├── academic-upgrades/  # Results, performance, date sheets
-│   │   ├── teacher-portal/     # Teacher-scoped APIs
-│   │   ├── student-portal/     # Student published results
-│   │   ├── accountant/         # Finance: salary, P&L, expenses
-│   │   ├── landing/            # Visitor inquiry APIs
-│   │   ├── staff-applications/ # Staff recruitment pipeline
-│   │   ├── admissions/         # Student admission APIs
-│   │   ├── cron/               # Scheduled jobs (fee penalties, reminders)
-│   │   └── ...
-│   ├── dashboard/              # Role-based dashboard pages
-│   ├── admissions/apply/       # Public 6-step admission wizard
-│   └── page.tsx                # Landing page entry
-│
-├── components/                 # React components
-│   ├── ui/                     # ShadCN UI primitives
-│   ├── landing/                # 20+ landing page sections
-│   ├── academic/               # Academic-specific components
-│   └── layout/                 # Sidebar, navbar wrappers
-│
-├── lib/                        # Business logic & utilities
-│   ├── services/               # Service layer
-│   ├── excel/                  # Branded Excel export builders
-│   ├── pdf/                    # PDF generation (result cards, certificates)
-│   ├── validation/             # Zod schemas + shift constants
-│   ├── notifications.ts        # Email templates (Resend)
-│   └── rbac.ts                 # Role-based access control
-│
+```text
+evershine_lms/
+├── app/
+│   ├── api/                     # API route handlers
+│   ├── dashboard/               # Role-based dashboards
+│   ├── admissions/              # Public admission workflow
+│   └── page.tsx                 # Public landing page
+├── components/
+│   ├── ui/                      # Shared UI components
+│   ├── landing/                 # Landing-page sections
+│   ├── academic/                # Academic UI components
+│   └── layout/                  # Navigation and layouts
+├── content/                     # Configurable site content
+├── designs/                     # Document and report designs
+├── docs/                        # Technical and deployment documentation
+├── hooks/                       # Reusable React hooks
+├── lib/
+│   ├── services/                # Business services
+│   ├── validation/              # Zod schemas
+│   ├── excel/                   # Spreadsheet generation
+│   ├── pdf/                     # PDF generation
+│   ├── notifications.ts         # Notification helpers
+│   └── rbac.ts                  # Authorization helpers
 ├── prisma/
-│   └── schema.prisma           # 90+ models, 2400+ lines
-│
-├── content/
-│   └── site-config.ts          # Landing page content (config-first)
-│
-├── designs/                    # Academy-branded PDF templates
-├── scripts/                    # DB seeding & migration scripts
-├── tests/                      # Vitest + Playwright tests
-├── public/                     # Static assets & images
-├── docs/                       # API, schema, deployment docs
-│
-├── .env.example                # Environment variable template
-├── package.json                # Dependencies & scripts
-├── next.config.ts              # Next.js configuration
-├── vercel.json                 # Cron job schedules
-├── CONTRIBUTING.md             # Contribution guidelines
-├── INSTALLATION.md             # Detailed setup guide
-└── LICENSE                     # MIT License
+│   ├── migrations/              # Database migrations
+│   ├── schema.prisma            # MySQL Prisma schema
+│   └── seed.ts                  # Seed script
+├── public/                      # Static assets
+├── scripts/                     # Maintenance and migration scripts
+├── tests/                       # Unit, API, export, and E2E tests
+├── types/                       # Shared TypeScript types
+├── .env.example                 # Safe environment template
+├── next.config.ts               # Next.js configuration
+├── package.json                 # Dependencies and scripts
+├── playwright.config.ts         # Playwright configuration
+├── tailwind.config.ts           # Tailwind configuration
+└── vitest.config.ts             # Vitest configuration
 ```
 
 ---
 
-## 🔐 Security Posture
+## 🚢 Production Deployment
 
-### ✅ What's Implemented
+The live application is deployed on **Hostinger**:
 
-| Control | Implementation | Status |
-|---------|---------------|--------|
-| **Password Hashing** | Argon2id via `@node-rs/argon2` (memoryCost: 65536, timeCost: 3) | ✅ Strong |
-| **Authentication** | NextAuth.js v5 with CSRF protection | ✅ Production-ready |
-| **Input Validation** | Zod schemas on all 70+ API routes; reject-by-default | ✅ Comprehensive |
-| **Authorization** | RBAC at route + data layer; campus-scoped isolation | ✅ Enforced |
-| **SQL Injection** | Parameterized queries via Prisma ORM — zero raw SQL | ✅ Eliminated |
-| **Audit Logging** | Immutable `AuditLog` table: user, action, before/after, timestamp | ✅ Complete |
-| **ACID Transactions** | Prisma `$transaction` for fee, payroll, and staff provisioning | ✅ Atomic |
-| **CNIC Protection** | Staff CNIC masked in list views; full value only in detail | ✅ Implemented |
-| **File Uploads** | Cloudinary signed URLs; client-side compression | ✅ Secure |
+**https://evershineacadmey.com/**
 
-### ⚠️ Known Security Gaps (Production Hardening Needed)
+### Production Requirements
 
-| Gap | Risk | Recommended Fix |
-|-----|------|----------------|
-| **No CSP Headers** | XSS amplification | Add `Content-Security-Policy` in `next.config.ts` headers |
-| **Rate Limiter Wiring** | Brute-force login | Wire `lib/rate-limit.ts` into auth + public POST routes |
-| **No Request Size Limits** | DoS via large payloads | Add `bodyParser: { sizeLimit: '1mb' }` to API routes |
-| **Session Token Rotation** | Session fixation | Enable refresh token rotation in NextAuth config |
-| **CORS Configuration** | Cross-origin attacks | Restrict `allowedDevOrigins` to production domains only |
-| **Dependency Scanning** | Supply chain vulnerabilities | Add `npm audit` to CI pipeline; enable Dependabot |
+- Node.js 20-compatible runtime
+- MySQL production database
+- HTTPS-enabled domain
+- Production environment variables
+- Persistent process management provided by the hosting environment
+- Cloudinary credentials when uploads are enabled
+- Resend credentials when email delivery is enabled
+- Secure cron secret for scheduled endpoints
 
-### OWASP Top 10 Coverage
-
-| OWASP Category | Coverage |
-|---------------|----------|
-| A01 — Broken Access Control | ✅ RBAC + campus isolation |
-| A02 — Cryptographic Failures | ✅ Argon2id + TLS |
-| A03 — Injection | ✅ Prisma ORM (parameterized) |
-| A04 — Insecure Design | ⚠️ Partial (no threat model documented) |
-| A05 — Security Misconfiguration | ⚠️ Missing CSP, CORS hardening |
-| A06 — Vulnerable Components | ⚠️ No automated dependency scanning |
-| A07 — Auth Failures | ✅ NextAuth + Argon2id |
-| A08 — Data Integrity | ✅ Audit logs + transactions |
-| A09 — Logging & Monitoring | ⚠️ No centralized logging (stdout only) |
-| A10 — SSRF | ✅ No outbound user-controlled requests |
-
----
-
-## ⚡ Performance Analysis & Known Bottlenecks
-
-### Why the System Can Feel Slow
-
-| Bottleneck | Cause | Impact |
-|-----------|-------|--------|
-| **Client-Side Rendering** | All dashboard pages use `'use client'` with `useEffect` + `fetch` | Extra round-trip; no SSR benefit; visible loading spinners |
-| **N+1 Query Patterns** | Some API routes fetch related data in loops instead of joins | Database round-trips scale linearly with data size |
-| **No Server-Side Caching** | Every API call hits PostgreSQL directly | Redundant queries for static data (campuses, shifts, academic year) |
-| **Large JavaScript Bundle** | ShadCN + Framer Motion + Recharts loaded eagerly | ~800KB+ initial JS payload; slow first load on 3G/4G |
-| **Unoptimized Images** | Landing page images served as raw PNG/JPEG (1-2MB each) | Slow page load; high bandwidth consumption |
-| **No Database Connection Pooling Config** | Default Prisma connection settings | Connection exhaustion under concurrent load |
-| **ExcelJS Server-Side Generation** | Large reports generated synchronously in API routes | Blocks event loop; timeouts on 500+ row exports |
-
-### Database Query Patterns Needing Optimization
-
-```
-# ISSUE: These patterns exist in multiple API routes:
-
-1. Fetching all students → then looping to get each student's attendance
-   FIX: Use Prisma `include` with `select` for single-query joins
-
-2. Dashboard badge counts make 6+ separate COUNT queries
-   FIX: Combine into a single raw SQL with CASE-WHEN aggregation
-
-3. Monthly report generation loads full student + result trees
-   FIX: Add database views or materialized queries for reporting
-```
-
----
-
-## 🔧 Optimization Roadmap
-
-### Priority 1 — Quick Wins (1-2 days each)
-
-| Optimization | Expected Impact |
-|-------------|----------------|
-| **Next.js Image Optimization** | Use `<Image>` component with WebP auto-conversion; 60-80% size reduction |
-| **Dynamic Imports** | Lazy-load Recharts, Framer Motion, ExcelJS; reduce initial bundle by ~300KB |
-| **API Response Caching** | Cache static data (campuses, shifts, subjects) with `Cache-Control` headers |
-| **Prisma `select` Optimization** | Replace `include: { ... }` with explicit `select` to fetch only needed fields |
-
-### Priority 2 — Medium Effort (1 week each)
-
-| Optimization | Expected Impact |
-|-------------|----------------|
-| **Server Components Migration** | Convert read-only dashboard pages to RSC; eliminate client-side fetch waterfalls |
-| **Redis Caching Layer** | Cache frequently-read data (academic year, user profiles) with TTL invalidation |
-| **Database Indexing Audit** | Add composite indexes for common query patterns (status + campus + date) |
-| **Report Queue** | Move Excel/PDF generation to background jobs; return download link |
-
-### Priority 3 — Architectural (2-4 weeks)
-
-| Optimization | Expected Impact |
-|-------------|----------------|
-| **ISR for Landing Page** | Incremental Static Regeneration; serve landing page from CDN edge |
-| **Database Read Replicas** | Route read-heavy reporting queries to replica; reduce primary load |
-| **WebSocket Notifications** | Replace polling-based notification checks with real-time push |
-| **Edge Middleware Caching** | Cache auth session verification at Vercel edge |
-
----
-
-## 📈 Scalability Strategy
-
-### Current Capacity
-
-| Metric | Current Estimate | Bottleneck |
-|--------|-----------------|------------|
-| **Concurrent Users** | ~50-100 | Serverless cold starts + DB connections |
-| **Database Size** | <1GB | Well within Neon free tier |
-| **API Throughput** | ~100 req/sec | Single Prisma client instance |
-| **File Storage** | <500MB | Cloudinary free tier limit |
-
-### Scaling Path
-
-```
-Phase 1: Vertical (Current → 500 users)
-├── Enable Prisma connection pooling (PgBouncer)
-├── Add Redis cache for session + static data
-├── Optimize top 10 slowest API routes
-└── Enable Vercel Edge Functions for auth
-
-Phase 2: Horizontal (500 → 5,000 users)
-├── Database read replicas for reporting
-├── Background job queue (BullMQ or Inngest)
-├── CDN for static assets (Cloudflare)
-└── Multi-region deployment
-
-Phase 3: Multi-Tenant (5,000+ users)
-├── Schema-per-tenant or row-level security
-├── Dedicated database per institution
-├── API gateway with tenant routing
-└── Observability stack (OpenTelemetry)
-```
-
-### Multi-Campus Architecture
-
-The system already supports multi-campus isolation (`Boys Campus`, `Girls Campus`). Extending to a true multi-tenant SaaS would require:
-
-1. **Tenant Identifier** — Add `tenantId` to all models; enforce at query layer
-2. **Subdomain Routing** — `school-a.evershine.app`, `school-b.evershine.app`
-3. **Isolated Database** — Separate Neon branches or schemas per tenant
-4. **Billing** — Per-tenant usage tracking and subscription management
-
----
-
-## 🏭 Production Readiness Checklist
-
-### ✅ Production-Ready
-
-- [x] Authentication & authorization (NextAuth + RBAC)
-- [x] Input validation on all API routes (Zod)
-- [x] Audit logging for all mutations
-- [x] Atomic transactions for financial operations
-- [x] Strong password hashing (Argon2id)
-- [x] Multi-campus data isolation
-- [x] Branded document generation (PDF/Excel)
-- [x] Automated cron jobs (fee penalties, reminders, attendance)
-- [x] Landing page with conversion-optimized CTAs
-- [x] Multi-shift academic scheduling (9am–9pm)
-
-### ⚠️ Needs Work Before Production
-
-- [ ] **Monitoring** — No APM, error tracking, or centralized logging (add Sentry + Vercel Analytics)
-- [ ] **Health Checks** — No `/api/health` endpoint for load balancer probes
-- [ ] **Rate Limiting** — Module exists but not wired into routes
-- [ ] **CSP Headers** — Not configured (XSS mitigation)
-- [ ] **Backup Strategy** — No automated database backup schedule documented
-- [ ] **Load Testing** — No performance baseline established
-- [ ] **Dependency Scanning** — No automated CVE checks in CI
-- [ ] **Error Boundaries** — Missing React error boundaries on dashboard pages
-- [ ] **Accessibility** — Landing page has skip navigation; dashboards need WCAG audit
-
----
-
-## 👥 Role-Based Access Control
-
-| Role | Key Permissions | Dashboard |
-|------|----------------|-----------|
-| **SUPER_ADMIN** | System config, user management, reserve fund ledger (view-only grades) | System admin, audit logs |
-| **ADMIN** | Campus-scoped user creation, approvals, expense review, leads | Campus dashboard, staff mgmt |
-| **TEACHER** | Attendance marking, grade entry, leave requests, feedback | Teacher portal: HR, grades |
-| **ACCOUNTANT** | Salary slips, expense recording, P&L snapshots, fee proofs | Finance dashboard |
-| **STUDENT** | View own records, pay fees, submit feedback, access results | Student portal |
-| **PARENT / GUARDIAN** | View child's records, pay fees | Parent portal |
-
----
-
-## 🚢 Deployment
-
-### Vercel (Primary — Recommended)
+### Typical Hostinger Deployment Flow
 
 ```bash
-# 1. Connect GitHub repo to Vercel
-# 2. Set environment variables in Vercel dashboard:
-#    DATABASE_URL, DIRECT_URL, NEXTAUTH_SECRET, NEXTAUTH_URL
-#    RESEND_API_KEY, CLOUDINARY_*, UPSTASH_*, CRON_SECRET
-
-# 3. Auto-deploys on push to main
-git push origin main
+npm ci
+npm run db:generate
+npm run build
+npm run start
 ```
 
-### Self-Hosted (Hostinger — Alternative)
+Database schema changes should be reviewed, backed up, and applied separately before or during a controlled deployment.
 
-See [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md) for the complete migration guide (MySQL conversion, SMTP setup, disk storage).
+For detailed hosting instructions, see:
 
-### Cron Jobs (Vercel)
+- [Hostinger Deployment Guide](docs/HOSTINGER_DEPLOYMENT.md)
+- [Installation Guide](INSTALLATION.md)
+- [Project Structure](docs/PROJECT_STRUCTURE.md)
+- [API Documentation](docs/API_DOCUMENTATION.md)
+- [Database Schema](docs/DATABASE_SCHEMA.md)
+- [Notification System](docs/NOTIFICATION_SYSTEM.md)
 
-| Job | Schedule | Purpose |
-|-----|----------|---------|
-| `/api/cron/fee-penalties` | Daily 2:00 AM | Apply late fee penalties |
-| `/api/cron/teacher-attendance` | Hourly | Process teacher check-ins |
-| `/api/cron/fee-reminder` | Daily 9:00 AM | Send fee payment reminders |
-| `/api/cron/birthday-check` | Daily 8:00 AM | Send birthday notifications |
+### Scheduled Jobs
 
----
+The repository includes protected cron endpoints for workflows such as:
 
-## 🔗 External Services
+- Fee penalties
+- Fee reminders
+- Teacher attendance processing
+- Birthday notifications
 
-| Service | Purpose | Required |
-|---------|---------|----------|
-| **Neon PostgreSQL** | Database hosting | Yes |
-| **Cloudinary** | File/image storage | Yes (for uploads) |
-| **Resend** | Transactional email | Yes (for notifications) |
-| **Upstash Redis** | Rate limiting | Optional |
-| **Vercel** | Hosting & deployment | Recommended |
+On Hostinger, configure these routes through Hostinger cron jobs or another trusted scheduler and send the configured `CRON_SECRET` securely.
 
 ---
 
-## 📖 Documentation
+## 🔐 Security Practices
 
-| Document | Description |
-|----------|-------------|
-| [API Documentation](docs/API_DOCUMENTATION.md) | 70+ endpoint reference with auth requirements |
-| [Database Schema](docs/DATABASE_SCHEMA.md) | Core entity definitions and relationships |
-| [Notification System](docs/NOTIFICATION_SYSTEM.md) | Email notification architecture |
-| [Hostinger Deployment](docs/HOSTINGER_DEPLOYMENT.md) | Alternative self-hosted deployment guide |
-| [Project Structure](docs/PROJECT_STRUCTURE.md) | Architecture and directory reference |
-| [Installation Guide](INSTALLATION.md) | Step-by-step setup instructions |
-| [Contributing](CONTRIBUTING.md) | Contribution guidelines and PR process |
+Implemented or supported security controls include:
+
+- Argon2id password hashing
+- Session-based authentication
+- Role-based authorization
+- Campus-scoped data access
+- Zod request validation
+- Prisma parameterized queries
+- Audit logs for sensitive mutations
+- Database transactions for consistency-sensitive workflows
+- Restricted file-storage credentials
+- Protected scheduled routes
+- Optional distributed rate limiting
+
+### Deployment Security Checklist
+
+Before every production deployment:
+
+- Confirm `.env` is excluded from Git
+- Rotate any credential exposed in chat, logs, screenshots, or repository history
+- Use a unique production `NEXTAUTH_SECRET`
+- Restrict MySQL remote access to trusted hosts
+- Enforce HTTPS
+- Disable or replace demo credentials
+- Back up the database
+- Run dependency and security checks
+- Review uploaded-file restrictions
+- Verify authorization on sensitive API routes
+- Avoid displaying real student or staff data in public screenshots
+
+---
+
+## 🧪 Testing
+
+Run the standard test suite:
+
+```bash
+npm run test
+```
+
+Run academic tests:
+
+```bash
+npm run test:academic
+```
+
+Run end-to-end tests:
+
+```bash
+npm run test:visual
+```
+
+Install Playwright browsers when required:
+
+```bash
+npm run playwright:install
+```
+
+Before merging a change:
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+1. Fork or clone the repository.
+2. Create a focused branch.
+3. Implement and test the change.
+4. Run linting and relevant tests.
+5. Commit using a descriptive message.
+6. Push the branch.
+7. Open a pull request.
+
+Example:
 
 ```bash
-git checkout -b feat/your-feature
-# make changes
-npm run test && npm run lint
-git commit -m "feat: add [feature] for [reason]"
-git push origin feat/your-feature
-# Open a Pull Request
+git checkout -b feat/feature-name
+npm run lint
+npm run test
+git add .
+git commit -m "feat: add feature-name"
+git push origin feat/feature-name
 ```
 
----
-
-## 📜 License
-
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for additional guidance.
 
 ---
 
-## 🙏 Acknowledgments
+## 👥 Project Team
 
-- [Next.js](https://nextjs.org) & [Vercel](https://vercel.com) — Framework & hosting
-- [Prisma](https://prisma.io) — Database ORM
-- [NextAuth.js](https://next-auth.js.org) — Authentication
-- [ShadCN UI](https://ui.shadcn.com) — Component library
-- [Tailwind CSS](https://tailwindcss.com) — Styling
-- [TanStack React Query](https://tanstack.com/query) — Data fetching
-- [ExcelJS](https://github.com/exceljs/exceljs) — Branded Excel generation
-- [Resend](https://resend.com) — Email delivery
+| Team Member | Profile |
+|---|---|
+| **Ibadat Ali** | [GitHub](https://github.com/Ibadat-Ali86) |
+| **Muhammad Abdullah** | [GitHub](https://github.com/chaudhayabdullah786) |
+| **Shawaiz Ali** | Project team member |
 
 ---
 
-> **Version:** 3.0.0 — Multi-Shift Academic Engine Release
-> **Last Updated:** June 2026
-> **Author:**
-> [Ibadat Ali](https://github.com/Ibadat-Ali86)
-> [Muhammad Abdullah](https://github.com/chaudhayabdullah786)
+## 🗺️ Future Improvements
+
+Potential areas for continued development include:
+
+- Centralized error tracking and application monitoring
+- Automated database-backup verification
+- CI dependency and vulnerability scanning
+- Stronger Content Security Policy headers
+- Expanded accessibility testing
+- API-level load and performance testing
+- Background queues for large reports
+- Additional server-side rendering and caching
+- Automated deployment checks
+- Multi-tenant institution support
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 🔗 Project Links
+
+- **Live Application:** https://evershineacadmey.com/
+- **Repository:** https://github.com/chaudhayabdullah786/evershine_lms
+- **Deployment Documentation:** [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md)
+
+---
+
+<p align="center">
+  Built by <strong>Ibadat Ali</strong>, <strong>Muhammad Abdullah</strong>, and <strong>Shawaiz Ali</strong>.
+</p>
+
+<p align="center">
+  <strong>Evershine Academy Management System · Version 3.0.0</strong>
+</p>
