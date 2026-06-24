@@ -1,6 +1,6 @@
 /**
  * AcademyLogo — renders the official bglogo.png (500×500, transparent bg)
- * served via /api/logo from the designs/ directory.
+ * from Next's public static assets.
  *
  * variant  | use-case
  * ─────────┼──────────────────────────────────────────────────
@@ -22,7 +22,11 @@ interface AcademyLogoProps {
   heroCard?: boolean
 }
 
-const LOGO_SRC = '/api/logo'
+// WHY static path instead of /api/logo: Hostinger Node.js deployments may run from
+// a build/standalone directory where repository-only folders such as designs/ are
+// not present. public/brand/bglogo.png is copied by Next.js static serving and is
+// therefore reliable in both local and hosted production environments.
+const LOGO_SRC = '/brand/bglogo.png'
 const LOGO_ALT = 'EverShine Academy'
 
 export const AcademyLogo = ({

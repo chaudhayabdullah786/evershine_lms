@@ -65,7 +65,7 @@ export default function SiteHeader({ onApplyClick }: SiteHeaderProps) {
           </a>
 
           {/* Desktop Nav */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '32px' }} className="hidden lg:flex">
+          <nav style={{ alignItems: 'center', gap: '32px' }} className="hidden lg:flex">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
@@ -88,7 +88,7 @@ export default function SiteHeader({ onApplyClick }: SiteHeaderProps) {
           </nav>
 
           {/* Desktop CTAs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} className="hidden lg:flex">
+          <div style={{ alignItems: 'center', gap: '12px' }} className="hidden lg:flex">
             <a
               href="/login"
               style={{
