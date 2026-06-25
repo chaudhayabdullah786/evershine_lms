@@ -45,7 +45,11 @@ export function Breadcrumbs({ pathname }: { pathname: string }) {
   const segments = pathname.split('/').filter(Boolean)
 
   if (segments.length <= 1) {
-    return null
+    return (
+      <p className="text-sm font-semibold text-gray-800 truncate">
+        Dashboard
+      </p>
+    )
   }
 
   const items = segments.map((segment, index) => {
