@@ -113,7 +113,10 @@ jobs:
         run: npm run build
 
       - name: Start server
-        run: PORT=5000 npm run start &
+        # postbuild-sync.js already copied .next/static → standalone during
+        # the build step above. server.js syncs again at startup as a safety
+        # net, then starts the Next.js standalone process.
+        run: PORT=5000 node server.js &
 
       - name: Wait for server
         run: |
