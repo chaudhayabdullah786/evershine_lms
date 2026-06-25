@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 
 /**
  * app/page.tsx — Evershine Academy Landing Page v3
@@ -48,23 +49,52 @@ import HeroSection from '@/components/landing/hero-section'
 import AnnouncementTicker from '@/components/landing/announcement-ticker'
 import { SubjectsTicker } from '@/components/landing/subjects-ticker'
 import StatsBar from '@/components/landing/stats-bar'
-import { HomepageUpdates } from '@/components/landing/homepage-updates'
-import ProgramsSection from '@/components/landing/programs-section'
-import { ServicesShowcase } from '@/components/landing/services-showcase'
-import WhyEvershineSection from '@/components/landing/why-evershine-section'
-import CampusShowcase from '@/components/landing/campus-showcase'
-import AcademyMemories from '@/components/landing/academy-memories'
-import { PrincipalStory } from '@/components/landing/principal-story'
-import { SmartParentPortal } from '@/components/landing/smart-parent-portal'
-import { EventsTimeline } from '@/components/landing/events-timeline'
-import CTASection from '@/components/landing/cta-section'
-import { ShiftsSection } from '@/components/landing/shifts-section'
-import TestimonialsSection from '@/components/landing/testimonials-section'
-import FAQSection from '@/components/landing/faq-section'
-import ContactSection from '@/components/landing/contact-section'
 
-// Modals
-import TeacherApplicationModal from '@/components/landing/teacher-application-modal'
+function LandingSectionFallback() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        minHeight: '220px',
+        background: 'linear-gradient(180deg, rgba(245,243,239,0.6), rgba(255,255,255,0))',
+      }}
+    />
+  )
+}
+
+const HomepageUpdates = dynamic(
+  () => import('@/components/landing/homepage-updates').then((m) => m.HomepageUpdates),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const ProgramsSection = dynamic(() => import('@/components/landing/programs-section'), { ssr: false, loading: LandingSectionFallback })
+const ServicesShowcase = dynamic(
+  () => import('@/components/landing/services-showcase').then((m) => m.ServicesShowcase),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const WhyEvershineSection = dynamic(() => import('@/components/landing/why-evershine-section'), { ssr: false, loading: LandingSectionFallback })
+const CampusShowcase = dynamic(() => import('@/components/landing/campus-showcase'), { ssr: false, loading: LandingSectionFallback })
+const AcademyMemories = dynamic(() => import('@/components/landing/academy-memories'), { ssr: false, loading: LandingSectionFallback })
+const PrincipalStory = dynamic(
+  () => import('@/components/landing/principal-story').then((m) => m.PrincipalStory),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const SmartParentPortal = dynamic(
+  () => import('@/components/landing/smart-parent-portal').then((m) => m.SmartParentPortal),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const EventsTimeline = dynamic(
+  () => import('@/components/landing/events-timeline').then((m) => m.EventsTimeline),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const CTASection = dynamic(() => import('@/components/landing/cta-section'), { ssr: false, loading: LandingSectionFallback })
+const ShiftsSection = dynamic(
+  () => import('@/components/landing/shifts-section').then((m) => m.ShiftsSection),
+  { ssr: false, loading: LandingSectionFallback }
+)
+const TestimonialsSection = dynamic(() => import('@/components/landing/testimonials-section'), { ssr: false, loading: LandingSectionFallback })
+const FAQSection = dynamic(() => import('@/components/landing/faq-section'), { ssr: false, loading: LandingSectionFallback })
+const ContactSection = dynamic(() => import('@/components/landing/contact-section'), { ssr: false, loading: LandingSectionFallback })
+const TeacherApplicationModal = dynamic(() => import('@/components/landing/teacher-application-modal'), { ssr: false })
 
 export default function LandingPage() {
   const router = useRouter()

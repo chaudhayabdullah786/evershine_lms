@@ -2,16 +2,17 @@
  * EverShine Academy LMS PWA Service Worker
  * 
  * Cache strategies:
- *   - _next/static/*  → Network-First (content-hashed by Next.js build;
- *                        new deployments produce new URLs, so cache-first
- *                        across deployments serves stale CSS/JS).
+ *   - _next/static/*  → Not handled by the service worker. Next.js serves
+ *                        content-hashed assets with HTTP cache headers; SW
+ *                        caching can keep users pinned to an old build.
  *   - /brand/, assets  → Cache-First (unchanged between deployments).
  *   - Images / fonts   → Cache-First (static by nature).
- *   - API routes       → Network-First (fresh data preferred).
- *   - Navigation       → Network-First (with offline fallback).
+ *   - API routes       → Network only. Stale LMS data is worse than a clear
+ *                        offline/network failure.
+ *   - Navigation       → Network only with offline fallback.
  */
 
-const CACHE_VERSION = 'v1.2.0';
+const CACHE_VERSION = 'v1.3.0';
 const CACHE_PREFIX = 'evershine-lms-';
 
 const CACHE_NAMES = {
@@ -33,6 +34,7 @@ const PRECACHE_ASSETS = [
 // serve stale files after deployments.
 const isCacheableAsset = (url) => {
   const path = url.pathname;
+  if (path.startsWith('/_next/')) return false;
   return (
     path.startsWith('/brand/') ||
     path.startsWith('/assets/') ||
@@ -90,28 +92,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Let Next.js build assets use normal browser/CDN HTTP caching.
+  // This prevents a service worker from serving chunks from a previous build.
+  if (requestUrl.pathname.startsWith('/_next/')) {
+    return;
+  }
+
   // 1. Navigation Requests (HTML document pages)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          // Clone and cache the successfully fetched page
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAMES.pages).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-          return response;
-        })
-        .catch(() => {
-          // If offline, check if the specific page is cached
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If the specific page is not cached, return the offline fallback shell
-            return caches.match('/offline');
-          });
-        })
+      fetch(event.request).catch(() => caches.match('/offline'))
     );
     return;
   }
@@ -139,59 +129,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. _next/static/ assets (CSS, JS, media) — Network-First Strategy
-  //    These are content-hashed; cache-first across deployments poisons
-  //    the UI with stale stylesheets and scripts.
-  if (requestUrl.pathname.startsWith('/_next/static/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAMES.static).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // 4. API Read Requests — Network-First Strategy with short fallback
+  // 3. API Read Requests — Network only. Returning stale API data after auth,
+  //    role, fee, or attendance changes causes misleading LMS behavior.
   if (isApiRoute(requestUrl)) {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAMES.api).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return response;
-        })
         .catch(() => {
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // Return JSON-formatted failure when offline
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: {
-                  code: 'OFFLINE',
-                  message: 'You are currently offline. Check your network connection.'
-                }
-              }),
-              {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' }
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: {
+                code: 'OFFLINE',
+                message: 'You are currently offline. Check your network connection.'
               }
-            );
-          });
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
         })
     );
     return;
