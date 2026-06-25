@@ -31,13 +31,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { email, password } = parsed.data
 
+        // Lightweight auth query: only the columns needed to verify identity.
+        // Avoids 4 LEFT JOINs on every login attempt.
         const user = await prisma.user.findUnique({
           where: { email },
-          include: {
-            admin: { select: { campusId: true, firstName: true, lastName: true } },
-            teacher: { select: { campusId: true, firstName: true, lastName: true } },
-            student: { select: { firstName: true, lastName: true } },
-            accountant: { select: { campusId: true, firstName: true, lastName: true } },
+          select: {
+            id: true,
+            email: true,
+            passwordHash: true,
+            role: true,
+            isActive: true,
           },
         })
 
@@ -62,12 +65,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { lastLogin: new Date() },
         }).catch(() => {})
 
-        const profile = user.admin ?? user.teacher ?? user.student ?? user.accountant
-        const name = profile 
-          ? `${(profile as { firstName: string }).firstName} ${(profile as { lastName: string }).lastName}`
+        // Fetch profile name and campusId after successful password verification
+        // so the expensive join is only paid for valid logins, not every attempt.
+        const profile = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: {
+            admin:   { select: { firstName: true, lastName: true, campusId: true } },
+            teacher: { select: { firstName: true, lastName: true, campusId: true } },
+            student: { select: { firstName: true, lastName: true } },
+            accountant: { select: { firstName: true, lastName: true, campusId: true } },
+          },
+        })
+
+        const p = profile?.admin ?? profile?.teacher ?? profile?.student ?? profile?.accountant
+        const name = p
+          ? `${p.firstName} ${p.lastName}`
           : email.split('@')[0]
-          
-        const campusId = user.admin?.campusId ?? user.teacher?.campusId ?? user.accountant?.campusId ?? null
+
+        const campusId =
+          profile?.admin?.campusId ??
+          profile?.teacher?.campusId ??
+          profile?.accountant?.campusId ??
+          null
 
         return {
           id: user.id,

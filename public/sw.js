@@ -1,9 +1,17 @@
 /**
  * EverShine Academy LMS PWA Service Worker
- * Implements offline caching strategies and navigation fallbacks.
+ * 
+ * Cache strategies:
+ *   - _next/static/*  → Network-First (content-hashed by Next.js build;
+ *                        new deployments produce new URLs, so cache-first
+ *                        across deployments serves stale CSS/JS).
+ *   - /brand/, assets  → Cache-First (unchanged between deployments).
+ *   - Images / fonts   → Cache-First (static by nature).
+ *   - API routes       → Network-First (fresh data preferred).
+ *   - Navigation       → Network-First (with offline fallback).
  */
 
-const CACHE_VERSION = 'v1.1.0';
+const CACHE_VERSION = 'v1.2.0';
 const CACHE_PREFIX = 'evershine-lms-';
 
 const CACHE_NAMES = {
@@ -15,25 +23,17 @@ const CACHE_NAMES = {
 // Core assets to pre-cache on service worker installation
 const PRECACHE_ASSETS = [
   '/offline',
-  '/',
   '/favicon.ico',
-  '/brand/logo-icon-192.png',
-  '/brand/logo-icon.svg',
   '/brand/logo-crest.png'
 ];
 
-// Helper to determine if a URL is a cacheable static asset.
-// IMPORTANT: Exclude _next/dev chunks — these are ephemeral Turbopack bundles
-// that change on every restart. Caching them with Cache-First causes stale
-// module errors (e.g. removed imports still served from SW cache).
-const isStaticAsset = (url) => {
+// Cacheable static asset (brand assets, uploaded images, fonts).
+// NEVER match _next/static/* — those are content-hashed by Next.js
+// and served with immutable Cache-Control. Cache-First on those would
+// serve stale files after deployments.
+const isCacheableAsset = (url) => {
   const path = url.pathname;
-  // Never cache Turbopack development chunks
-  if (path.startsWith('/_next/dev/') || path.includes('/_next/static/chunks/')) {
-    return false;
-  }
   return (
-    path.startsWith('/_next/static/') ||
     path.startsWith('/brand/') ||
     path.startsWith('/assets/') ||
     path.match(/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|otf|webp)$/)
@@ -116,8 +116,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Static Assets (JS, CSS, Images, Web Fonts) — Cache-First Strategy
-  if (isStaticAsset(requestUrl)) {
+  // 2. Cacheable Assets (brand, images, fonts) — Cache-First Strategy
+  //    NOT for _next/static/* which are content-hashed by the build.
+  if (isCacheableAsset(requestUrl)) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
@@ -138,7 +139,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. API Read Requests — Network-First Strategy with short fallback
+  // 3. _next/static/ assets (CSS, JS, media) — Network-First Strategy
+  //    These are content-hashed; cache-first across deployments poisons
+  //    the UI with stale stylesheets and scripts.
+  if (requestUrl.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAMES.static).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 4. API Read Requests — Network-First Strategy with short fallback
   if (isApiRoute(requestUrl)) {
     event.respondWith(
       fetch(event.request)
@@ -176,7 +197,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Default: Network-First fallback
+  // 6. Default: Network-First fallback
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
