@@ -53,9 +53,13 @@ oauth.json
 *.sqlite3
 dump.sql
 backup.sql
+production-mysql-schema.sql
 prisma-init-log.txt
 
-# ── 5. Test & Coverage ────────────────────────────────────────────────────────
+# ── 5. Scratch files ──────────────────────────────────────────
+create
+
+# ── 6. Test & Coverage ────────────────────────────────────────────────────────
 coverage/
 .nyc_output/
 .coverage
