@@ -1,7 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { BookOpen, CalendarClock, LayoutDashboard, Settings, Users } from 'lucide-react'
+import {
+  BookOpen,
+  CalendarClock,
+  ClipboardCheck,
+  CreditCard,
+  LayoutDashboard,
+  Settings,
+  ShieldCheck,
+  Users,
+  Wallet,
+} from 'lucide-react'
 
 interface NavItem {
   href: string
@@ -9,47 +19,57 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
+// Mobile bottom nav — shows the most critical pages per role.
+// Items are weighted toward the role's primary workspace so users
+// can access their most-used features without opening the sidebar.
 const ROLE_NAV_MAP: Record<string, NavItem[]> = {
   STUDENT: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/enrollment', label: 'Academics', icon: BookOpen },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
     { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   PARENT: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/my-children', label: 'Children', icon: Users },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
     { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   GUARDIAN: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/my-children', label: 'Children', icon: Users },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
     { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   TEACHER: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/teacher/students', label: 'Students', icon: Users },
+    { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: ClipboardCheck },
     { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   SUPER_ADMIN: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    { href: '/dashboard/admin', label: 'Admin', icon: ShieldCheck },
     { href: '/dashboard/students', label: 'Students', icon: Users },
-    { href: '/dashboard/fees', label: 'Fees', icon: BookOpen },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   ADMIN: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    { href: '/dashboard/admin', label: 'Admin', icon: ShieldCheck },
     { href: '/dashboard/students', label: 'Students', icon: Users },
-    { href: '/dashboard/fees', label: 'Fees', icon: BookOpen },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
   ACCOUNTANT: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-    { href: '/dashboard/fees', label: 'Fees', icon: BookOpen },
-    { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
+    { href: '/dashboard/accountant', label: 'Finance', icon: Wallet },
+    { href: '/dashboard/fees', label: 'Fees', icon: CreditCard },
+    { href: '/dashboard/accountant/expenses', label: 'Expenses', icon: BookOpen },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],
 }

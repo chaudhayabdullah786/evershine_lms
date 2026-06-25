@@ -132,6 +132,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { sidebarOpen, setSidebarOpen, setUser } = useAppStore()
   const role = (session?.user?.role as string) ?? ''
 
+  // Log a warning in production when role is missing from session
+  // This helps diagnose environment-specific auth issues.
+  useEffect(() => {
+    if (status === 'authenticated' && !role) {
+      console.warn(
+        '[DASHBOARD] Role is empty in session — RBAC nav filtering will hide all role-gated items. ' +
+        'Check NEXTAUTH_URL, NEXTAUTH_SECRET, and whether trustHost: true is set in auth config.',
+        'session user:', session?.user,
+      )
+    }
+  }, [status, role, session])
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
@@ -139,12 +151,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUser({
         id: session.user.id,
         email: session.user.email!,
-        role: session.user.role as string,
+        role: role,
         name: session.user.name ?? '',
         campusId: session.user.campusId as string | null,
       })
     }
-  }, [session, status, router, setUser])
+  }, [session, status, router, setUser, role])
 
   // Close sidebar whenever route changes (mobile UX)
   useEffect(() => {
@@ -199,7 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-20 md:hidden"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] md:hidden"
               onClick={() => setSidebarOpen(false)}
             />
           )}
@@ -211,7 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             variants={sidebarSlide}
             initial={sidebarOpen ? "animate" : "initial"}
             animate={sidebarOpen ? "animate" : "initial"}
-            className={`fixed inset-y-0 left-0 bg-white border-r border-slate-200 w-64 z-30 flex flex-col md:relative md:translate-x-0 md:!transform-none shadow-soft-lg md:shadow-none`}
+            className={`fixed inset-y-0 left-0 bg-white border-r border-slate-200 w-64 z-[60] flex flex-col md:relative md:translate-x-0 md:!transform-none shadow-soft-lg md:shadow-none`}
           >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-5 border-b border-gray-100 flex-shrink-0">
@@ -321,9 +333,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Breadcrumb-style current page name */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate hidden sm:block">
-              {visibleNav.find((n) => isActive(n.href))?.name ?? 'Dashboard'}
-            </p>
             <Breadcrumbs pathname={pathname} />
           </div>
 
@@ -345,7 +354,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page content */}
-        <div className="flex-1 overflow-auto p-4 pb-24 sm:p-6 md:pb-6 relative bg-slate-50/50">
+        <div className="flex-1 overflow-auto p-4 pb-24 sm:p-6 md:pb-6 relative bg-slate-50/50" style={{ paddingBottom: 'clamp(6rem, calc(6rem + env(safe-area-inset-bottom, 0px)), 8rem)' }}>
           <PageTransition>
             {role === 'STUDENT' && (
               <>
@@ -437,7 +446,7 @@ function NotificationBell() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
           >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
             <span className="font-bold text-sm text-slate-800">Notifications</span>
