@@ -41,6 +41,13 @@ function createPrismaClient(): PrismaClient {
 // WHY Proxy: Allows this module to be safely imported at build time without
 // a live DATABASE_URL. The real PrismaClient is only instantiated on the first
 // property access (i.e. the first actual database call at runtime).
+//
+// WHY always write globalForPrisma.prisma (not just in dev):
+// In development, this prevents hot-reload from creating N clients as modules
+// are re-evaluated. In production, Next.js standalone can re-evaluate modules
+// across Worker threads or dynamic import() boundaries. Unconditional caching
+// in globalThis guarantees exactly ONE PrismaClient per Node.js process,
+// preventing MySQL connection pool exhaustion under concurrent load.
 function makeLazyPrisma(): PrismaClient {
   let client: PrismaClient | null = null
 
@@ -48,9 +55,8 @@ function makeLazyPrisma(): PrismaClient {
     get(_target, prop) {
       if (!client) {
         client = globalForPrisma.prisma ?? createPrismaClient()
-        if (process.env.NODE_ENV !== 'production') {
-          globalForPrisma.prisma = client
-        }
+        // WHY unconditional: see module-level comment above.
+        globalForPrisma.prisma = client
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const value = (client as any)[prop]
