@@ -34,6 +34,7 @@ check_var() {
 
 check_var "DATABASE_URL" "Set in hPanel → Node.js → Environment. Must start with mysql://"
 check_var "NEXTAUTH_SECRET" "Generate with: openssl rand -hex 32"
+check_var "NEXTAUTH_URL" "Set to your production URL, e.g. https://lms.evershineacademy.edu.pk"
 
 if [ "$missing" -eq 1 ]; then
   echo ""

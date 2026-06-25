@@ -132,6 +132,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { sidebarOpen, setSidebarOpen, setUser } = useAppStore()
   const role = (session?.user?.role as string) ?? ''
 
+  // Log a warning in production when role is missing from session
+  // This helps diagnose environment-specific auth issues.
+  useEffect(() => {
+    if (status === 'authenticated' && !role) {
+      console.warn(
+        '[DASHBOARD] Role is empty in session — RBAC nav filtering will hide all role-gated items. ' +
+        'Check NEXTAUTH_URL, NEXTAUTH_SECRET, and whether trustHost: true is set in auth config.',
+        'session user:', session?.user,
+      )
+    }
+  }, [status, role, session])
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
@@ -139,12 +151,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUser({
         id: session.user.id,
         email: session.user.email!,
-        role: session.user.role as string,
+        role: role,
         name: session.user.name ?? '',
         campusId: session.user.campusId as string | null,
       })
     }
-  }, [session, status, router, setUser])
+  }, [session, status, router, setUser, role])
 
   // Close sidebar whenever route changes (mobile UX)
   useEffect(() => {

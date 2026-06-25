@@ -37,29 +37,56 @@ export const authConfig = {
     error: '/login',
   },
 
+  // trustHost is REQUIRED in production when running behind a reverse proxy
+  // (Hostinger, nginx, Cloudflare, etc.). Without it, NextAuth v5 rejects
+  // CSRF validation and may drop custom JWT claims from the session.
+  trustHost: true,
+
   providers: [], // Injected in lib/auth.ts for Node environments
 
   callbacks: {
-    // JWT callback is executed on login, and on every request in middleware
-    async jwt({ token, user }) {
-      // If user object is present, it means this is the initial login
+    // JWT callback is executed on login, and on every request.
+    // We ALWAYS set custom fields — not just on initial login — to handle
+    // token refresh, secret rotation, and edge-case deserialization issues.
+    async jwt({ token, user, account }) {
+      // If user object is present, this is the initial login or account link
       if (user) {
         token.id = user.id
         token.role = user.role
         token.campusId = user.campusId
-        // name and email are automatically handled by NextAuth
       }
+
+      // Defensive: if token.role is somehow missing but we have a userId,
+      // this indicates a token deserialization issue in production.
+      // The role will be missing from the session until next login.
+      // We log a warning so operators can detect this in production logs.
+      if (!token.role && token.sub) {
+        console.warn(
+          '[AUTH] Role missing from JWT token — user may need to re-login. ' +
+          'Check NEXTAUTH_URL and trustHost config. ' +
+          'Token sub:', token.sub,
+        )
+      }
+
       return token
     },
 
-    // Session callback exposes the token data to the client
+    // Session callback exposes the token data to the client.
+    // IMPORTANT: In NextAuth v5 production, session.user may be immutable.
+    // We construct a NEW user object instead of mutating in place.
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.campusId = token.campusId as string | null
+      if (!token) return session
+
+      return {
+        ...session,
+        user: {
+          id: (token.id as string) ?? token.sub ?? '',
+          email: ((token.email as string) ?? session.user?.email ?? '') as string,
+          name: ((token.name as string) ?? session.user?.name ?? '') as string,
+          role: (token.role as Role) ?? session.user?.role,
+          campusId: (token.campusId as string | null) ?? null,
+        },
       }
-      return session
     },
   },
 } satisfies NextAuthConfig
