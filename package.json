@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev -p 5000",
     "build": "next build",
-    "start": "bash scripts/prod-start.sh",
+    "postbuild": "node scripts/postbuild-sync.js",
+    "start": "node server.js",
     "test": "vitest run",
     "test:academic": "vitest run tests/academic/",
     "test:academic:api": "playwright test --project=academic-api",
