@@ -9,6 +9,18 @@ on:
 jobs:
   visual-regression:
     runs-on: ubuntu-latest
+    env:
+      # WHY stub: `next build` only imports modules — no real DB call is made
+      # thanks to the lazy-Proxy Prisma client. The stub satisfies any format
+      # validators that execute before the Proxy defers instantiation.
+      DATABASE_URL: mysql://ci_user:ci_password@localhost:3306/lms_ci
+      NEXTAUTH_SECRET: ci-test-secret-min-32-chars-long!!
+      NEXTAUTH_URL: http://localhost:5000
+      CRON_SECRET: ci-cron-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:5000
+      NEXT_PUBLIC_APP_NAME: Evershaheen Academy LMS
+      NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY: 'true'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,9 +29,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
 
       - name: Build
         run: npm run build

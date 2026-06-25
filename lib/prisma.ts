@@ -1,17 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 
 // WHY singleton: Next.js hot reload creates new module instances on each change.
-// Without this, development exhausts the Neon free-tier connection pool (max 20).
+// Without this, development exhausts the MySQL connection pool.
 //
-// NOTE: Do not run `prisma generate` at runtime inside `lib/prisma.ts`.
-// Runtime generation can cause the client to be regenerated while active
-// connections are open, resulting in intermittent "server has closed the
-// connection" errors during development.
+// WHY lazy Proxy: `next build` imports every server module to collect page/route
+// metadata. Throwing at module-load time (when DATABASE_URL is absent in the CI
+// build environment) kills the build before a single page is rendered.
+// The Proxy defers PrismaClient construction — and therefore DATABASE_URL
+// validation — until the first actual DB call at *runtime*, not build time.
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
 }
 
-function getPrisma(): PrismaClient {
+function createPrismaClient(): PrismaClient {
   const url = process.env.DATABASE_URL
 
   if (!url) {
@@ -37,9 +38,26 @@ function getPrisma(): PrismaClient {
   })
 }
 
-export const prisma =
-  globalForPrisma.prisma ?? getPrisma()
+// WHY Proxy: Allows this module to be safely imported at build time without
+// a live DATABASE_URL. The real PrismaClient is only instantiated on the first
+// property access (i.e. the first actual database call at runtime).
+function makeLazyPrisma(): PrismaClient {
+  let client: PrismaClient | null = null
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
+  return new Proxy({} as PrismaClient, {
+    get(_target, prop) {
+      if (!client) {
+        client = globalForPrisma.prisma ?? createPrismaClient()
+        if (process.env.NODE_ENV !== 'production') {
+          globalForPrisma.prisma = client
+        }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const value = (client as any)[prop]
+      return typeof value === 'function' ? value.bind(client) : value
+    },
+  })
 }
+
+export const prisma: PrismaClient =
+  globalForPrisma.prisma ?? makeLazyPrisma()

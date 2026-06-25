@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # ── Job 1: Unit tests (no database required) ────────────────────────────────
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -21,35 +22,72 @@ jobs:
         run: npm ci
 
       - name: Prisma generate
+        # WHY: generate only needs the schema file; no real DB connection required
         run: npx prisma generate
 
       - name: Academic engine unit tests
         run: npm run test:academic
 
-  api-smoke:
+  # ── Job 2: Build verification (no database required) ────────────────────────
+  build:
     runs-on: ubuntu-latest
     needs: unit-tests
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lms_test
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/lms_test
+      # WHY stub: `next build` collects page metadata by importing server modules.
+      # With the lazy-Proxy Prisma client, no real DB connection is made during
+      # build — this stub simply satisfies any format-check code paths that run
+      # before the Proxy defers instantiation.
+      DATABASE_URL: mysql://ci_user:ci_password@localhost:3306/lms_ci
       NEXTAUTH_SECRET: ci-test-secret-min-32-chars-long!!
       NEXTAUTH_URL: http://localhost:5000
       CRON_SECRET: ci-cron-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:5000
+      NEXT_PUBLIC_APP_NAME: Evershaheen Academy LMS
+      NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+  # ── Job 3: API smoke tests (real MySQL DB required) ─────────────────────────
+  api-smoke:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/lms_test
+      NEXTAUTH_SECRET: ci-test-secret-min-32-chars-long!!
+      NEXTAUTH_URL: http://localhost:5000
+      CRON_SECRET: ci-cron-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:5000
+      NEXT_PUBLIC_APP_NAME: Evershaheen Academy LMS
       NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY: 'true'
     services:
-      postgres:
-        image: postgres:16-alpine
+      # WHY MySQL: Prisma schema uses provider = "mysql" (Hostinger production DB).
+      # Using PostgreSQL here caused schema push failures on every CI run.
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: lms_test
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: lms_test
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd "pg_isready -U postgres"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 --silent"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -80,13 +118,14 @@ jobs:
       - name: Wait for server
         run: |
           for i in $(seq 1 60); do
-            if curl -sf -o /dev/null -w "%{http_code}" http://localhost:5000/login | grep -qE '200|307'; then
-              echo "Server up"
+            status=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5000/login || true)
+            if echo "$status" | grep -qE '200|307'; then
+              echo "Server up (HTTP $status)"
               exit 0
             fi
             sleep 2
           done
-          echo "Server failed to start"
+          echo "Server failed to start within 120 s"
           exit 1
 
       - name: Install Playwright
