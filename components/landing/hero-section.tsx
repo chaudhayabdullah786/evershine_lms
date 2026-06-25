@@ -13,12 +13,12 @@
  * all necessary branding, so no text overlay is needed.
  */
 
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useBannerRotation } from '@/hooks/use-banner-rotation'
 import type { BannerImage } from '@/types/landing'
 import { ChevronDown, Sparkles, GraduationCap, Phone, MapPin } from 'lucide-react'
 
-import { useState, useEffect } from 'react'
 
 interface HeroSectionProps {
   banners: BannerImage[]
@@ -30,21 +30,12 @@ interface HeroSectionProps {
 
 export default function HeroSection({
   banners,
-  academyName,
-  tagline,
-  subTagline,
   onApplyClick,
 }: HeroSectionProps) {
-  const [mounted, setMounted] = useState(false)
-
   // The first banner (banner-3.png = banner.png) is shown statically
   // Remaining banners rotate in the carousel below
   const carouselBanners = banners.slice(1)
   const { activeIndex, goTo } = useBannerRotation(carouselBanners.length, 5000)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleExplore = () => {
     const el = document.querySelector('#about')
@@ -66,15 +57,15 @@ export default function HeroSection({
           style={{
             width: '100%',
             lineHeight: 0,
-            transform: mounted ? 'scale(1)' : 'scale(1.05)',
-            opacity: mounted ? 1 : 0,
-            transition: 'transform 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s ease',
           }}
         >
-          <img
-            src={banners[0]?.src || '/assets/images/banner/banner-3.png'}
+          <Image
+            src={banners[0]?.src || '/assets/images/optimized/banner/banner-3.webp'}
             alt={banners[0]?.alt || 'Evershine Academy — We Make Your Children More Valuable'}
-            loading="eager"
+            width={1983}
+            height={793}
+            priority
+            sizes="100vw"
             style={{
               width: '100%',
               height: 'auto',
@@ -273,47 +264,41 @@ export default function HeroSection({
                 backgroundColor: '#F5F3EF',
               }}
             >
-              {/* Use first banner to set natural height */}
-              <img
-                src={carouselBanners[0].src}
-                alt=""
+              <div
                 aria-hidden="true"
                 style={{
                   width: '100%',
-                  height: 'auto',
+                  aspectRatio: '1672 / 941',
                   display: 'block',
-                  visibility: 'hidden',
                 }}
               />
 
-              {/* Carousel images — absolutely positioned over the spacer */}
-              {carouselBanners.map((banner, i) => (
+              {/* Active carousel image only — avoids downloading every banner on first paint */}
+              {carouselBanners[activeIndex] && (
                 <div
-                  key={banner.src}
+                  key={carouselBanners[activeIndex].src}
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    opacity: i === activeIndex ? 1 : 0,
-                    transition: 'opacity 1s ease-in-out',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: '#F5F3EF',
                   }}
                 >
-                  <img
-                    src={banner.src}
-                    alt={banner.alt}
-                    loading={i === 0 ? 'eager' : 'lazy'}
+                  <Image
+                    src={carouselBanners[activeIndex].src}
+                    alt={carouselBanners[activeIndex].alt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 1200px"
+                    priority={activeIndex === 0}
                     style={{
-                      width: '100%',
-                      height: '100%',
                       objectFit: 'contain',
                       objectPosition: 'center',
                     }}
                   />
                 </div>
-              ))}
+              )}
 
               {/* Subtle gradient overlay for dot visibility */}
               <div
