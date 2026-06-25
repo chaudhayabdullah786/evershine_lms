@@ -18,9 +18,10 @@
  * - prefers-reduced-motion: static grid fallback
  */
 
+import Image from 'next/image'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, X, ChevronLeft, ChevronRight, Camera, Film, Pause, Eye } from 'lucide-react'
+import { Play, X, ChevronLeft, ChevronRight, Camera, Film, Pause } from 'lucide-react'
 import ScrollReveal from '@/components/landing/scroll-reveal'
 import type { GalleryImage, VideoItem } from '@/types/landing'
 
@@ -255,19 +256,18 @@ function CarouselCard({
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
     >
-    <img
-  src={item.type === 'video' ? (item.poster || item.src) : item.src}
-  alt={item.alt}
-  loading="lazy"
-  draggable={false}
-  style={{
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    backgroundColor: '#000',
-    transition: 'none',
-  }}
-/>
+    <Image
+      src={item.type === 'video' ? (item.poster || item.src) : item.src}
+      alt={item.alt}
+      fill
+      sizes="(max-width: 767px) 340px, (max-width: 1023px) 480px, 560px"
+      draggable={false}
+      style={{
+        objectFit: 'cover',
+        backgroundColor: '#000',
+        transition: 'none',
+      }}
+    />
 
       {/* Video play icon overlay */}
       {item.type === 'video' && (
@@ -341,141 +341,6 @@ function CarouselCard({
   )
 }
 
-/* ─────── Video Showcase Card ─────── */
-function VideoShowcaseCard({
-  video,
-  index,
-  onClick,
-}: {
-  video: VideoItem
-  index: number
-  onClick: () => void
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: '-40px' }}
-      transition={{ duration: 0.5, delay: index * 0.08, ease: 'easeOut' }}
-     whileHover={{ y: -2 }}
-      onClick={onClick}
-      className="lp-video-showcase-card"
-      role="button"
-      tabIndex={0}
-      style={{
-        position: 'relative',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        aspectRatio: '16/9',
-        backgroundColor: '#111827',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-      }}
-    >
-    <img
-  src={video.poster}
-  alt={video.title}
-  loading="lazy"
-  draggable={false}
-  style={{
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    objectPosition: 'center',
-    transform: 'none',
-    transition: 'none',
-  }}
-/>
-
-      {/* Dark overlay */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.05) 100%)',
-          transition: 'background 0.3s ease',
-        }}
-      />
-
-      {/* Play button */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <motion.div
-          animate={{ scale: [1, 1.08, 1] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-          style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #F5A623, #E8330A)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(245,166,35,0.4)',
-          }}
-        >
-          <Play size={28} style={{ color: '#FFF', marginLeft: '3px' }} fill="#FFF" />
-        </motion.div>
-      </div>
-
-      {/* Title bar */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}
-      >
-        <Film size={14} style={{ color: '#F5A623', flexShrink: 0 }} />
-        <span style={{
-          color: '#FFF',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          lineHeight: 1.3,
-        }}>
-          {video.title}
-        </span>
-      </div>
-
-      {/* Video badge */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '12px',
-          right: '12px',
-          padding: '4px 12px',
-          borderRadius: '12px',
-          background: 'rgba(245,166,35,0.9)',
-          color: '#FFF',
-          fontSize: '0.7rem',
-          fontWeight: 700,
-          letterSpacing: '0.06em',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          textTransform: 'uppercase',
-        }}
-      >
-        <Play size={10} fill="#FFF" />
-        Video
-      </div>
-    </motion.div>
-  )
-}
-
-
 /* ─────── Main Section ─────── */
 interface AcademyMemoriesProps {
   images: GalleryImage[]
@@ -515,11 +380,6 @@ export default function AcademyMemories({ images, videos }: AcademyMemoriesProps
 
   // Triple for infinite scroll illusion
   const tripled = [...carouselItems, ...carouselItems, ...carouselItems]
-
-  const openLightbox = useCallback((index: number) => {
-    setLightboxIndex(index)
-    setIsPaused(true)
-  }, [])
 
   const openCarouselLightbox = useCallback((tripledIndex: number) => {
     const realIndex = tripledIndex % carouselItems.length
@@ -854,14 +714,13 @@ export default function AcademyMemories({ images, videos }: AcademyMemoriesProps
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') openVideoLightbox(i % videos.length) }}
                 >
-                  <img
+                  <Image
                     src={video.poster}
                     alt={video.title}
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 767px) 340px, (max-width: 1023px) 480px, 560px"
                     draggable={false}
                     style={{
-                      width: '100%',
-                      height: '100%',
                       objectFit: 'cover',
                       transition: 'none',
                     }}

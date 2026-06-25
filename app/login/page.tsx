@@ -3,9 +3,9 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { notify } from '@/lib/notify'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Toaster } from '@/components/ui/sonner'
 import { Lock, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react'
 import { ArcLineBrand } from '@/components/ArcLineBrand'
 
@@ -26,19 +27,14 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const initialError = searchParams.get('error')
+    ? 'Authentication failed. Please check your credentials.'
+    : null
   const [isLoading, setIsLoading]       = useState(false)
-  const [formError, setFormError]       = useState<string | null>(null)
-  const [callbackUrl, setCallbackUrl]   = useState('/dashboard')
+  const [formError, setFormError]       = useState<string | null>(initialError)
   const [showPassword, setShowPassword] = useState(false)
-
-  useEffect(() => {
-    try {
-      const sp = new URLSearchParams(window.location.search)
-      setCallbackUrl(sp.get('callbackUrl') || '/dashboard')
-      const err = sp.get('error')
-      if (err) setFormError('Authentication failed. Please check your credentials.')
-    } catch {}
-  }, [])
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -64,7 +60,8 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout pageType="login">
+    <>
+      <AuthLayout pageType="login">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
 
         {/* ── Error banner ── */}
@@ -195,7 +192,9 @@ export default function LoginPage() {
           <ArcLineBrand prefix="This system is built by" />
         </div>
       </form>
-    </AuthLayout>
+      </AuthLayout>
+      <Toaster />
+    </>
   )
 }
 

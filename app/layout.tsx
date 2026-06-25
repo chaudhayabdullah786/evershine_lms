@@ -1,7 +1,27 @@
 import type { Metadata } from "next";
+import { Inter, Manrope, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter-next",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-manrope-next",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-playfair-next",
+  weight: ["400", "700", "800"],
+  style: ["normal", "italic"],
+});
 
 export const metadata: Metadata = {
   title: "EverShine Academy LMS",
@@ -25,24 +45,16 @@ export const metadata: Metadata = {
   },
 };
 
-import { Providers } from "@/components/providers";
-import { SessionProvider } from "next-auth/react";
-import { PWARegister } from "@/components/providers/PWARegister";
-
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={cn("h-full")} suppressHydrationWarning data-scroll-behavior="smooth">
-      <body
-  className="min-h-full bg-background text-foreground antialiased"
-  suppressHydrationWarning
->
-        <SessionProvider>
-          <Providers>
-            {children}
-            <PWARegister />
-            <Toaster />
-          </Providers>
-        </SessionProvider>
+    <html
+      lang="en"
+      className={cn("h-full", inter.variable, manrope.variable, playfair.variable)}
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+    >
+      <body className="min-h-full bg-background text-foreground antialiased" suppressHydrationWarning>
+        {children}
       </body>
     </html>
   );

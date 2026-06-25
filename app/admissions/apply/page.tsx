@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck, Loader2, Home, Sparkles } from 'lucide-react'
 import { notify } from '@/lib/notify'
+import { Toaster } from '@/components/ui/sonner'
 // WHY removed react-hot-toast: The project uses `notify` (wrapping sonner) as the
 // single notification façade. Mixing two toast libraries causes ID type mismatches
 // and duplicate toast rendering. See lib/notify.ts for the unified API.
@@ -272,7 +273,8 @@ export default function AdmissionFormPage() {
   const progressPct = Math.round((step / STEP_META.length) * 100)
 
   return (
-    <div className="min-h-screen flex flex-col items-center pb-24" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 30%, #f1f5f9 60%, #eff6ff 100%)' }}>
+    <>
+      <div className="min-h-screen flex flex-col items-center pb-24" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 30%, #f1f5f9 60%, #eff6ff 100%)' }}>
       {/* ── Branded Header Bar ── */}
       <div className="w-full" style={{ background: 'linear-gradient(135deg, #1B4F8A 0%, #1e3a5f 50%, #1B4F8A 100%)' }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
@@ -1028,6 +1030,8 @@ export default function AdmissionFormPage() {
           <p className="text-xs text-slate-400">© {new Date().getFullYear()} Evershine Academy · All information is confidential and secured</p>
         </div>
       </div>
-    </div>
+      </div>
+      <Toaster />
+    </>
   )
 }
