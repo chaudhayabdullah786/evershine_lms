@@ -14,7 +14,7 @@
 #   "start": "bash scripts/prod-start.sh"
 # ═══════════════════════════════════════════════════════════════════════════════
 
-set -e
+set -euo pipefail
 
 echo "=== Evershine Academy LMS — Production Startup ==="
 
@@ -61,7 +61,7 @@ if [ "$missing" -eq 1 ]; then
 fi
 
 # Validate DATABASE_URL format
-if echo "$DATABASE_URL" | grep -qv "^mysql://"; then
+if ! echo "$DATABASE_URL" | grep -q "^mysql://"; then
   echo ""
   echo "ERROR: DATABASE_URL must start with mysql://"
   echo "  Current value: ${DATABASE_URL:0:30}..."
@@ -124,17 +124,29 @@ STANDALONE_DIR=".next/standalone"
 STANDALONE_STATIC="$STANDALONE_DIR/.next/static"
 
 if [ -d "$STANDALONE_DIR" ]; then
-  if [ ! -d "$STANDALONE_STATIC" ]; then
-    echo "[SETUP] Copying .next/static → $STANDALONE_STATIC (standalone distribution)"
-    mkdir -p "$STANDALONE_STATIC"
-    cp -r .next/static/. "$STANDALONE_STATIC/"
-  fi
-  echo "[OK]     Standalone static assets ready"
+  # WHY always copy: On Hostinger redeployments the standalone dir persists
+  # from the previous build. Stale chunks stay while new ones are missing,
+  # causing "Failed to load chunk" 404s in the browser. Unconditional copy
+  # guarantees the static tree always matches the current build.
+  echo "[SETUP] Syncing .next/static → $STANDALONE_STATIC"
+  mkdir -p "$STANDALONE_STATIC"
+  cp -r .next/static/. "$STANDALONE_STATIC/"
+  echo "[OK]     Standalone static assets synced"
 
-  # public/ is already present inside standalone (copied by next build)
+  # WHY also copy public/: next build copies public/ into standalone but only
+  # at the root of the project, not inside standalone. Copy it explicitly so
+  # favicons, manifest.json, sw.js, and brand images are served correctly.
+  STANDALONE_PUBLIC="$STANDALONE_DIR/public"
+  if [ -d "public" ]; then
+    echo "[SETUP] Syncing public/ → $STANDALONE_PUBLIC"
+    mkdir -p "$STANDALONE_PUBLIC"
+    cp -r public/. "$STANDALONE_PUBLIC/"
+    echo "[OK]     Standalone public assets synced"
+  fi
+
   START_CMD="node $STANDALONE_DIR/server.js"
 else
-  # Fallback: next start (used when build is not standalone)
+  # Fallback: next start (used when build output is not standalone)
   START_CMD="node node_modules/.bin/next start"
   echo "[WARN]   Standalone directory not found; falling back to next start"
 fi
