@@ -2,27 +2,14 @@
 
 import { ChangeEvent, useState } from 'react';
 import Link from 'next/link';
-import { QrCode, Camera, AlertCircle, CheckCircle2, User, Calendar } from 'lucide-react';
+import { QrCode, Camera, AlertCircle, CheckCircle2, User, Calendar, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { AcademyLogo } from '@/components/AcademyLogo';
 import { notify } from '@/lib/notify';
-import { Toaster } from '@/components/ui/sonner';
-
-interface ScannedStudentData {
-  id: string;
-  name: string;
-  rollNumber: string;
-  class: string;
-  campus: string;
-  dateOfBirth: string;
-  fatherName: string;
-  status: string;
-  admissionDate: string;
-}
 
 export default function VerifyIDPage() {
-  const [scannedData, setScannedData] = useState<ScannedStudentData | null>(null);
+  const [scannedData, setScannedData] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -86,8 +73,7 @@ export default function VerifyIDPage() {
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-teal-50 p-4 animate-fadeIn">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-teal-50 p-4 animate-fadeIn">
       <div className="max-w-2xl mx-auto py-8">
         {/* Header */}
         <div className="text-center mb-12 animate-slideInTop">
@@ -251,7 +237,7 @@ export default function VerifyIDPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Father&apos;s Name</p>
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Father's Name</p>
                       <p className="text-base font-semibold text-slate-900 flex items-center gap-2 mt-1">
                         <User className="w-4 h-4" />
                         {scannedData.fatherName}
@@ -309,8 +295,6 @@ export default function VerifyIDPage() {
           </CardFooter>
         </Card>
       </div>
-      </div>
-      <Toaster />
-    </>
+    </div>
   );
 }
