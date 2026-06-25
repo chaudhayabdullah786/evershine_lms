@@ -1,23 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 
-test('preview matches exported PDF first page (smoke)', async ({ page, context }) => {
-  const adminEmail = process.env.PW_ADMIN_EMAIL
-  const adminPassword = process.env.PW_ADMIN_PASSWORD
-
-  test.skip(
-    !adminEmail || !adminPassword,
-    'PW_ADMIN_EMAIL and PW_ADMIN_PASSWORD are required for dashboard document visual tests',
-  )
-
-  await page.goto('/login')
-  await page.getByLabel('Email Address').fill(adminEmail)
-  await page.getByLabel('Password').fill(adminPassword)
-  await Promise.all([
-    page.waitForURL(/\/dashboard/, { timeout: 30000 }),
-    page.getByRole('button', { name: /sign in/i }).click(),
-  ])
-
+test('preview matches exported PDF first page (smoke)', async ({ page, context, baseURL, browserName }) => {
   // Navigate to documents preview page
   await page.goto('/dashboard/documents')
 

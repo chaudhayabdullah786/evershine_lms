@@ -1,7 +1,7 @@
 'use client'
 
 import { useAppStore } from '@/lib/store'
-import { SessionProvider, signOut, useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
@@ -49,9 +49,6 @@ import { isAcademicEnginePrimary } from '@/lib/academic/config'
 import { CompulsoryFeedbackBlocker } from '@/components/student/CompulsoryFeedbackBlocker'
 import { GuardianFeedbackModal } from '@/components/feedback/GuardianFeedbackModal'
 import { FeeOverdueModal } from '@/components/student/FeeOverdueModal'
-import { Providers } from '@/components/providers'
-import { PWARegister } from '@/components/providers/PWARegister'
-import { Toaster } from '@/components/ui/sonner'
 
 // ─── Role-gated nav items ─────────────────────────────────────────────────────
 // WHY data-driven: Adding a new route only requires updating this array.
@@ -128,7 +125,7 @@ function isNavItemVisible(item: NavItem, role: string): boolean {
   return item.roles.includes(role)
 }
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -475,17 +472,5 @@ function NotificationBell() {
       )}
       </AnimatePresence>
     </div>
-  )
-}
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <SessionProvider>
-      <Providers>
-        <DashboardShell>{children}</DashboardShell>
-        <PWARegister />
-        <Toaster />
-      </Providers>
-    </SessionProvider>
   )
 }

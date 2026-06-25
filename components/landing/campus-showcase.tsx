@@ -14,7 +14,6 @@
  * - Slide-in from left/right
  */
 
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { CheckCircle, GraduationCap, BookHeart, ArrowRight } from 'lucide-react'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -26,7 +25,7 @@ const CAMPUSES = [
     motto: 'Discipline. Focus. Excellence.',
     icon: GraduationCap,
     features: ['Dedicated Male Faculty', 'Sports & Athletics Program', 'Board Exam Coaching', 'Character Development'],
-    bg: '/assets/images/optimized/banner/banner-5.webp',
+    bg: '/assets/images/banner/banner-5.png',
     gradient: 'linear-gradient(135deg, rgba(15, 45, 82, 0.92), rgba(27, 79, 138, 0.85))',
   },
   {
@@ -34,7 +33,7 @@ const CAMPUSES = [
     motto: 'Respect. Empowerment. Excellence.',
     icon: BookHeart,
     features: ['All-Female Teaching Staff', 'Safe & Nurturing Environment', 'Holistic Development', 'Confidence Building'],
-    bg: '/assets/images/optimized/banner/banner-4.webp',
+    bg: '/assets/images/banner/banner-4.png',
     gradient: 'linear-gradient(135deg, rgba(27, 79, 138, 0.88), rgba(15, 45, 82, 0.92))',
   },
 ]
@@ -78,20 +77,15 @@ export default function CampusShowcase({ onApplyClick }: CampusShowcaseProps) {
             }}
             className="lp-campus-parallax relative overflow-hidden"
             style={{
+              backgroundImage: `url(${campus.bg})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               minHeight: '550px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Image
-              src={campus.bg}
-              alt={`${campus.title} learning environment`}
-              fill
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              style={{ objectFit: 'cover', objectPosition: 'center' }}
-            />
-
             {/* Gradient overlay */}
             <div
               className="absolute inset-0"

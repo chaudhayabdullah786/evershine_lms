@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { Toaster } from '@/components/ui/sonner'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 const resetSchema = z
@@ -120,8 +119,7 @@ export default function ResetPasswordPage() {
   const currentStrength = strengthConfig[passwordStrength as keyof typeof strengthConfig] || strengthConfig[1]
 
   return (
-    <>
-      <AuthLayout pageType="reset-password">
+    <AuthLayout pageType="reset-password">
       {/* Server Error */}
       <AnimatePresence>
         {serverError && !isSuccess && (
@@ -406,8 +404,6 @@ export default function ResetPasswordPage() {
           </Link>
         </div>
       )}
-      </AuthLayout>
-      <Toaster />
-    </>
+    </AuthLayout>
   )
 }

@@ -18,7 +18,6 @@
  * Responsive: stacked cards on mobile, tabbed grid on desktop.
  */
 
-import Image from 'next/image'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SITE_CONFIG } from '@/content/site-config'
@@ -205,12 +204,10 @@ export function ServicesShowcase() {
                 overflow: 'hidden',
               }}
             >
-              <Image
+              <img
                 src={active.bannerSrc}
                 alt={active.bannerAlt}
-                width={1672}
-                height={941}
-                sizes="(max-width: 768px) 100vw, 1200px"
+                loading="lazy"
                 style={{
                   width: '100%',
                   height: 'auto',
