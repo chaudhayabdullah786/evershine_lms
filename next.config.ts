@@ -9,10 +9,14 @@ const nextConfig: NextConfig = {
   // so the generated client can find the correct engine binary at runtime.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/client"],
 
-  // Allow production build to complete even if TypeScript shows errors.
-  // ESLint is now executed independently via `npm run lint`.
+  // Allow production build to complete even if TypeScript or ESLint errors exist.
+  // Both are run independently via `npm run lint` in the CI pipeline.
+  // WHY: Hostinger build must not fail due to type/lint warnings in non-critical paths.
   typescript: {
     ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 
   // Image remote patterns — add domains your images are served from.
