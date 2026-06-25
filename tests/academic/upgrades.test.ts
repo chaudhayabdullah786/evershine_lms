@@ -29,6 +29,7 @@ vi.mock('@/lib/prisma', () => {
     termResult:             { upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
     subjectResult:          { deleteMany: vi.fn(), createMany: vi.fn() },
     dailyPerformanceScore:  { deleteMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
+    subjectOffering:        { findUnique: vi.fn() },
     targetAssignment:       { upsert: vi.fn() },
   }
 
@@ -205,6 +206,7 @@ describe('Feature 5: submitStudentScores', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe('Feature 6: submitDailyPerformance', () => {
   it('deletes existing records for that day then bulk inserts new ones', async () => {
+    vi.mocked(prisma.subjectOffering.findUnique).mockResolvedValue({ maxDailyScore: 10 } as any)
     vi.mocked(prisma.dailyPerformanceScore.deleteMany).mockResolvedValue({ count: 3 } as any)
     vi.mocked(prisma.dailyPerformanceScore.createMany).mockResolvedValue({ count: 2 } as any)
 
