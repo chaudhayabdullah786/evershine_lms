@@ -18,7 +18,18 @@ set -e
 
 echo "=== Evershine Academy LMS — Production Startup ==="
 
-# ── 1. Validate critical environment variables ──────────────────────────────
+# ── 1. Load local .env when present ─────────────────────────────────────────
+# Hostinger hPanel variables remain the primary production source. Loading an
+# existing .env keeps SSH/manual starts and local production smoke tests from
+# failing before Node has a chance to read the same file.
+if [ -f .env ]; then
+  echo "[SETUP] Loading environment variables from existing .env"
+  set -a
+  . ./.env
+  set +a
+fi
+
+# ── 2. Validate critical environment variables ──────────────────────────────
 
 missing=0
 check_var() {
@@ -59,7 +70,7 @@ if echo "$DATABASE_URL" | grep -qv "^mysql://"; then
   exit 1
 fi
 
-# ── 2. If .env does not exist (gitignored), create it from env vars ────────
+# ── 3. If .env does not exist (gitignored), create it from env vars ────────
 # This ensures libraries that read .env directly (like Prisma in some configs)
 # still find their settings.
 if [ ! -f .env ]; then
@@ -86,6 +97,49 @@ if [ ! -f .env ]; then
   } > .env
 fi
 
-# ── 3. Start Next.js production server ─────────────────────────────────────
+# ── 4. Validate build artifacts before accepting traffic ───────────────────
+if [ ! -f .next/BUILD_ID ]; then
+  echo ""
+  echo "ERROR: .next/BUILD_ID is missing. Run npm run build before starting production."
+  echo "Hostinger must deploy a complete Next.js build, not source files alone."
+  exit 1
+fi
+
+echo "[OK]     Next.js build ID: $(cat .next/BUILD_ID)"
+
+if [ ! -d .next/static ]; then
+  echo ""
+  echo "ERROR: .next/static is missing. Static chunks will 404 in production."
+  echo "Redeploy the complete build artifact and clear Hostinger/CDN cache."
+  exit 1
+fi
+
+echo "[OK]     Next.js static assets present"
+
+# ── 5. Ensure standalone distribution has required assets ──────────────────
+# Next.js output: "standalone" bundles the server into .next/standalone but
+# does NOT copy .next/static. Without this, every /_next/static/* request
+# returns 404, causing "Failed to load chunk" browser errors.
+STANDALONE_DIR=".next/standalone"
+STANDALONE_STATIC="$STANDALONE_DIR/.next/static"
+
+if [ -d "$STANDALONE_DIR" ]; then
+  if [ ! -d "$STANDALONE_STATIC" ]; then
+    echo "[SETUP] Copying .next/static → $STANDALONE_STATIC (standalone distribution)"
+    mkdir -p "$STANDALONE_STATIC"
+    cp -r .next/static/. "$STANDALONE_STATIC/"
+  fi
+  echo "[OK]     Standalone static assets ready"
+
+  # public/ is already present inside standalone (copied by next build)
+  START_CMD="node $STANDALONE_DIR/server.js"
+else
+  # Fallback: next start (used when build is not standalone)
+  START_CMD="node node_modules/.bin/next start"
+  echo "[WARN]   Standalone directory not found; falling back to next start"
+fi
+
+# ── 6. Start Next.js production server ─────────────────────────────────────
 echo "[START] Starting Next.js production server on port ${PORT:-3000}..."
-exec node node_modules/.bin/next start -p "${PORT:-3000}"
+echo "[START] Command: $START_CMD -p ${PORT:-3000}"
+exec $START_CMD -p "${PORT:-3000}"
