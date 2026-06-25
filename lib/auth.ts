@@ -43,7 +43,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user || !user.isActive) return null
 
-        const passwordValid = await verify(user.passwordHash, password)
+        let passwordValid = false
+        try {
+          passwordValid = await verify(user.passwordHash, password)
+        } catch (err) {
+          console.error(
+            '[AUTH] Password verification threw — likely a non-Argon2 hash in DB.',
+            'Email:', user.email,
+            'Hash prefix:', user.passwordHash.substring(0, 24),
+            'Error:', err instanceof Error ? err.message : err,
+          )
+        }
         if (!passwordValid) return null
 
         // Update lastLogin (fire and forget)
