@@ -91,7 +91,8 @@ Missing → every /_next/static/chunks/*.js → 404 → ChunkLoadError.
 |-------|------|-------------|
 | 1 | `scripts/postbuild-sync.js` | After every `npm run build` (postbuild hook) |
 | 2 | `server.js` (project root) | At Hostinger startup (Startup file field) |
-| 3 | `scripts/prod-start.sh` | When `npm start` is called (fallback) |
+| 3 | `app.js` (project root) | Hostinger startup proxy (if default config uses app.js) |
+| 4 | `scripts/prod-start.sh` | When `npm start` is called (fallback) |
 
 ---
 
@@ -103,13 +104,14 @@ Missing → every /_next/static/chunks/*.js → 404 → ChunkLoadError.
 |------|-------------|---------|
 | `middleware.ts` | **NEW** | Edge auth guard for `/dashboard/*`. Was missing — only client-side redirects existed |
 | `server.js` | **NEW** | Hostinger native startup entry point. Syncs static assets + starts standalone server |
-| `scripts/postbuild-sync.js` | **NEW** | Copies `.next/static` + `public/` into standalone after every build |
+| `app.js` | **NEW** | Hostinger default startup alias proxy to server.js |
+| `scripts/postbuild-sync.js` | **NEW** | Copies `.next/static` + `public/` into standalone, and copies `.next/static` to `public/_next/static` for Nginx direct chunk serving |
 | `app/error.tsx` | **FIXED** | Was exposing raw `error.message` (stack traces) to browser. Now sanitised + auto-reload for ChunkErrors |
 | `app/global-error.tsx` | **FIXED** | Added ChunkLoadError detection + 3s auto-reload countdown |
 | `lib/auth.ts` | **FIXED** | Removed `PrismaAdapter` — schema has no `Account`/`VerificationToken` models |
 | `lib/auth.config.ts` | **FIXED** | Added `declare module 'next-auth/jwt'` JWT interface augmentation. Removed implicit `any` casts |
 | `lib/prisma.ts` | **FIXED** | Singleton written unconditionally (was dev-only). Fixed production connection pool leak |
-| `scripts/prod-start.sh` | **FIXED** | Line 64: `grep -qv` → `if ! grep -q`. Was exiting on VALID DATABASE_URL (inverted logic) |
+| `scripts/prod-start.sh` | **FIXED** | Line 64: `grep -qv` → `if ! grep -q`. Was exiting on VALID DATABASE_URL (inverted logic). Added public/_next/static copy fallback |
 | `package.json` | **UPDATED** | Added `postbuild: node scripts/postbuild-sync.js`. Changed `start` to `node server.js` |
 | `.github/workflows/academic-ci.yml` | **UPDATED** | CI now uses `node server.js` for smoke test startup |
 
@@ -149,11 +151,11 @@ Set these in: **hPanel → Websites → Manage → Node.js → Environment Varia
 
 ```
 Application root:    /home/user/htdocs/evershineacadmey.com
-Startup file:        server.js          ← CRITICAL: must be server.js not app.js
+Startup file:        server.js (or app.js) ← CRITICAL: app.js proxies to server.js
 Node.js version:     20.x
 Auto-deploy:         GitHub → main branch push triggers rebuild + restart
 Build command:       npm install && npm run build
-Start command:       node server.js  (or via npm start → same thing)
+Start command:       node server.js (or node app.js)
 ```
 
 **Deployment flow on git push to main:**
@@ -210,6 +212,7 @@ If a user logs in but sees an empty sidebar:
 |------|---------|
 | `middleware.ts` | Edge auth guard (MUST stay edge-compatible — no Prisma/Argon2 imports) |
 | `server.js` | Hostinger startup file (validates env, syncs assets, starts Next.js) |
+| `app.js` | Hostinger startup file alias proxy (runs server.js) |
 | `lib/auth.ts` | Full NextAuth config (Node.js only — Credentials provider + Argon2) |
 | `lib/auth.config.ts` | Edge-safe auth config (JWT callbacks, no DB access) |
 | `lib/prisma.ts` | Lazy Prisma singleton (defers DB connection to runtime) |

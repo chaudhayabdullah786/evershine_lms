@@ -5,8 +5,8 @@
  *
  * WHY this file exists at the project root:
  *   Hostinger's Node.js Web App has a "Startup file" field in hPanel.
- *   If set to "server.js" (the Hostinger default), Hostinger runs
- *   `node server.js` directly — skipping `npm start` entirely.
+ *   If set to "server.js" (the Hostinger default) or "app.js", Hostinger runs
+ *   the script directly — skipping `npm start` entirely.
  *   That means scripts/prod-start.sh never runs, static assets are
  *   never synced into .next/standalone, and every JS chunk request
  *   returns 404 → "Failed to load chunk" ChunkLoadError in the browser.
@@ -15,10 +15,12 @@
  *   1. Validates DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL are set
  *   2. Copies .next/static → .next/standalone/.next/static  (chunk fix)
  *   3. Copies public/     → .next/standalone/public/         (assets fix)
- *   4. Hands off to the real Next.js standalone server
+ *   4. Copies .next/static → public/_next/static             (Nginx direct serve fix)
+ *   5. Hands off to the real Next.js standalone server
  *
  * Works regardless of whether Hostinger uses:
  *   - "Startup file: server.js" (direct node invocation)
+ *   - "Startup file: app.js" (proxies to server.js)
  *   - "npm start" → node server.js (consistent either way)
  *
  * Required Hostinger hPanel environment variables:
@@ -33,12 +35,13 @@
 const path = require('path')
 const fs   = require('fs')
 
-const ROOT        = __dirname
-const STANDALONE  = path.join(ROOT, '.next', 'standalone')
-const STATIC_SRC  = path.join(ROOT, '.next', 'static')
-const STATIC_DST  = path.join(STANDALONE, '.next', 'static')
-const PUBLIC_SRC  = path.join(ROOT, 'public')
-const PUBLIC_DST  = path.join(STANDALONE, 'public')
+const ROOT           = __dirname
+const STANDALONE     = path.join(ROOT, '.next', 'standalone')
+const STATIC_SRC     = path.join(ROOT, '.next', 'static')
+const STATIC_DST     = path.join(STANDALONE, '.next', 'static')
+const PUBLIC_SRC     = path.join(ROOT, 'public')
+const PUBLIC_DST     = path.join(STANDALONE, 'public')
+const PUBLIC_STATIC  = path.join(PUBLIC_SRC, '_next', 'static')
 
 // ── 1. Env var validation ────────────────────────────────────────────────────
 const REQUIRED = ['DATABASE_URL', 'NEXTAUTH_SECRET', 'NEXTAUTH_URL']
@@ -77,15 +80,12 @@ if (!fs.existsSync(STANDALONE)) {
   process.exit(1)
 }
 
-// ── 3. Sync static assets into standalone (THE CRITICAL FIX) ────────────────
-// WHY: `next build` with output:"standalone" creates .next/standalone/server.js
-// but does NOT copy .next/static into it. The standalone server serves static
-// files from .next/standalone/.next/static — if that dir is absent, every
-// /_next/static/* request returns 404, causing ChunkLoadError in the browser.
-//
-// WHY unconditional (not if !exists): On Hostinger redeployments the old
-// standalone dir persists. Stale chunk hashes remain while new ones are
-// missing. Always copying ensures the static tree matches the current build.
+// ── 3. Sync static assets into standalone and public serving ────────────────
+function cleanDir(dir) {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
 
 function copyRecursive(src, dst) {
   const entries = fs.readdirSync(src, { withFileTypes: true })
@@ -106,14 +106,19 @@ function syncDir(src, dst, label) {
     console.warn(`[SERVER] SKIP ${label}: source not found at ${src}`)
     return
   }
+  cleanDir(dst)
   fs.mkdirSync(dst, { recursive: true })
   copyRecursive(src, dst)
   console.log(`[SERVER] OK  ${label} synced`)
 }
 
-console.log('[SERVER] Syncing static assets into standalone...')
+console.log('[SERVER] Syncing static assets...')
+// Copy to standalone directory for Next.js Node server fallback
 syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
-syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
+syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/ → standalone/public/')
+
+// Copy to public directory for Hostinger Nginx direct serving
+syncDir(STATIC_SRC, PUBLIC_STATIC, '.next/static → public/_next/static')
 
 // ── 4. Start Next.js standalone server ──────────────────────────────────────
 const serverPath = path.join(STANDALONE, 'server.js')
