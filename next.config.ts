@@ -1,14 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['@node-rs/argon2'],
   allowedDevOrigins: [
     '*.pike.replit.dev',
     '*.replit.dev',
     'localhost',
     '127.0.0.1',
   ],
-  // Allow production build to complete even if TypeScript shows errors.
-  // ESLint is now executed independently via `npm run lint`.
   typescript: {
     ignoreBuildErrors: true,
   },

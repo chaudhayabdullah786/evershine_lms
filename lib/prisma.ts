@@ -1,24 +1,27 @@
 import { PrismaClient } from '@prisma/client'
 
-// WHY singleton: Next.js hot reload creates new module instances on each change.
-// Without this, development exhausts the Neon free-tier connection pool (max 20).
-//
-// NOTE: Do not run `prisma generate` at runtime inside `lib/prisma.ts`.
-// Runtime generation can cause the client to be regenerated while active
-// connections are open, resulting in intermittent "server has closed the
-// connection" errors during development.
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
 }
 
+function createPrismaClient(): PrismaClient {
+  const url = process.env.DATABASE_URL
+  if (!url || !url.startsWith('mysql://')) {
+    console.error(
+      '[prisma] DATABASE_URL is missing or invalid. ' +
+      'Expected a mysql:// connection string. ' +
+      'Set the DATABASE_URL environment variable in your hosting panel.'
+    )
+  }
+
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  })
+}
+
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['error', 'warn']
-        : ['error'],
-  })
+  createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
