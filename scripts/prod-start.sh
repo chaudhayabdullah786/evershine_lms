@@ -129,6 +129,7 @@ if [ -d "$STANDALONE_DIR" ]; then
   # causing "Failed to load chunk" 404s in the browser. Unconditional copy
   # guarantees the static tree always matches the current build.
   echo "[SETUP] Syncing .next/static → $STANDALONE_STATIC"
+  rm -rf "$STANDALONE_STATIC"
   mkdir -p "$STANDALONE_STATIC"
   cp -r .next/static/. "$STANDALONE_STATIC/"
   echo "[OK]     Standalone static assets synced"
@@ -139,10 +140,21 @@ if [ -d "$STANDALONE_DIR" ]; then
   STANDALONE_PUBLIC="$STANDALONE_DIR/public"
   if [ -d "public" ]; then
     echo "[SETUP] Syncing public/ → $STANDALONE_PUBLIC"
+    rm -rf "$STANDALONE_PUBLIC"
     mkdir -p "$STANDALONE_PUBLIC"
     cp -r public/. "$STANDALONE_PUBLIC/"
     echo "[OK]     Standalone public assets synced"
   fi
+
+  # WHY copy to public/_next/static: Hostinger Passenger/Nginx reverse proxy
+  # often bypasses Node.js entirely for static files starting with /_next/*
+  # and serves them directly from the public/ directory.
+  PUBLIC_STATIC="public/_next/static"
+  echo "[SETUP] Syncing .next/static → $PUBLIC_STATIC"
+  rm -rf "$PUBLIC_STATIC"
+  mkdir -p "$PUBLIC_STATIC"
+  cp -r .next/static/. "$PUBLIC_STATIC/"
+  echo "[OK]     Public static assets synced for direct Nginx serving"
 
   START_CMD="node $STANDALONE_DIR/server.js"
 else

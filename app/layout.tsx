@@ -4,24 +4,30 @@ import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "EverShine Academy LMS",
-  description: "Empowering minds, building futures — EverShine Academy Learning Management System",
+  title: "Evershaheen Academy LMS",
+  description: "Empowering minds, building futures — Evershaheen Academy Learning Management System",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "EverShine LMS",
+    title: "Evershaheen LMS",
   },
   icons: {
+    // WHY brand/: These reference the canonical brand assets in /public/brand/.
+    // The root /favicon.svg and /favicon.ico are retained as fallbacks for
+    // browsers that look there first, but all metadata explicitly points to
+    // the correct brand icons so tabs and bookmarks show the academy logo.
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
-      { url: "/favicon-128x128.png", sizes: "128x128", type: "image/png" },
+      { url: "/brand/logo-icon.svg",     type: "image/svg+xml" },
+      { url: "/brand/logo-icon-16.png",  sizes: "16x16",   type: "image/png" },
+      { url: "/brand/logo-icon-32.png",  sizes: "32x32",   type: "image/png" },
+      { url: "/brand/logo-icon-48.png",  sizes: "48x48",   type: "image/png" },
+      { url: "/brand/logo-icon-64.png",  sizes: "64x64",   type: "image/png" },
+      { url: "/brand/logo-icon-128.png", sizes: "128x128", type: "image/png" },
+      { url: "/brand/logo-icon-192.png", sizes: "192x192", type: "image/png" },
     ],
-    shortcut: "/favicon.svg",
-    apple: "/apple-touch-icon.png",
+    shortcut: "/brand/logo-icon.svg",
+    apple: "/brand/logo-icon-192.png",
   },
 };
 

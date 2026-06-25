@@ -6,21 +6,20 @@
  * Runs automatically via npm's "postbuild" hook after every `npm run build`.
  *
  * WHY this is necessary:
- *   `next build` with output:"standalone" creates .next/standalone/server.js
- *   but intentionally does NOT copy .next/static/ or public/ into it
- *   (see Next.js docs: "You need to copy these yourself").
+ *   1. `next build` with output:"standalone" creates .next/standalone/server.js
+ *      but intentionally does NOT copy .next/static/ or public/ into it.
+ *      Without copying to .next/standalone, Node.js standalone server fails to find them.
+ *   2. Hostinger/cPanel reverse proxy (Nginx/Passenger) often bypasses Node.js
+ *      entirely for static URLs (like /_next/static/*) and attempts to serve them
+ *      directly from the `public/` directory. If they don't exist in `public/_next/static`,
+ *      Nginx returns 404, causing ChunkLoadErrors in the browser.
  *
- *   Without this copy:
- *   - Every /_next/static/chunks/*.js request returns 404
- *   - The browser throws ChunkLoadError on every page load
- *   - The app/error.tsx boundary fires showing "Something went wrong"
- *
- * This script solves it at BUILD TIME so the deployment artifact is already
- * complete — no startup script required. Combined with server.js (which also
- * syncs at startup), chunks will never be missing regardless of deploy method.
+ * This script solves both:
+ *   - Syncs .next/static → .next/standalone/.next/static (for Next.js Node server fallback)
+ *   - Syncs public/ → .next/standalone/public/ (for Next.js Node server public assets)
+ *   - Syncs .next/static → public/_next/static (for Hostinger Nginx direct static serving)
  *
  * Usage: Runs automatically via "postbuild" in package.json
- *   npm run build  →  next build  →  postbuild-sync.js
  */
 
 'use strict'
@@ -28,12 +27,13 @@
 const path = require('path')
 const fs   = require('fs')
 
-const ROOT       = path.resolve(__dirname, '..')
-const STANDALONE = path.join(ROOT, '.next', 'standalone')
-const STATIC_SRC = path.join(ROOT, '.next', 'static')
-const STATIC_DST = path.join(STANDALONE, '.next', 'static')
-const PUBLIC_SRC = path.join(ROOT, 'public')
-const PUBLIC_DST = path.join(STANDALONE, 'public')
+const ROOT           = path.resolve(__dirname, '..')
+const STANDALONE     = path.join(ROOT, '.next', 'standalone')
+const STATIC_SRC     = path.join(ROOT, '.next', 'static')
+const STATIC_DST     = path.join(STANDALONE, '.next', 'static')
+const PUBLIC_SRC     = path.join(ROOT, 'public')
+const PUBLIC_DST     = path.join(STANDALONE, 'public')
+const PUBLIC_STATIC  = path.join(PUBLIC_SRC, '_next', 'static')
 
 function copyRecursive(src, dst) {
   const entries = fs.readdirSync(src, { withFileTypes: true })
@@ -49,11 +49,19 @@ function copyRecursive(src, dst) {
   }
 }
 
+function cleanDir(dir) {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 function syncDir(src, dst, label) {
   if (!fs.existsSync(src)) {
     console.warn(`[postbuild] SKIP: ${label} — source not found`)
     return
   }
+  // Clean target directory first to avoid mixing stale chunk files
+  cleanDir(dst)
   fs.mkdirSync(dst, { recursive: true })
   copyRecursive(src, dst)
 
@@ -75,7 +83,12 @@ if (!fs.existsSync(STANDALONE)) {
   process.exit(1)
 }
 
-console.log('[postbuild] Syncing assets into standalone output...')
+console.log('[postbuild] Syncing assets for Hostinger standalone and public serving...')
+// 1. Sync for standalone Node.js server
 syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
 syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
-console.log('[postbuild] Done. Standalone build is deployment-ready.')
+
+// 2. Sync for Nginx direct serving of static chunks
+syncDir(STATIC_SRC, PUBLIC_STATIC, '.next/static → public/_next/static')
+
+console.log('[postbuild] Done. Standalone build and public static directories are deployment-ready.')
