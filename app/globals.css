@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,800;1,400;1,700;1,800&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -10,8 +11,8 @@
 
 :root {
   /* Font stacks */
-  --font-inter: var(--font-inter-next), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-manrope: var(--font-manrope-next), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-manrope: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Semantic Colors */
   --background: 0 0% 100%;
@@ -558,7 +559,7 @@ html {
   --lp-shift-night: #0f2d52;
 
   /* Typography */
-  --lp-font-display: var(--font-playfair-next), Georgia, 'Times New Roman', serif;
+  --lp-font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --lp-font-body: 'Inter', system-ui, -apple-system, sans-serif;
 
   /* Shadows */

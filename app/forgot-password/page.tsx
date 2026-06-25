@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { notify } from '@/lib/notify'
 import { z } from 'zod'
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { Toaster } from '@/components/ui/sonner'
 
 const forgotSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -53,8 +53,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <>
-      <AuthLayout pageType="forgot-password">
+    <AuthLayout pageType="forgot-password">
       {/* ── Server error ── */}
       <AnimatePresence>
         {serverError && (
@@ -194,8 +193,6 @@ export default function ForgotPasswordPage() {
           </motion.form>
         )}
       </AnimatePresence>
-      </AuthLayout>
-      <Toaster />
-    </>
+    </AuthLayout>
   )
 }

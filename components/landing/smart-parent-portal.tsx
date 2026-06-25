@@ -7,7 +7,6 @@
  * hover lift animations, and gradient CTA button.
  */
 
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { SITE_CONFIG } from '@/content/site-config'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -96,12 +95,10 @@ export function SmartParentPortal() {
               lineHeight: 0,
             }}
           >
-            <Image
-              src="/assets/images/optimized/portal/vision-2030-portal.webp"
+            <img
+              src="/assets/images/portal/vision-2030-portal.jpeg"
               alt="Vision 2030 — ESA Online Portal — A Smart Digital Solution for Students, Parents, Teachers and Staff"
-              width={1000}
-              height={1000}
-              sizes="(max-width: 768px) 100vw, 800px"
+              loading="lazy"
               style={{
                 width: '100%',
                 height: 'auto',
