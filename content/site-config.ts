@@ -46,7 +46,7 @@ export const SITE_CONFIG: SiteConfig = {
   ],
 
   bannerImages: [
-    { src: '/assets/images/banner/banner-3.png', alt: 'We Make Your Children More Valuable — Evershine Academy', badge: 'Admission Open' },
+    { src: '/assets/images/banner/updated_banne.png', alt: 'We Make Your Children More Valuable — Evershine Academy', badge: 'Admission Open' },
     { src: '/assets/images/banner/admission-open-2026.png', alt: 'Admission Open 2026 — ESA Courses: Spoken English, IELTS, MS Office, Graphic Design, Web Development, Teachers Training', badge: 'ADMISSION OPEN' },
     { src: '/assets/images/banner/banner-1.png', alt: 'Learn by Doing Build for Tomorrow — Evershine Academy', badge: 'STEM Lab' },
     { src: '/assets/images/banner/banner-5.png', alt: 'Learn Today Lead Tomorrow — Classroom Collaboration' },
