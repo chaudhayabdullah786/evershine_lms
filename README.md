@@ -562,7 +562,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for additional guidance.
 |---|---|
 | **Ibadat Ali** | [GitHub](https://github.com/Ibadat-Ali86) |
 | **Muhammad Abdullah** | [GitHub](https://github.com/chaudhayabdullah786) |
-| **Shawaiz Ali** | Project team member |
+| **Shawaiz Ali** | [GitHub](https://github.com/Shawaiz-Project) |
 
 ---
 

@@ -59,7 +59,7 @@ const createStudentSchemaBase = z.object({
   previousGroup:         z.string().optional(),      // e.g. "Science", "Arts"
   yearOfPassing:         z.number().int().min(1990).max(new Date().getFullYear()).optional(),
   
-  requestedLevel:        z.string().min(1, 'Requested academic level is required').trim(),
+  requestedLevel:        z.string().optional(),
   requestedClass: z.preprocess((value) => {
     if (typeof value === 'string' && value.trim() === '') return undefined
     if (typeof value === 'number' && Number.isNaN(value)) return undefined
