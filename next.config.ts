@@ -9,14 +9,17 @@ const nextConfig: NextConfig = {
   // so the generated client can find the correct engine binary at runtime.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/client"],
 
-  // Allow production build to complete even if TypeScript or ESLint errors exist.
-  // Both are run independently via `npm run lint` in the CI pipeline.
-  // WHY: Hostinger build must not fail due to type/lint warnings in non-critical paths.
+  // Allow production build to complete even if TypeScript errors exist.
+  // WHY: Hostinger build must not fail due to type warnings in non-critical paths.
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+
+  // Limit build workers and CPU cores to 1 to bypass Hostinger's process limit (EAGAIN).
+  // Prevents Next.js from spawning dozens of worker processes during minification/static generation.
+  experimental: {
+    workerThreads: false,
+    cpus: 1,
   },
 
   // Image remote patterns — add domains your images are served from.
