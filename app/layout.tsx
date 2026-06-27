@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "EverShine Academy LMS",
   description: "Empowering minds, building futures — EverShine Academy Learning Management System",
   manifest: "/manifest.json",
+  // PWA: apple-web-app-capable enables "Add to Home Screen" on iOS Safari
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -21,7 +22,19 @@ export const metadata: Metadata = {
       { url: "/favicon-128x128.png", sizes: "128x128", type: "image/png" },
     ],
     shortcut: "/favicon.svg",
-    apple: "/apple-touch-icon.png",
+    // Apple Touch Icon — used when user adds PWA to iOS home screen
+    // pwa-icon-180.png is generated from evershinelogo.png via scripts/setup-pwa-icons.js
+    apple: "/brand/pwa-icon-180.png",
+  },
+  // PWA theme color — matches manifest.json theme_color
+  // Displayed in Android Chrome address bar and notification shade
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "EverShine LMS",
+    "msapplication-TileColor": "#0f172a",
+    "msapplication-TileImage": "/brand/pwa-icon-192.png",
   },
 };
 
