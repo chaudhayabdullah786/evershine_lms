@@ -12,7 +12,7 @@
  *   - Navigation       → Network only with offline fallback.
  */
 
-const CACHE_VERSION = 'v1.3.0';
+const CACHE_VERSION = 'v1.4.0';
 const CACHE_PREFIX = 'evershine-lms-';
 
 const CACHE_NAMES = {
@@ -25,7 +25,8 @@ const CACHE_NAMES = {
 const PRECACHE_ASSETS = [
   '/offline',
   '/favicon.ico',
-  '/brand/logo-crest.png'
+  '/brand/pwa-icon-192.png',
+  '/brand/pwa-icon-512.png'
 ];
 
 // Cacheable static asset (brand assets, uploaded images, fonts).
