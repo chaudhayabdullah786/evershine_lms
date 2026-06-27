@@ -78,4 +78,40 @@ if (!fs.existsSync(STANDALONE)) {
 console.log('[postbuild] Syncing assets into standalone output...')
 syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
 syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
+
+// ── Inject BUILD_ID into sw.js ───────────────────────────────────────────────
+// WHY: public/sw.js ships with `const CACHE_VERSION = '__BUILD_ID__'` as a
+// placeholder. If we deployed without replacing it, ALL deployments would share
+// the same cache name and old caches would never be evicted.
+//
+// We read the real Next.js BUILD_ID (a content hash Next.js generates per build)
+// and write it into BOTH copies of sw.js so the SW's cache key is unique per
+// deployment. Users automatically get a fresh cache on every deploy.
+const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
+if (!fs.existsSync(BUILD_ID_PATH)) {
+  console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot inject cache version into sw.js.')
+  process.exit(1)
+}
+const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
+console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
+
+const SW_PLACEHOLDER = '__BUILD_ID__'
+const swTargets = [
+  path.join(PUBLIC_DST, 'sw.js'),  // standalone/public/sw.js (served in production)
+  path.join(PUBLIC_SRC, 'sw.js'),  // public/sw.js (kept in sync for clarity)
+]
+for (const swPath of swTargets) {
+  if (!fs.existsSync(swPath)) {
+    console.warn(`[postbuild] SKIP sw.js injection: not found at ${swPath}`)
+    continue
+  }
+  const content = fs.readFileSync(swPath, 'utf8')
+  if (!content.includes(SW_PLACEHOLDER)) {
+    console.warn(`[postbuild] WARN: __BUILD_ID__ placeholder not found in ${swPath} — already injected?`)
+    continue
+  }
+  fs.writeFileSync(swPath, content.replace(SW_PLACEHOLDER, buildId), 'utf8')
+  console.log(`[postbuild] OK  sw.js cache version set → ${path.relative(ROOT, swPath)}`)
+}
+
 console.log('[postbuild] Done. Standalone build is deployment-ready.')
