@@ -43,6 +43,17 @@ export default function HeroSection({
 
   return (
     <section id="hero">
+      {/* ─── CSS animation: works without JS hydration (Hostinger fix) ─── */}
+      <style>{`
+        @keyframes heroBannerReveal {
+          from { opacity: 0; transform: scale(1.04); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        .hero-banner-img {
+          animation: heroBannerReveal 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+      `}</style>
+
       {/* ─── Part 1: Primary Banner — Full Width, No Overlay ─── */}
       <div
         style={{
@@ -53,13 +64,15 @@ export default function HeroSection({
           aspectRatio: '1983 / 793',
         }}
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{
-            scale: { duration: 1.8, ease: [0.25, 0.46, 0.45, 0.94] },
-            opacity: { duration: 0.8, ease: 'easeOut' },
-          }}
+        {/* 
+          WHY plain div instead of motion.div:
+          Framer Motion sets initial SSR HTML to opacity:0. On Hostinger's shared
+          Node.js, if the React hydration is delayed, the banner stays invisible.
+          A CSS @keyframes animation starts immediately from the browser's first paint,
+          requiring zero JS execution — fully production-safe.
+        */}
+        <div
+          className="hero-banner-img"
           style={{
             width: '100%',
             lineHeight: 0,
@@ -71,6 +84,7 @@ export default function HeroSection({
             width={1983}
             height={793}
             priority
+            fetchPriority="high"
             sizes="100vw"
             style={{
               width: '100%',
@@ -79,7 +93,7 @@ export default function HeroSection({
               objectFit: 'contain',
             }}
           />
-        </motion.div>
+        </div>
 
         {/* Subtle bottom gradient blend into next section */}
         <div

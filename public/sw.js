@@ -2,23 +2,27 @@
  * EverShine Academy LMS PWA Service Worker
  * 
  * Cache strategies:
- *   - _next/static/*  → Not handled by the service worker. Next.js serves
- *                        content-hashed assets with HTTP cache headers; SW
- *                        caching can keep users pinned to an old build.
- *   - /brand/, assets  → Cache-First (unchanged between deployments).
- *   - Images / fonts   → Cache-First (static by nature).
- *   - API routes       → Network only. Stale LMS data is worse than a clear
- *                        offline/network failure.
+ *   - _next/static/*  → Not handled by the SW (content-hashed by Next.js).
+ *   - /brand/         → Cache-First (logo/icons unchanged between deployments).
+ *   - /assets/images/banner/* → Network-First: banners change on deploy; always
+ *                               fetch fresh from server, fall back to cache offline.
+ *   - Other images/fonts → Cache-First.
+ *   - API routes       → Network only.
  *   - Navigation       → Network only with offline fallback.
+ * 
+ * CACHE_VERSION bump → forces ALL stale caches to be deleted on next activate.
+ * Bump this on every deployment that changes public assets.
  */
 
-const CACHE_VERSION = 'v1.4.0';
+// TRADEOFF: Bumping version invalidates all cached assets (brand, images).
+// Users will re-download them once. Acceptable cost to guarantee fresh content.
+const CACHE_VERSION = 'v1.5.0';
 const CACHE_PREFIX = 'evershine-lms-';
 
 const CACHE_NAMES = {
   static: `${CACHE_PREFIX}static-${CACHE_VERSION}`,
-  pages: `${CACHE_PREFIX}pages-${CACHE_VERSION}`,
-  api: `${CACHE_PREFIX}api-${CACHE_VERSION}`
+  pages:  `${CACHE_PREFIX}pages-${CACHE_VERSION}`,
+  api:    `${CACHE_PREFIX}api-${CACHE_VERSION}`
 };
 
 // Core assets to pre-cache on service worker installation
@@ -29,13 +33,19 @@ const PRECACHE_ASSETS = [
   '/brand/pwa-icon-512.png'
 ];
 
+// Banner images: always serve from network first — these change on every deploy.
+// Cache-First here caused users to see old banners after updates.
+const isBannerAsset = (url) => {
+  return url.pathname.startsWith('/assets/images/banner/');
+};
+
 // Cacheable static asset (brand assets, uploaded images, fonts).
-// NEVER match _next/static/* — those are content-hashed by Next.js
-// and served with immutable Cache-Control. Cache-First on those would
-// serve stale files after deployments.
+// NEVER match _next/static/* — content-hashed by Next.js, served with immutable Cache-Control.
 const isCacheableAsset = (url) => {
   const path = url.pathname;
   if (path.startsWith('/_next/')) return false;
+  // Banners handled separately via Network-First above
+  if (path.startsWith('/assets/images/banner/')) return false;
   return (
     path.startsWith('/brand/') ||
     path.startsWith('/assets/') ||
@@ -99,16 +109,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Navigation Requests (HTML document pages)
+  // 1. Navigation Requests (HTML document pages) — Network-First always.
+  //    Never serve a cached HTML page; ensures the latest build is shown.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/offline'))
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/offline'))
     );
     return;
   }
 
-  // 2. Cacheable Assets (brand, images, fonts) — Cache-First Strategy
-  //    NOT for _next/static/* which are content-hashed by the build.
+  // 2. Banner Images — Network-First.
+  //    Banners change on every deploy. Cache-First here caused the "old banner"
+  //    bug where users saw stale images even after a new deployment.
+  //    Network-First: fetch fresh, fall back to cached version if offline.
+  if (isBannerAsset(requestUrl)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAMES.static).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 3. Cacheable Static Assets (brand icons, gallery images, fonts) — Cache-First.
+  //    These do NOT change between deployments.
   if (isCacheableAsset(requestUrl)) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
@@ -130,7 +162,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. API Read Requests — Network only. Returning stale API data after auth,
+  // 4. API Read Requests — Network only. Returning stale API data after auth,
   //    role, fee, or attendance changes causes misleading LMS behavior.
   if (isApiRoute(requestUrl)) {
     event.respondWith(
@@ -154,10 +186,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 6. Default: Network-First fallback
+  // 5. Default: Network-First fallback for everything else
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
