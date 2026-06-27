@@ -50,6 +50,7 @@ export default function HeroSection({
           width: '100%',
           overflow: 'hidden',
           backgroundColor: '#F5F3EF',
+          aspectRatio: '1983 / 793',
         }}
       >
         <motion.div
@@ -65,7 +66,7 @@ export default function HeroSection({
           }}
         >
           <Image
-            src={banners[0]?.src || '/assets/images/banner/banner-3.png'}
+            src={banners[0]?.src || '/assets/images/banner/updated_banne.png'}
             alt={banners[0]?.alt || 'Evershine Academy — We Make Your Children More Valuable'}
             width={1983}
             height={793}
