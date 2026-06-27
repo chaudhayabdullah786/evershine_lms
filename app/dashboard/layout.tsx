@@ -47,6 +47,7 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { isAcademicEnginePrimary } from '@/lib/academic/config'
 import { CompulsoryFeedbackBlocker } from '@/components/student/CompulsoryFeedbackBlocker'
+import { RulesAgreementBlocker } from '@/components/student/RulesAgreementBlocker'
 import { GuardianFeedbackModal } from '@/components/feedback/GuardianFeedbackModal'
 import { FeeOverdueModal } from '@/components/student/FeeOverdueModal'
 
@@ -358,6 +359,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <PageTransition>
             {role === 'STUDENT' && (
               <>
+                {/* RulesAgreementBlocker fires first — gates access on first login.
+                    CompulsoryFeedbackBlocker only runs once rules are accepted. */}
+                <RulesAgreementBlocker />
                 <CompulsoryFeedbackBlocker />
                 <FeeOverdueModal />
               </>

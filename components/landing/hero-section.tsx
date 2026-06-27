@@ -17,7 +17,7 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useBannerRotation } from '@/hooks/use-banner-rotation'
 import type { BannerImage } from '@/types/landing'
-import { ChevronDown, Sparkles, GraduationCap, Phone, MapPin } from 'lucide-react'
+import { ChevronDown, Sparkles, GraduationCap, Phone, MapPin, Award } from 'lucide-react'
 
 interface HeroSectionProps {
   banners: BannerImage[]
@@ -150,6 +150,7 @@ export default function HeroSection({
             { icon: <GraduationCap size={15} />, text: 'Playgroup → Matric → College' },
             { icon: <Sparkles size={15} />, text: 'Morning · Evening · Night' },
             { icon: <MapPin size={15} />, text: 'Boys & Girls Campuses' },
+            { icon: <Award size={15} style={{ color: '#F5A623' }} />, text: 'Academy System Since 2016', bold: true },
           ].map((pill, i) => (
             <motion.span
               key={pill.text}
@@ -162,11 +163,11 @@ export default function HeroSection({
                 gap: '8px',
                 padding: '8px 20px',
                 borderRadius: '24px',
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                color: 'rgba(255,255,255,0.9)',
+                backgroundColor: pill.bold ? 'rgba(245,166,35,0.12)' : 'rgba(255,255,255,0.08)',
+                border: pill.bold ? '1px solid rgba(245,166,35,0.3)' : '1px solid rgba(255,255,255,0.15)',
+                color: pill.bold ? '#F5A623' : 'rgba(255,255,255,0.9)',
                 fontSize: '0.82rem',
-                fontWeight: 500,
+                fontWeight: pill.bold ? 700 : 500,
                 backdropFilter: 'blur(8px)',
               }}
             >

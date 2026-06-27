@@ -465,6 +465,7 @@ model Student {
   // WHY shift: Student is enrolled in Morning, Evening, or Night coaching session
   shift         SessionShift      @default(MORNING)
   deliveryMode  ClassDeliveryMode @default(PHYSICAL)
+  rulesAccepted Boolean           @default(false)
 
   // Fee summary — denormalized for fast dashboard queries
   // TRADEOFF: Slight denormalization here accepted because fee dashboard

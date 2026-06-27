@@ -174,4 +174,5 @@ export const ADMISSION_RULES = [
   'It is mandatory for every student to attend the ESA EVENTS.',
   'Registration is mandatory for every student every year.',
   'Decisions of the administration will be final, in any case.',
+  'I acknowledge that my enrollment will remain active for the complete academic session unless an official withdrawal application is submitted and approved. If I wish to leave the institute, I must submit the application at least 14 calendar days before the end of the intended final month and clear all outstanding dues.',
 ]
