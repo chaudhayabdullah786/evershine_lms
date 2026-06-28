@@ -17,6 +17,11 @@ const dateOrDateTimeString = z.preprocess((value) => {
   return value
 }, z.string().datetime({ message: 'Invalid date of birth' }))
 
+const optionalCuid = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  return value
+}, z.string().cuid().optional())
+
 const createStudentSchemaBase = z.object({
   // ── Personal identity ──────────────────────────────────────────────────────
   firstName:    z.string().min(2, 'First name must be at least 2 characters').trim(),
@@ -101,13 +106,13 @@ const createStudentSchemaBase = z.object({
   // ── Academic placement ─────────────────────────────────────────────────────
   campusId:       z.string().cuid('Invalid campus ID'),
   batchId:        z.string().cuid('Invalid batch ID'),
-  classId:        z.string().cuid().optional(),
-  classSectionId: z.string().cuid().optional(),
+  classId:        optionalCuid,
+  classSectionId: optionalCuid,
   section:        z.string().max(5).optional(),
   rollNumber:     z.string().min(1).max(20).optional(),
   shift:          sessionShiftSchema.optional(),
   deliveryMode:   deliveryModeSchema.optional(),
-  houseId:        z.string().cuid().optional(),
+  houseId:        optionalCuid,
   academicYear:   z.string().regex(/^\d{4}-\d{4}$/, 'Academic year must be in format YYYY-YYYY'),
 
   // ── Financial ──────────────────────────────────────────────────────────────
