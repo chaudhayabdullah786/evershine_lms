@@ -66,10 +66,10 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
 /* ── Step Metadata ────────────────────────────────────────────── */
 
 export const STEP_META = [
-  { label: 'Program',   desc: 'Select your class, course group & campus preference',   icon: BookOpen },
+  { label: 'Program',   desc: 'Share class, course group & campus preferences if known',      icon: BookOpen },
   { label: 'Student',   desc: 'Personal identity, contact & residential address',       icon: User },
-  { label: 'Academics', desc: 'Previous academic history & document uploads',            icon: GraduationCap },
-  { label: 'Interview', desc: 'Prior academic result details for evaluation',            icon: ClipboardList },
+  { label: 'Academics', desc: 'Optional academic history & required photo upload',             icon: GraduationCap },
+  { label: 'Interview', desc: 'Optional prior result details for evaluation',                  icon: ClipboardList },
   { label: 'Guardian',  desc: 'Parent or guardian contact & employment details',         icon: Users },
   { label: 'Review',    desc: 'Confirm your details, accept terms & submit',            icon: Send },
 ]
