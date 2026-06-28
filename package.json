@@ -4,11 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
-<<<<<<< HEAD
-    "build": "RAYON_NUM_THREADS=1 next build --webpack",
-=======
-    "build": "RAYON_NUM_THREADS=1 next build --webpack",
->>>>>>> 5e77694 (fix(build): set RAYON_NUM_THREADS=1 to prevent SWC thread-pool EAGAIN crash on Hostinger)
+    "build": "RAYON_NUM_THREADS=1 TOKIO_WORKER_THREADS=1 next build --webpack",
     "postbuild": "node scripts/postbuild-sync.js",
     "setup:pwa-icons": "node scripts/setup-pwa-icons.js",
     "start": "node server.js",
