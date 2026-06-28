@@ -11,7 +11,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
-import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
+import { errors, errorResponse, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { createStudentSchema, studentQuerySchema } from '@/lib/validation/student'
 import { ensureActiveYearEnrollment } from '@/lib/students/enrollment-sync'
 import { linkGuardianToStudentDirect } from '@/lib/students/guardian-link'
@@ -30,6 +30,29 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
   return 'Unknown error'
+}
+
+type PrismaLikeError = {
+  code?: string
+  message?: string
+  meta?: Record<string, unknown>
+}
+
+function getPrismaError(error: unknown): PrismaLikeError {
+  if (error && typeof error === 'object') {
+    return error as PrismaLikeError
+  }
+  return {}
+}
+
+function logStudentCreateFailure(stage: string, error: unknown) {
+  const err = getPrismaError(error)
+  console.error('[STUDENTS_POST] create failed', {
+    stage,
+    code: err.code,
+    meta: err.meta,
+    message: getErrorMessage(error),
+  })
 }
 
 // ── GET /api/students ────────────────────────────────────────────────────────
@@ -231,18 +254,22 @@ export async function POST(request: NextRequest) {
           firstName: data.firstName,
           lastName: data.lastName,
           fatherName: data.fatherName,
+          motherName: data.motherName || null,
           cnicBForm: data.cnicBForm,
           dateOfBirth: new Date(data.dateOfBirth),
+          placeOfBirth: data.placeOfBirth || null,
           gender: data.gender,
           bloodGroup: data.bloodGroup,
           religion: data.religion,
           nationality: data.nationality,
+          domicile: data.domicile || null,
           requestedLevel: data.requestedLevel,
           requestedClass: data.requestedClass ?? null,
           requestedGroup: data.requestedGroup || null,
           requestedGroupOther: data.requestedGroupOther || null,
           requestedCourses: data.requestedCourses || [],
           requestedCoursesOther: data.requestedCoursesOther || null,
+          repeaterSubjects: data.repeaterSubjects || null,
           interviewInstitute: data.interviewInstitute || null,
           interviewMarksObtained: data.interviewMarksObtained ?? null,
           interviewPercentage: data.interviewPercentage || null,
@@ -255,10 +282,34 @@ export async function POST(request: NextRequest) {
           address: data.address,
           city: data.city,
           province: data.province,
+          tehsil: data.tehsil || null,
+          district: data.district || null,
+          permanentAddress: data.permanentAddress || null,
           postalCode: data.postalCode,
           phoneNumber: data.phoneNumber,
           emergencyContact: data.emergencyContact,
           email: data.email || null,
+          fatherOccupation: data.fatherOccupation || null,
+          fatherQualification: data.fatherQualification || null,
+          fatherCnic: data.fatherCnic || null,
+          guardianEmploymentStatus: data.guardianEmploymentStatus || null,
+          guardianDesignation: data.guardianDesignation || null,
+          guardianOrganization: data.guardianOrganization || null,
+          guardianBusinessName: data.guardianBusinessName || null,
+          guardianBusinessDealsIn: data.guardianBusinessDealsIn || null,
+          lastClassPassed: data.lastClassPassed ?? null,
+          lastPercentage: data.lastPercentage || null,
+          previousMarksObtained: data.previousMarksObtained ?? null,
+          boardName: data.boardName || null,
+          previousGroup: data.previousGroup || null,
+          yearOfPassing: data.yearOfPassing ?? null,
+          sourceOfInfo: data.sourceOfInfo || null,
+          medicalConditions: data.medicalConditions || null,
+          hasDisability: data.hasDisability ?? false,
+          disabilityDetails: data.disabilityDetails || null,
+          hasSiblingAtAcademy: data.hasSiblingAtAcademy ?? false,
+          siblingName: data.siblingName || null,
+          siblingClass: data.siblingClass || null,
           campusId: data.campusId,
           batchId: data.batchId,
           classId: data.classId || null,
@@ -271,6 +322,8 @@ export async function POST(request: NextRequest) {
           totalFeeAmount: data.totalFeeAmount,
           dueAmount: data.totalFeeAmount,
           profilePicture: data.profilePicture || null,
+          bFormDocUrl: data.bFormDocUrl || null,
+          previousResultUrl: data.previousResultUrl || null,
           idCardQRCode: `ESA-QR-${registrationNumber.replace(/\//g, '-')}`,
         },
       })
@@ -296,12 +349,28 @@ export async function POST(request: NextRequest) {
   } catch (txErr: unknown) {
     // WHY: Prisma P2002 = unique constraint violation. Surface it as a 409 so the
     // frontend can show a field-level error (e.g. email already registered).
-    const err = txErr as { code?: string; meta?: { target?: string[] } }
+    const err = getPrismaError(txErr)
     if (err.code === 'P2002') {
-      const target = err.meta?.target?.join(', ') ?? 'field'
+      const target = Array.isArray(err.meta?.target) ? err.meta.target.join(', ') : 'field'
       return errors.conflict(`Duplicate value for ${target}. Please check the email or CNIC.`)
     }
-    console.error('[STUDENTS_POST] transaction error', txErr)
+    if (err.code === 'P2021' || err.code === 'P2022') {
+      logStudentCreateFailure('transaction.schema', txErr)
+      return errorResponse(
+        'SCHEMA_OUT_OF_DATE',
+        'The student admission database schema is out of date. Please run the production migration and try again.',
+        500
+      )
+    }
+    if (['P1001', 'P1002', 'P1008', 'P1017'].includes(err.code ?? '')) {
+      logStudentCreateFailure('transaction.database', txErr)
+      return errorResponse(
+        'DATABASE_UNAVAILABLE',
+        'The database is temporarily unavailable. Please try again shortly.',
+        503
+      )
+    }
+    logStudentCreateFailure('transaction', txErr)
     return errors.internal()
   }
 
@@ -323,7 +392,7 @@ export async function POST(request: NextRequest) {
       guardianId = result.guardianId
     } catch (guardianErr: unknown) {
       // Non-fatal: student created, guardian can be linked from profile
-      console.error('[STUDENTS_POST] guardian link error', guardianErr)
+      logStudentCreateFailure('guardian-link', guardianErr)
       guardianNote = `Guardian account setup failed: ${getErrorMessage(guardianErr)}`
     }
   }
@@ -351,7 +420,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (enrollmentErr: unknown) {
       // Non-fatal: student created; admin can enroll manually from student profile
-      console.error('[STUDENTS_POST] enrollment error', enrollmentErr)
+      logStudentCreateFailure('enrollment', enrollmentErr)
       enrollmentNote = `Enrollment skipped: ${getErrorMessage(enrollmentErr)}`
     }
   }

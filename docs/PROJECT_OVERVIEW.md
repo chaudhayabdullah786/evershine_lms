@@ -1,7 +1,7 @@
 # EverShine Academy LMS — Project Overview
 > **Version**: 3.0.0 | **Last Updated**: 2026-06-27 | **Maintainer**: Ibadat Ali
 > **Repo**: https://github.com/chaudhayabdullah786/evershine_lms
-> **Branch**: `main` | **Production Host**: Hostinger (evershineacadmey.com)
+> **Branch**: `main` | **Production Host**: Hostinger (evershineacademy.com)
 > **Stack**: Next.js 16 (App Router) · TypeScript · Prisma 5 · MySQL · NextAuth v5
 
 ---
