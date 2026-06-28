@@ -115,6 +115,28 @@ console.log('[SERVER] Syncing static assets into standalone...')
 syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
 syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
 
+// ── Re-inject BUILD_ID into standalone sw.js ─────────────────────────────────
+// WHY: syncDir above copied public/sw.js (which retains the __BUILD_ID__
+// placeholder) into standalone/public/sw.js, overwriting the build-time
+// injected version. We must re-inject the live BUILD_ID here so that
+// the service worker served in production always uses the correct cache
+// version for this specific build — not a generic placeholder string.
+const buildId = fs.readFileSync(BUILD_ID, 'utf8').trim()
+const SW_PLACEHOLDER = '__BUILD_ID__'
+const standaloneSW = path.join(PUBLIC_DST, 'sw.js')
+if (fs.existsSync(standaloneSW)) {
+  const swContent = fs.readFileSync(standaloneSW, 'utf8')
+  if (swContent.includes(SW_PLACEHOLDER)) {
+    fs.writeFileSync(standaloneSW, swContent.replace(SW_PLACEHOLDER, buildId), 'utf8')
+    console.log(`[SERVER] OK  sw.js cache version injected: ${buildId}`)
+  } else {
+    // Already injected (e.g. postbuild-sync already ran and we're doing a hot restart).
+    console.log('[SERVER] OK  sw.js cache version already injected.')
+  }
+} else {
+  console.warn('[SERVER] WARN: standalone/public/sw.js not found — PWA cache busting unavailable.')
+}
+
 // ── 4. Start Next.js standalone server ──────────────────────────────────────
 const serverPath = path.join(STANDALONE, 'server.js')
 if (!fs.existsSync(serverPath)) {
