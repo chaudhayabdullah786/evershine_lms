@@ -84,9 +84,14 @@ syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
 // placeholder. If we deployed without replacing it, ALL deployments would share
 // the same cache name and old caches would never be evicted.
 //
+// CRITICAL: We inject ONLY into the standalone OUTPUT copy of sw.js, never into
+// the source-tracked public/sw.js. Mutating the source file consumes the
+// placeholder — on the next build it is already gone, injection silently skips,
+// and the SW is stuck on an old cache version. Users see stale UI after deploys.
+//
 // We read the real Next.js BUILD_ID (a content hash Next.js generates per build)
-// and write it into BOTH copies of sw.js so the SW's cache key is unique per
-// deployment. Users automatically get a fresh cache on every deploy.
+// and write it only into the standalone copy so the SW cache key is unique per
+// deployment. The source file always retains the __BUILD_ID__ placeholder.
 const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
 if (!fs.existsSync(BUILD_ID_PATH)) {
   console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot inject cache version into sw.js.')
@@ -96,9 +101,11 @@ const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
 console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
 
 const SW_PLACEHOLDER = '__BUILD_ID__'
+// TRADEOFF: Only the standalone output copy is injected. public/sw.js retains
+// the placeholder so future builds always have a clean starting point.
 const swTargets = [
   path.join(PUBLIC_DST, 'sw.js'),  // standalone/public/sw.js (served in production)
-  path.join(PUBLIC_SRC, 'sw.js'),  // public/sw.js (kept in sync for clarity)
+  // NOT public/sw.js — mutating the source file destroys the placeholder for future builds.
 ]
 for (const swPath of swTargets) {
   if (!fs.existsSync(swPath)) {
@@ -107,11 +114,26 @@ for (const swPath of swTargets) {
   }
   const content = fs.readFileSync(swPath, 'utf8')
   if (!content.includes(SW_PLACEHOLDER)) {
-    console.warn(`[postbuild] WARN: __BUILD_ID__ placeholder not found in ${swPath} — already injected?`)
-    continue
+    console.error(`[postbuild] ERROR: __BUILD_ID__ placeholder NOT found in ${swPath}`)
+    console.error('[postbuild] This usually means public/sw.js was previously mutated by a build.')
+    console.error('[postbuild] Restore the placeholder: const CACHE_VERSION = \'__BUILD_ID__\';')
+    process.exit(1)
   }
   fs.writeFileSync(swPath, content.replace(SW_PLACEHOLDER, buildId), 'utf8')
   console.log(`[postbuild] OK  sw.js cache version set → ${path.relative(ROOT, swPath)}`)
+}
+
+// Verify source sw.js still has the placeholder for future builds.
+const srcSwPath = path.join(PUBLIC_SRC, 'sw.js')
+if (fs.existsSync(srcSwPath)) {
+  const srcContent = fs.readFileSync(srcSwPath, 'utf8')
+  if (!srcContent.includes(SW_PLACEHOLDER)) {
+    console.error('[postbuild] CRITICAL: public/sw.js source file has lost its __BUILD_ID__ placeholder!')
+    console.error('[postbuild] Future builds will produce a service worker stuck on the same old cache.')
+    console.error('[postbuild] Restore: const CACHE_VERSION = \'__BUILD_ID__\'; in public/sw.js')
+    process.exit(1)
+  }
+  console.log('[postbuild] OK  public/sw.js source placeholder intact.')
 }
 
 console.log('[postbuild] Done. Standalone build is deployment-ready.')

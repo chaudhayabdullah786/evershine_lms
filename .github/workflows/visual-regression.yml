@@ -41,20 +41,38 @@ jobs:
         run: npm run build
 
       - name: Start server
-        run: PORT=5000 npm run start &
+        # WHY: node server.js (not npm run start) is used explicitly so that the
+        # required env vars below are visible during server startup validation.
+        # server.js validates DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL on launch.
+        env:
+          DATABASE_URL: mysql://ci_user:ci_password@localhost:3306/lms_ci
+          NEXTAUTH_SECRET: ci-test-secret-min-32-chars-long!!
+          NEXTAUTH_URL: http://localhost:5000
+          NODE_ENV: production
+          PORT: '5000'
+        run: node server.js &
 
       - name: Wait for server
+        # WHY curl over nc: nc checks raw TCP connection (port open) but the server
+        # may still be initialising and return nothing. curl validates HTTP 200/307
+        # which means Next.js is fully ready to serve requests.
         run: |
-          n=0
-          until nc -z localhost 5000 || [ $n -ge 30 ]; do
-            n=$((n+1))
-            sleep 1
+          for i in $(seq 1 60); do
+            status=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5000/login || true)
+            if echo "$status" | grep -qE '200|307'; then
+              echo "Server up (HTTP $status)"
+              exit 0
+            fi
+            sleep 2
           done
+          echo "Server failed to start within 120 s"
+          exit 1
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: Run Playwright visual tests
+        timeout-minutes: 10
         run: npx playwright test --config=playwright.config.ts
 
       - name: Upload Playwright artifacts

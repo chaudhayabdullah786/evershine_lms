@@ -15,12 +15,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
+
   // Limit build workers and CPU cores to 1 to bypass Hostinger's process limit (EAGAIN).
-  // Prevents Next.js from spawning dozens of worker processes during minification/static generation.
+  // Prevents Next.js from spawning worker processes during minification/static generation.
+  // WHY workerThreads + cpus only: webpackBuildWorker was removed in Next.js 16.
   experimental: {
     workerThreads: false,
     cpus: 1,
-    webpackBuildWorker: false,
   },
 
   // Image remote patterns — add domains your images are served from.
