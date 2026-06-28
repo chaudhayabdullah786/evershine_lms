@@ -22,6 +22,12 @@ const optionalCuid = z.preprocess((value) => {
   return value
 }, z.string().cuid().optional())
 
+const blankOptionalNumber = (value: unknown) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  if (typeof value === 'number' && Number.isNaN(value)) return undefined
+  return value
+}
+
 const createStudentSchemaBase = z.object({
   // ── Personal identity ──────────────────────────────────────────────────────
   firstName:    z.string().min(2, 'First name must be at least 2 characters').trim(),
@@ -57,35 +63,23 @@ const createStudentSchemaBase = z.object({
   fatherCnic:          z.string().optional(),  // Father's own 13-digit CNIC
 
   // ── Academic background (from previous institution) ────────────────────────
-  lastClassPassed:       z.number().int().min(1).max(12).optional(),
+  lastClassPassed:       z.preprocess(blankOptionalNumber, z.number().int().min(1).max(12).optional()),
   lastPercentage:        z.string().optional(),      // e.g. "72.5%" or "710/1100"
-  previousMarksObtained: z.number().int().min(0).optional(),
+  previousMarksObtained: z.preprocess(blankOptionalNumber, z.number().int().min(0).optional()),
   boardName:             z.string().optional(),      // e.g. "BISE Faisalabad", "FBISE"
   previousGroup:         z.string().optional(),      // e.g. "Science", "Arts"
-  yearOfPassing:         z.number().int().min(1990).max(new Date().getFullYear()).optional(),
+  yearOfPassing:         z.preprocess(blankOptionalNumber, z.number().int().min(1990).max(new Date().getFullYear()).optional()),
   
   requestedLevel:        z.string().optional(),
-  requestedClass: z.preprocess((value) => {
-    if (typeof value === 'string' && value.trim() === '') return undefined
-    if (typeof value === 'number' && Number.isNaN(value)) return undefined
-    return value
-  }, z.number().int().min(1, 'Requested class must be a positive integer').max(12, 'Requested class must be 12 or lower').optional()),
+  requestedClass: z.preprocess(blankOptionalNumber, z.number().int().min(1, 'Requested class must be a positive integer').max(12, 'Requested class must be 12 or lower').optional()),
   requestedGroup:        z.string().optional(),      // e.g. "Computer Group", "Biology Group", "F.Sc"
   requestedGroupOther:   z.string().optional(),      // Free-text detail when primary group is Other
   requestedCourses:      z.array(z.string()).optional(),
   requestedCoursesOther: z.string().optional(),
   interviewInstitute:     z.string().optional(),
-  interviewMarksObtained: z.preprocess((value) => {
-    if (typeof value === 'string' && value.trim() === '') return undefined
-    if (typeof value === 'number' && Number.isNaN(value)) return undefined
-    return value
-  }, z.number().int().min(0, 'Marks must be a positive number').optional()),
+  interviewMarksObtained: z.preprocess(blankOptionalNumber, z.number().int().min(0, 'Marks must be a positive number').optional()),
   interviewPercentage:    z.string().optional(),
-  interviewYear: z.preprocess((value) => {
-    if (typeof value === 'string' && value.trim() === '') return undefined
-    if (typeof value === 'number' && Number.isNaN(value)) return undefined
-    return value
-  }, z.number().int().min(1900, 'Year must be valid').max(new Date().getFullYear(), 'Year cannot be in the future').optional()),
+  interviewYear: z.preprocess(blankOptionalNumber, z.number().int().min(1900, 'Year must be valid').max(new Date().getFullYear(), 'Year cannot be in the future').optional()),
   interviewGroup:         z.string().optional(),
   interviewDate:         z.string().optional(),
   interviewerName:       z.string().optional(),
@@ -174,6 +168,7 @@ export const createStudentSchema = mergedStudentSchema
 
 // Update schema: use partial on the base merged schema, then extend
 export const updateStudentSchema = mergedStudentSchema.partial().extend({
+  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional().or(z.literal('')).transform((v) => v || undefined),
   enrollmentStatus: enrollmentStatusEnum.optional(),
   rollNumber: z.string().optional(),
   isActive: z.boolean().optional(),

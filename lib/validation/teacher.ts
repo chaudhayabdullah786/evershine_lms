@@ -88,12 +88,14 @@ export const updateTeacherSchema = createTeacherSchema
       .string()
       .cuid()
       .optional()
+      .nullable()
       .or(z.literal(''))
       .transform((v) => v || null),
     houseId: z
       .string()
       .cuid()
       .optional()
+      .nullable()
       .or(z.literal(''))
       .transform((v) => v || null),
     designation: z.string().min(2, 'Designation is required').trim().optional(),

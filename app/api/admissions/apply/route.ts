@@ -94,14 +94,14 @@ const applySchema = z.object({
   // ── Section 4: Academic Background ───────────────────────────────────────
   preferredCampusId: z.string().optional(),
   preferredBatchId: z.string().optional(),
-  requestedLevel:    z.string().min(2, 'Class / grade selection is required'),
+  requestedLevel:    z.string().optional().or(z.literal('')),
   requestedClass:    z.string().optional().or(z.literal('')).transform((value) => {
     const parsed = parseInt(String(value), 10)
     return Number.isFinite(parsed) ? parsed : undefined
   }).optional(),
   requestedGroup:    z.string().optional(),
   requestedGroupOther: z.string().optional(),
-  requestedCourses:  z.array(z.string()).min(1, 'Select at least one course group'),
+  requestedCourses:  z.array(z.string()).optional().default([]),
   requestedCoursesOther: z.string().optional(),
   repeaterSubjects:  z.string().optional(),
   previousSchool:    z.string().optional(),
@@ -303,11 +303,11 @@ export async function POST(req: Request) {
         fatherCnic:           validated.fatherCnic || null,
 
         // Academic background
-        requestedLevel:  validated.requestedLevel,
+        requestedLevel:  validated.requestedLevel || 'Unspecified',
         requestedClass:  validated.requestedClass,
         requestedGroup:  validated.requestedGroup || null,
         requestedGroupOther: validated.requestedGroupOther || null,
-        requestedCourses: validated.requestedCourses,
+        requestedCourses: validated.requestedCourses ?? [],
         requestedCoursesOther: validated.requestedCoursesOther || null,
         repeaterSubjects: validated.repeaterSubjects || null,
         previousSchool:  validated.previousSchool || null,

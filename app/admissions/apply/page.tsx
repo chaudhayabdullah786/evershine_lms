@@ -143,12 +143,7 @@ export default function AdmissionFormPage() {
 
   const validateStep = (currentStep: number) => {
     const newErrors: Record<string, string> = {}
-    if (currentStep === 1) {
-      if (!formData.requestedLevel) newErrors.requestedLevel = 'Class / Grade selection is required'
-      if ((!formData.requestedCourses || formData.requestedCourses.length === 0) && !formData.requestedGroup) {
-        newErrors.requestedCourses = 'Select a primary program or at least one course group'
-      }
-    } else if (currentStep === 2) {
+    if (currentStep === 2) {
       if (!formData.firstName || formData.firstName.length < 2) newErrors.firstName = 'First name required (min 2)'
       if (!formData.lastName || formData.lastName.length < 2) newErrors.lastName = 'Last name required (min 2)'
       if (!formData.fatherName || formData.fatherName.length < 2) newErrors.fatherName = 'Father name required'
@@ -161,19 +156,7 @@ export default function AdmissionFormPage() {
       if (!formData.phoneNumber || formData.phoneNumber.length < 10) newErrors.phoneNumber = 'Valid phone required'
       if (!formData.emergencyContact || formData.emergencyContact.length < 10) newErrors.emergencyContact = 'Valid emergency contact required'
     } else if (currentStep === 3) {
-      if (!formData.previousSchool) newErrors.previousSchool = 'Previous school name is required'
-      if (!formData.lastClassPassed) newErrors.lastClassPassed = 'Last class passed is required'
-      if (formData.lastClassPassed === '') newErrors.lastClassPassed = 'Last class passed is required'
-      if (!formData.previousTotalMarks) newErrors.previousTotalMarks = 'Total marks is required'
-      if (formData.previousMarksObtained === '') newErrors.previousMarksObtained = 'Marks obtained is required'
-      if (!formData.yearOfPassing) newErrors.yearOfPassing = 'Year of passing is required'
       if (!formData.passportPhotoBase64) newErrors.passportPhotoBase64 = 'Passport photo is required'
-    } else if (currentStep === 4) {
-      if (!formData.interviewInstitute) newErrors.interviewInstitute = 'Institute is required'
-      if (!formData.interviewGroup) newErrors.interviewGroup = 'Group is required'
-      if (!formData.interviewMarksObtained) newErrors.interviewMarksObtained = 'Marks obtained is required'
-      if (!formData.interviewPercentage) newErrors.interviewPercentage = 'Percentage is required'
-      if (!formData.interviewYear) newErrors.interviewYear = 'Year is required'
     } else if (currentStep === 5) {
       if (!formData.guardianFirstName) newErrors.guardianFirstName = 'Guardian first name required'
       if (!formData.guardianLastName) newErrors.guardianLastName = 'Guardian last name required'
@@ -383,10 +366,10 @@ export default function AdmissionFormPage() {
               >
                 {step === 1 && (
                   <div className="space-y-6">
-                    <SectionTitle>Program Selection</SectionTitle>
+                    <SectionTitle>Program Preferences</SectionTitle>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FGroup>
-                        <FL required>Class / Grade</FL>
+                        <FL>Class / Grade</FL>
                         <Select value={formData.requestedLevel} onValueChange={handleClassSelect}>
                           <SelectTrigger><SelectValue placeholder="Select class or grade" /></SelectTrigger>
                           <SelectContent>
@@ -452,7 +435,7 @@ export default function AdmissionFormPage() {
                     <div className="grid gap-4">
                       <div className="flex flex-col gap-2">
                         <div className="text-sm font-medium text-slate-700">Group / Courses</div>
-                        <p className="text-sm text-slate-500">Select the course groups or streams that apply to this applicant. Multiple selections are allowed.</p>
+                        <p className="text-sm text-slate-500">Optionally select the course groups or streams that apply to this applicant. Multiple selections are allowed.</p>
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -484,8 +467,8 @@ export default function AdmissionFormPage() {
                     </div>
 
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-sm">
-                      <div className="font-semibold text-slate-900">Program selection will be verified by the admissions office</div>
-                      <p className="mt-1 text-slate-500">Select the course streams that best match the applicant’s academic interests. Final placement and fees are confirmed by the admissions team after review.</p>
+                      <div className="font-semibold text-slate-900">Program preferences will be verified by the admissions office</div>
+                      <p className="mt-1 text-slate-500">Share preferred course streams if known. Final placement and fees are confirmed by the admissions team after review.</p>
                     </div>
 
                     <div className="grid gap-4">
@@ -646,15 +629,15 @@ export default function AdmissionFormPage() {
 
                 {step === 3 && (
                   <div className="space-y-6">
-                    <SectionTitle>Previous Academic History</SectionTitle>
+                    <SectionTitle>Previous Academic History (Optional)</SectionTitle>
                     <FRow>
                       <FGroup>
-                        <FL required>Previous School / Institution</FL>
+                        <FL>Previous School / Institution</FL>
                         <Input name="previousSchool" value={formData.previousSchool} onChange={handleChange} placeholder="Last school attended" />
                         <FieldError message={errors.previousSchool} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Last Class Passed</FL>
+                        <FL>Last Class Passed</FL>
                         <Select value={formData.lastClassPassed} onValueChange={(val) => handleSelect('lastClassPassed', val)}>
                           <SelectTrigger><SelectValue placeholder="Select class passed" /></SelectTrigger>
                           <SelectContent>
@@ -669,12 +652,12 @@ export default function AdmissionFormPage() {
                         <FieldError message={errors.lastClassPassed} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Total Marks</FL>
+                        <FL>Total Marks</FL>
                         <Input type="number" name="previousTotalMarks" value={formData.previousTotalMarks} onChange={handleChange} placeholder="e.g. 1100" />
                         <FieldError message={errors.previousTotalMarks} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Marks Obtained</FL>
+                        <FL>Marks Obtained</FL>
                         <Input type="number" name="previousMarksObtained" value={formData.previousMarksObtained} onChange={handleChange} placeholder="e.g. 750" />
                         <FieldError message={errors.previousMarksObtained} />
                       </FGroup>
@@ -687,7 +670,7 @@ export default function AdmissionFormPage() {
                         <Input name="boardName" value={formData.boardName} onChange={handleChange} placeholder="e.g. BISE Faisalabad" />
                       </FGroup>
                       <FGroup>
-                        <FL required>Year of Passing</FL>
+                        <FL>Year of Passing</FL>
                         <Input type="number" name="yearOfPassing" value={formData.yearOfPassing} onChange={handleChange} placeholder="e.g. 2024" />
                         <FieldError message={errors.yearOfPassing} />
                       </FGroup>
@@ -743,37 +726,37 @@ export default function AdmissionFormPage() {
 
                 {step === 4 && (
                   <div className="space-y-6">
-                    <SectionTitle>Interview Details</SectionTitle>
+                    <SectionTitle>Interview Details (Optional)</SectionTitle>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FGroup>
-                        <FL required>Institute</FL>
+                        <FL>Institute</FL>
                         <Input name="interviewInstitute" value={formData.interviewInstitute} onChange={handleChange} placeholder="Name of school or college" />
                         <FieldError message={errors.interviewInstitute} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Group</FL>
+                        <FL>Group</FL>
                         <Input name="interviewGroup" value={formData.interviewGroup} onChange={handleChange} placeholder="e.g. Science, Arts" />
                         <FieldError message={errors.interviewGroup} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Marks Obtained</FL>
+                        <FL>Marks Obtained</FL>
                         <Input type="number" name="interviewMarksObtained" value={formData.interviewMarksObtained} onChange={handleChange} placeholder="e.g. 850" />
                         <FieldError message={errors.interviewMarksObtained} />
                       </FGroup>
                       <FGroup>
-                        <FL required>%age</FL>
+                        <FL>%age</FL>
                         <Input type="text" name="interviewPercentage" value={formData.interviewPercentage} onChange={handleChange} placeholder="e.g. 76.5%" />
                         <FieldError message={errors.interviewPercentage} />
                       </FGroup>
                       <FGroup>
-                        <FL required>Year</FL>
+                        <FL>Year</FL>
                         <Input type="number" name="interviewYear" value={formData.interviewYear} onChange={handleChange} placeholder="e.g. 2025" />
                         <FieldError message={errors.interviewYear} />
                       </FGroup>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600 shadow-sm">
                       <p className="font-semibold text-slate-900 mb-2">Prior academic result</p>
-                      <p>Record the applicant’s last academic result in a clean professional layout. This section is intentionally limited to Institute, Group, Marks Obtained, Percentage, and Year.</p>
+                      <p>Record the applicant’s last academic result when available. Admissions can continue if these details are not available at submission time.</p>
                     </div>
                   </div>
                 )}

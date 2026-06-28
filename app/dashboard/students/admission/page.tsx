@@ -524,7 +524,10 @@ export default function AdmissionPage() {
 
         {/* ── Previous Academic Record ── */}
         <Card>
-          <CardHeader><CardTitle>Previous Academic Record</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Previous Academic Record <span className="text-sm font-medium text-muted-foreground">(Optional)</span></CardTitle>
+            <CardDescription>Previous academic and requested placement details can be added now or completed later.</CardDescription>
+          </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
               <Label>Previous School Name</Label>
@@ -632,9 +635,9 @@ export default function AdmissionPage() {
         {/* ── Interview & Assessment ── */}
         <Card>
           <CardHeader>
-            <CardTitle>Interview & Assessment</CardTitle>
+            <CardTitle>Interview & Assessment <span className="text-sm font-medium text-muted-foreground">(Optional)</span></CardTitle>
             <CardDescription>
-              Capture the interview details, assessment outcome, and any internal notes.
+              Capture interview details, assessment outcome, and internal notes when available.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -956,7 +959,7 @@ export default function AdmissionPage() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                   <div className="font-semibold text-slate-900">Suggested monthly fee</div>
                   <div className="mt-1 text-lg font-semibold text-slate-900">Admin-defined</div>
-                  <p className="mt-2 text-xs text-slate-500">Fee amounts are set by the administration. Enter the approved monthly fee below based on the student's enrolled program and campus policy.</p>
+                  <p className="mt-2 text-xs text-slate-500">Fee amounts are set by the administration. Enter the approved monthly fee below based on the student&apos;s enrolled program and campus policy.</p>
                 </div>
               </div>
               <Input
