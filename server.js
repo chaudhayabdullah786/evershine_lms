@@ -24,7 +24,7 @@
  * Required Hostinger hPanel environment variables:
  *   DATABASE_URL     = mysql://user:password@host:3306/dbname
  *   NEXTAUTH_SECRET  = <openssl rand -hex 32>
- *   NEXTAUTH_URL     = https://evershineacadmey.com
+ *   NEXTAUTH_URL     = https://evershineacademy.com
  *   NODE_ENV         = production
  */
 

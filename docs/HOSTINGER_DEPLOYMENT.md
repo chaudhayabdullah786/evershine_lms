@@ -358,11 +358,11 @@ DATABASE_URL="mysql://USER:PASS@localhost:3306/DBNAME"
 
 # ── Auth ──────────────────────────────────────────────────────────────────
 NEXTAUTH_SECRET="<openssl rand -hex 32>"
-NEXTAUTH_URL="https://yourdomain.com"
+NEXTAUTH_URL="https://evershineacademy.com"
 
 # ── App ─────────────────────────────────────────────────────────────────
 NODE_ENV="production"
-NEXT_PUBLIC_APP_URL="https://yourdomain.com"
+NEXT_PUBLIC_APP_URL="https://evershineacademy.com"
 NEXT_PUBLIC_APP_NAME="Evershaheen Academy LMS"
 NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY="true"
 
@@ -373,9 +373,9 @@ CRON_SECRET="<openssl rand -hex 32>"
 SMTP_HOST="smtp.hostinger.com"
 SMTP_PORT="465"
 SMTP_SECURE="true"
-SMTP_USER="noreply@yourdomain.com"
+SMTP_USER="noreply@evershineacademy.com"
 SMTP_PASS="<mailbox-password>"
-SMTP_FROM="Evershaheen Academy <noreply@yourdomain.com>"
+SMTP_FROM="Evershaheen Academy <noreply@evershineacademy.com>"
 
 # ── Optional: legacy flags ───────────────────────────────────────────────
 # LEGACY_API_ENABLED="false"
@@ -406,12 +406,37 @@ UPSTASH_REDIS_REST_TOKEN=
 | Build command | `npm run build` |
 | Start command | `npm run start` |
 | Root directory | `/` (repo root) |
+| Auto-deploy branch | `main` |
+| Public domain | `evershineacademy.com` and `www.evershineacademy.com` |
 
 `postinstall` already runs `prisma generate` — required for build.
 
+Before declaring a deploy successful, verify the domain is serving this Node.js app, not a parked/default Hostinger document root:
+
+```bash
+curl -fsS https://evershineacademy.com/api/version
+curl -fsS https://evershineacademy.com/api/health
+```
+
+Both endpoints must return JSON from this repository. A Hostinger `403 Forbidden`, `/lander` redirect, parked page, or non-JSON response means DNS/app binding is wrong even if the GitHub deploy hook fired.
+
 ### 9.4 First-time database on server
 
-After first successful deploy, run **once** (SSH, Hostinger terminal, or local machine with remote DB access if allowed):
+Before running migrations against Hostinger MySQL, check migration provider consistency:
+
+```bash
+npx prisma validate
+npx prisma migrate status
+```
+
+This project was migrated from PostgreSQL to MySQL. If `prisma/migrations/migration_lock.toml` still reports `provider = "postgresql"`, do **not** blindly run `prisma migrate deploy` against production MySQL. Choose one of these paths first:
+
+| Production data state | Required action |
+|---|---|
+| Fresh/disposable DB | Regenerate a clean MySQL migration baseline, then run `npx prisma migrate deploy` and seed. |
+| Live DB with real records | Back up MySQL, introspect the current schema, create a reviewed forward-only MySQL migration for missing columns/tables/indexes, then mark the baseline deliberately. |
+
+After the MySQL migration history is correct, run **once** (SSH, Hostinger terminal, or local machine with remote DB access if allowed):
 
 ```bash
 npx prisma migrate deploy
@@ -594,7 +619,10 @@ Use alongside [`docs/ACADEMIC_SMOKE_TEST.md`](./ACADEMIC_SMOKE_TEST.md).
 | Emails not sent | SMTP / DNS | Verify SPF/DKIM; test with simple nodemailer script |
 | Uploads 404 after deploy | Ephemeral filesystem | Ensure uploads on persistent disk path; not rebuilt away |
 | 502 / timeout on PDF | Memory limit | Reduce concurrent exports; upgrade plan if needed |
-| Login works locally, fails prod | `NEXTAUTH_URL` http vs https | Must match public URL exactly |
+| Login works locally, fails prod | `NEXTAUTH_URL` http vs https or wrong domain | Must match `https://evershineacademy.com` exactly |
+| PR merged but production unchanged | Hostinger watching wrong branch/domain or serving parked document root | Set auto-deploy branch to `main`; verify `/api/version` build ID changes |
+| Broken/blank UI after deploy | Missing standalone static assets or stale service worker | Confirm postbuild/server static sync logs; clear Hostinger/CDN cache; unregister old service worker once |
+| Student admission returns `SCHEMA_OUT_OF_DATE` | MySQL schema missing fields used by current app | Run reviewed MySQL migration after DB backup |
 
 ---
 
