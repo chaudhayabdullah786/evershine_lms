@@ -55,7 +55,7 @@ export default function SiteFooter({ contactInfo }: SiteFooterProps) {
             <AcademyLogo variant="compact" theme="mono-white" />
           </div>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto' }}>
-            Building Minds, Shaping Futures — <strong style={{ color: '#F5A623', fontWeight: 'bold' }}>Academy System Since 2016</strong>
+            Building Minds, Shaping Futures — Since 2016
           </p>
         </div>
 
