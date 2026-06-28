@@ -1,28 +1,33 @@
 /**
  * EverShine Academy LMS PWA Service Worker
- * 
+ *
  * Cache strategies:
- *   - _next/static/*  → Not handled by the SW (content-hashed by Next.js).
- *   - /brand/         → Cache-First (logo/icons unchanged between deployments).
- *   - /assets/images/banner/* → Network-First: banners change on deploy; always
- *                               fetch fresh from server, fall back to cache offline.
- *   - Other images/fonts → Cache-First.
- *   - API routes       → Network only.
- *   - Navigation       → Network only with offline fallback.
- * 
- * CACHE_VERSION bump → forces ALL stale caches to be deleted on next activate.
- * Bump this on every deployment that changes public assets.
+ *   - _next/static/*           → NOT intercepted. Content-hashed by Next.js;
+ *                                served with immutable Cache-Control by the server.
+ *   - /brand/                  → Cache-First (logo/icons don't change between deploys).
+ *   - /assets/images/banner/*  → Network-First: banners change on every deploy;
+ *                                always fetch fresh, fall back to cache when offline.
+ *   - Other images / fonts     → Cache-First.
+ *   - API routes               → Network-Only. Never serve stale auth/LMS data.
+ *   - Navigation (HTML)        → Network-Only with offline fallback.
+ *
+ * CACHE_VERSION is injected automatically by scripts/postbuild-sync.js after
+ * every `npm run build`. It is set to the Next.js BUILD_ID, so it changes on
+ * every deployment without any manual intervention.
+ * On activate, ALL old `evershine-lms-*` caches are deleted.
  */
 
-// TRADEOFF: Bumping version invalidates all cached assets (brand, images).
-// Users will re-download them once. Acceptable cost to guarantee fresh content.
-const CACHE_VERSION = 'v1.5.0';
-const CACHE_PREFIX = 'evershine-lms-';
+// WHY __BUILD_ID__ placeholder: scripts/postbuild-sync.js replaces this token
+// with the real Next.js BUILD_ID after every build. Never edit this manually.
+// TRADEOFF: version change forces users to re-download brand/assets once per
+// deploy — acceptable cost to guarantee fresh content after every deployment.
+const CACHE_VERSION = '__BUILD_ID__';
+const CACHE_PREFIX  = 'evershine-lms-';
 
+// WHY single cache name: pages cache was defined but never written to, causing
+// orphaned cache entries. One static cache is sufficient for this SW's scope.
 const CACHE_NAMES = {
   static: `${CACHE_PREFIX}static-${CACHE_VERSION}`,
-  pages:  `${CACHE_PREFIX}pages-${CACHE_VERSION}`,
-  api:    `${CACHE_PREFIX}api-${CACHE_VERSION}`
 };
 
 // Core assets to pre-cache on service worker installation
