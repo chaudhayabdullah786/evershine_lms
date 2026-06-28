@@ -163,6 +163,7 @@ export const createStudentSchema = mergedStudentSchema
 
 // Update schema: use partial on the base merged schema, then extend
 export const updateStudentSchema = mergedStudentSchema.partial().extend({
+  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional().or(z.literal('')).transform((v) => v || undefined),
   enrollmentStatus: enrollmentStatusEnum.optional(),
   rollNumber: z.string().optional(),
   isActive: z.boolean().optional(),
