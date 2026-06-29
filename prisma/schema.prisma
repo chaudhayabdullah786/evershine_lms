@@ -1650,8 +1650,8 @@ model ClassSection {
   campusId       String
   batchId        String
   shiftId        String
-  className      String // "Class 9"
-  sectionName    String // "A"
+  className      String            @db.VarChar(50) // "Class 9"
+  sectionName    String            @db.VarChar(10) // "A"
   grade          Int?
   deliveryMode   ClassDeliveryMode @default(PHYSICAL)
   capacity       Int               @default(40)

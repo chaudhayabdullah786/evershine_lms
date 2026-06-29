@@ -20,6 +20,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:5000
       NEXT_PUBLIC_APP_NAME: Evershaheen Academy LMS
       NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY: 'true'
+      NEXT_PUBLIC_ENABLE_EXPORT_SMOKE: 'true'
 
     steps:
       - name: Checkout

@@ -66,6 +66,7 @@ coverage/
 htmlcov/
 .pytest_cache/
 test-results/
+test-artifacts/
 test-report.html
 *.lcov
 

@@ -1,0 +1,3 @@
+ALTER TABLE `ClassSection`
+  MODIFY COLUMN `className` VARCHAR(50) NOT NULL,
+  MODIFY COLUMN `sectionName` VARCHAR(10) NOT NULL;
