@@ -45,6 +45,7 @@ describe('POST /api/teachers', () => {
     mockCheckPermission.mockReturnValue(true)
     mockHash.mockResolvedValue('hashed-password')
     mockSendTeacherWelcomeEmail.mockResolvedValue(undefined)
+    mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx))
   })
 
   it('returns 409 when the email already belongs to an existing auth user', async () => {
@@ -85,4 +86,50 @@ describe('POST /api/teachers', () => {
     expect(json.error.message).toContain('email already exists')
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
   })
+
+  it('returns a clear schema drift error when the production staff schema is missing a column', async () => {
+    mockPrisma.teacher.findUnique.mockResolvedValue(null)
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockPrisma.teacher.count.mockResolvedValue(7)
+    mockPrisma.$transaction.mockRejectedValue({
+      code: 'P2022',
+      meta: { column: 'Teacher.houseId' },
+    })
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/teachers', {
+        method: 'POST',
+        body: JSON.stringify({
+          firstName: 'Amina',
+          lastName: 'Khan',
+          cnic: '3520198765432',
+          dateOfBirth: '1990-05-10T00:00:00.000Z',
+          gender: 'FEMALE',
+          qualification: 'M.Ed',
+          specialization: 'Mathematics',
+          experienceYears: 5,
+          joiningDate: '2026-01-15T00:00:00.000Z',
+          designation: 'Senior Teacher',
+          monthlySalary: 65000,
+          phoneNumber: '+923001234567',
+          email: 'new.teacher@example.com',
+          address: 'House 1, Street 2',
+          city: 'Lahore',
+          emergencyContact: '+923001234568',
+          campusId: 'clxcampus1234567890',
+          batchId: 'clxbatch1234567890',
+          houseId: 'clxhouse1234567890',
+          password: 'StrongPass123!',
+        }),
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    expect(response.status).toBe(500)
+    const json = await response.json()
+    expect(json.error.code).toBe('SCHEMA_OUT_OF_DATE')
+    expect(json.error.message).toContain('staff database schema is out of date')
+    expect(mockSendTeacherWelcomeEmail).not.toHaveBeenCalled()
+  })
+
 })
