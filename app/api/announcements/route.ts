@@ -20,7 +20,7 @@ import type { Prisma, Role } from '@prisma/client'
 const createSchema = z.object({
   title: z.string().min(2).max(200),
   content: z.string().min(5),
-  targetRole: z.string().nullable().optional(),
+  targetRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'ACCOUNTANT', 'GUARDIAN']).nullable().optional(),
   expiresAt: z.string().nullable().optional(),
 })
 
@@ -40,14 +40,14 @@ export async function GET(request: NextRequest) {
   const { page, limit } = parsed.data
 
   const now = new Date()
-  const where = {
+  const where: Prisma.AnnouncementWhereInput = {
     isActive: true,
     OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
     AND: [
       {
         OR: [
           { targetRole: null },
-          { targetRole: session.user.role },
+          { targetRole: session.user.role as Role },
         ],
       },
     ],

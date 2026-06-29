@@ -40,6 +40,14 @@ export interface NotifyOptions {
   id?: string | number
 }
 
+function getActionOption(option: NotifyOptions['action']) {
+  return option?.onClick ? option : undefined
+}
+
+function getCancelOption(option: NotifyOptions['cancel']) {
+  return option?.onClick ? { label: option.label, onClick: option.onClick } : undefined
+}
+
 export interface LoadingNotifyOptions {
   /** Override message shown when promise resolves successfully */
   successMessage?: string
@@ -62,8 +70,8 @@ export const notify = {
     return toast.success(title, {
       description: options.description,
       duration: options.duration ?? BASE_DURATION,
-      action: options.action,
-      cancel: options.cancel,
+      action: getActionOption(options.action),
+      cancel: getCancelOption(options.cancel),
       id: options.id,
     })
   },
@@ -76,8 +84,8 @@ export const notify = {
     return toast.error(title, {
       description: options.description,
       duration: options.duration ?? ERROR_DURATION,
-      action: options.action,
-      cancel: options.cancel,
+      action: getActionOption(options.action),
+      cancel: getCancelOption(options.cancel),
       id: options.id,
     })
   },
@@ -90,8 +98,8 @@ export const notify = {
     return toast.warning(title, {
       description: options.description,
       duration: options.duration ?? BASE_DURATION,
-      action: options.action,
-      cancel: options.cancel,
+      action: getActionOption(options.action),
+      cancel: getCancelOption(options.cancel),
       id: options.id,
     })
   },
@@ -104,8 +112,8 @@ export const notify = {
     return toast.info(title, {
       description: options.description,
       duration: options.duration ?? BASE_DURATION,
-      action: options.action,
-      cancel: options.cancel,
+      action: getActionOption(options.action),
+      cancel: getCancelOption(options.cancel),
       id: options.id,
     })
   },

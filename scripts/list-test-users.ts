@@ -8,7 +8,6 @@ async function main() {
       id: true,
       email: true,
       role: true,
-      name: true,
       accountant: {
         select: {
           firstName: true,
@@ -29,7 +28,7 @@ async function main() {
 
   console.log("=== USER ACCOUNTS AVAILABLE FOR TESTING ===")
   for (const user of users) {
-    const fullName = user.name || (user.accountant ? `${user.accountant.firstName} ${user.accountant.lastName}` : '') || (user.teacher ? `${user.teacher.firstName} ${user.teacher.lastName}` : '')
+    const fullName = (user.accountant ? `${user.accountant.firstName} ${user.accountant.lastName}` : '') || (user.teacher ? `${user.teacher.firstName} ${user.teacher.lastName}` : '') || 'N/A'
     const empId = user.accountant?.employeeId || user.teacher?.employeeId || 'N/A'
     console.log(`- Email: ${user.email} | Role: ${user.role} | Name: ${fullName} | EmployeeID: ${empId}`)
   }

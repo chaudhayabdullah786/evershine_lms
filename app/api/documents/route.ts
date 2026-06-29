@@ -13,7 +13,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
-import type { Role, CertificateType } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 import { z } from 'zod'
 
 const createDocumentSchema = z.object({
@@ -93,9 +93,13 @@ export async function POST(request: NextRequest) {
   const doc = await prisma.$transaction(async (tx) => {
     const newDoc = await tx.certificate.create({
       data: {
-        ...data,
+        studentId: data.studentId!,
+        type: data.type!,
+        title: data.title!,
+        pdfUrl: data.pdfUrl!,
+        remarks: data.remarks,
         issuedBy: session.user.id,
-      },
+      } satisfies Prisma.CertificateUncheckedCreateInput,
     })
 
     await tx.auditLog.create({

@@ -34,7 +34,7 @@ test('preview matches exported PDF first page (smoke)', async ({ page, context, 
   await pdfPage.screenshot({ path: pdfScreenshotPath, fullPage: false })
 
   // Basic sanity asserts: files exist and sizes reasonable
-  const previewStat = await pdfPage._client().send('Page.getResourceTree').catch(() => null)
+  const previewStat = await (pdfPage as any)._client().send('Page.getResourceTree').catch(() => null)
   expect(previewPath).toBeTruthy()
   expect(downloadPath).toBeTruthy()
 

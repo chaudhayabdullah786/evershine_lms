@@ -149,7 +149,7 @@ export async function PUT(
                 const openInvoice = await tx.feeInvoice.findFirst({
                   where: {
                     studentId: student.id,
-                    status: { in: ['PENDING', 'PARTIALLY_PAID'] },
+                    status: { in: ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'] },
                   },
                   orderBy: { dueDate: 'asc' },
                 })
@@ -158,8 +158,9 @@ export async function PUT(
                   await tx.feeInvoice.update({
                     where: { id: openInvoice.id },
                     data: {
-                      // Increment total amount by penalty
-                      amount: { increment: penaltyAmount },
+                      totalAmount: { increment: penaltyAmount },
+                      penaltyAmount: { increment: penaltyAmount },
+                      isPenaltyApplied: true,
                     },
                   })
                 }

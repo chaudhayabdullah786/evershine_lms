@@ -379,8 +379,8 @@ function PLCard({ statement, onRecreate }: { statement: ProfitLossStatement; onR
                     try {
                       const res = await fetchApi(`/api/accountant/profit-loss/${statement.id}`, { method: 'DELETE' })
                       notify.success('Snapshot deleted')
-                      qc.invalidateQueries(['profit-loss-statements'])
-                      qc.invalidateQueries(['profit-loss-latest', userCampusId])
+                      qc.invalidateQueries({ queryKey: ['profit-loss-statements'] })
+                      qc.invalidateQueries({ queryKey: ['profit-loss-latest', statement.campusId ?? ''] })
                     } catch (err) {
                       notify.error('Failed to delete snapshot')
                     }
@@ -398,9 +398,8 @@ function PLCard({ statement, onRecreate }: { statement: ProfitLossStatement; onR
                     try {
                       await fetchApi(`/api/accountant/profit-loss/${statement.id}/regenerate`, { method: 'POST' })
                       notify.success('Snapshot regenerated')
-                      qc.invalidateQueries(['profit-loss-statements'])
-                      qc.invalidateQueries(['profit-loss-statements', plYear, plCampusId, plPage])
-                      qc.invalidateQueries(['profit-loss-latest', userCampusId])
+                      qc.invalidateQueries({ queryKey: ['profit-loss-statements'] })
+                      qc.invalidateQueries({ queryKey: ['profit-loss-latest', statement.campusId ?? ''] })
                     } catch (err) {
                       notify.error('Failed to regenerate snapshot')
                     }
@@ -515,10 +514,9 @@ export default function AccountantReportsPage() {
     setPlYear('')
     setPlCampusId(userCampusId || 'all')
     setCreatedSnapshot(statement ?? null)
-    qc.invalidateQueries(['profit-loss-statements'])
-    qc.invalidateQueries(['profit-loss-statements', plYear, plCampusId, plPage])
-    qc.invalidateQueries(['profit-loss-statements', plYear, plCampusId, 1])
-    qc.invalidateQueries(['profit-loss-latest', userCampusId])
+    qc.invalidateQueries({ queryKey: ['profit-loss-statements'] })
+    qc.invalidateQueries({ queryKey: ['profit-loss-statements', plYear, plCampusId, 1] })
+    qc.invalidateQueries({ queryKey: ['profit-loss-latest', userCampusId] })
   }
 
   if (status === 'loading') return null

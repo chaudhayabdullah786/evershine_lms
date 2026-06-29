@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 import { z } from 'zod'
 
 const createAdminSchema = z.object({
@@ -18,7 +18,7 @@ const createAdminSchema = z.object({
 export async function POST(request: NextRequest) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
-  const denied = requirePermission(session.user.role as Role, 'settings', 'write')
+  const denied = requirePermission(session.user.role as Role, 'users', 'create')
   if (denied) return denied
 
   try {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       return errors.validation(parsed.error)
     }
 
-    const { userId, firstName, lastName, campusId, permissions, department } = parsed.data
+    const { userId, firstName, lastName, campusId, department } = parsed.data
 
     // Verify user exists
     const user = await prisma.user.findUnique({
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('Admin creation error:', err)
-    return errors.internal('Failed to create admin')
+    return errors.internal()
   }
 }
 
@@ -100,14 +100,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
-  const denied = requirePermission(session.user.role as Role, 'settings', 'read')
+  const denied = requirePermission(session.user.role as Role, 'users', 'read')
   if (denied) return denied
 
   try {
     const params = new URL(request.url).searchParams
     const campusId = params.get('campusId')
 
-    const where: any = { isActive: true }
+    const where: Prisma.AdminWhereInput = { isActive: true }
     if (campusId) where.campusId = campusId
 
     const admins = await prisma.admin.findMany({
@@ -122,6 +122,6 @@ export async function GET(request: NextRequest) {
     return successResponse({ admins })
   } catch (err) {
     console.error('Get admins error:', err)
-    return errors.internal('Failed to fetch admins')
+    return errors.internal()
   }
 }

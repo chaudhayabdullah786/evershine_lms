@@ -16,7 +16,7 @@ async function main() {
   } else {
     console.log(`Found ${sections.length} ClassSections.`)
     for (const sec of sections) {
-      console.log(`- ID: ${sec.id} | Name: ${sec.name} | Campus: ${sec.campus?.name} (${sec.campusId}) | Batch: ${sec.batch?.name} (${sec.batchId}) | Shift: ${sec.shift?.name} (${sec.shiftId})`)
+      console.log(`- ID: ${sec.id} | Name: ${sec.className}-${sec.sectionName} | Campus: ${sec.campus?.name} (${sec.campusId}) | Batch: ${sec.batch?.name} (${sec.batchId}) | Shift: ${sec.shift?.name} (${sec.shiftId})`)
     }
   }
 

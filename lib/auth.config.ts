@@ -34,7 +34,7 @@ declare module 'next-auth' {
 // 'role', and 'campusId' into the token. Without declaring them here,
 // TypeScript infers all token.* custom fields as implicit 'any', silently
 // swallowing type errors in the session callback.
-declare module 'next-auth/jwt' {
+declare module '@auth/core/jwt' {
   interface JWT {
     /** User DB id — mirrors User.id (cuid). Prefer over sub for DB lookups. */
     id?: string
@@ -108,7 +108,7 @@ export const authConfig = {
           id:       token.id ?? token.sub ?? '',
           email:    token.email ?? session.user?.email ?? '',
           name:     token.name ?? session.user?.name ?? '',
-          role:     token.role ?? session.user?.role,
+          role:     token.role ?? session.user?.role ?? 'STUDENT',
           campusId: token.campusId ?? null,
         },
       }

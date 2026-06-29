@@ -59,6 +59,8 @@ export interface ProgramLevel {
 export interface ContactInfo {
   address: string
   phone: string
+  phoneBoys?: string
+  phoneGirls?: string
   whatsapp: string      // without + prefix: 923091830726
   email: string
   mapsEmbedUrl: string

@@ -415,7 +415,7 @@ export default function LeavesPage() {
                                 size="sm"
                                 variant="ghost"
                                 className="text-rose-600 hover:text-rose-800 hover:bg-rose-50"
-                                disabled={deleteMutation.isLoading}
+                                disabled={deleteMutation.isPending}
                                 onClick={() => {
                                   if (confirm('Withdraw this pending leave request?')) {
                                     deleteMutation.mutate(r.id)

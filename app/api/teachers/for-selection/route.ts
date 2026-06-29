@@ -109,9 +109,9 @@ export async function GET(request: NextRequest) {
       ...(houseId && !teacherIds && { houseId }),
       ...(search && {
         OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-          { employeeId: { contains: search, mode: 'insensitive' } },
+          { firstName: { contains: search } },
+          { lastName: { contains: search } },
+          { employeeId: { contains: search } },
         ],
       }),
     },

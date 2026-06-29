@@ -342,9 +342,7 @@ export async function POST(req: Request) {
         // Preference
         preferredCampusId: validated.preferredCampusId,
         preferredBatchId: validated.preferredBatchId,
-        preferredShift: (validated.preferredShift && validated.preferredShift !== '')
-          ? (validated.preferredShift as 'MORNING' | 'EVENING' | 'NIGHT')
-          : null,
+        preferredShift: validated.preferredShift === '' ? null : validated.preferredShift ?? null,
         deliveryMode: validated.deliveryMode,
 
         // Referral

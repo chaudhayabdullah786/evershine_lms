@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, createdResponse } from '@/lib/api-response'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user) return errors.unauthorized()
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return errors.forbidden('Only finance staff can regenerate P&L statements')
     }
 
-    const id = params.id
+    const { id } = await params
     const existing = await prisma.profitLossStatement.findUnique({ where: { id } })
     if (!existing) return errors.notFound('P&L statement not found')
 

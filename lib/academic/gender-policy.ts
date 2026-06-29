@@ -11,6 +11,20 @@ export function batchRequiresGenderSeparation(academicLevel: string, forceGender
   return Boolean(forceGenderSeparation)
 }
 
+export function inferCampusGender(campus: { name?: string | null; code?: string | null } | null | undefined): Gender | null {
+  const label = `${campus?.name ?? ''} ${campus?.code ?? ''}`.toLowerCase()
+
+  if (label.includes('girls') || label.includes('girl') || /\bgc\b/.test(label)) {
+    return 'FEMALE'
+  }
+
+  if (label.includes('boys') || label.includes('boy') || /\bbc\b/.test(label)) {
+    return 'MALE'
+  }
+
+  return null
+}
+
 export function campusIsGenderCompatible(
   campusGender: Gender | null | undefined,
   studentGender: string | undefined,

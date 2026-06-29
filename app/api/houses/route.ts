@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import { createHouseSchema } from '@/lib/validation/batch'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -53,7 +53,14 @@ export async function POST(request: NextRequest) {
   const parsed = createHouseSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const data = parsed.data
+  const data: Prisma.HouseUncheckedCreateInput = {
+    name: parsed.data.name!,
+    color: parsed.data.color!,
+    batchId: parsed.data.batchId!,
+    motto: parsed.data.motto,
+    captainId: parsed.data.captainId,
+    viceCaptainId: parsed.data.viceCaptainId,
+  }
 
   const batch = await prisma.batch.findUnique({ where: { id: data.batchId }, select: { campusId: true, academicLevel: true } })
   if (!batch) return errors.notFound('Batch')
@@ -81,7 +88,14 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'House',
         entityId: newHouse.id,
-        changes: data,
+        changes: {
+          name: data.name,
+          color: data.color,
+          batchId: data.batchId,
+          motto: data.motto ?? null,
+          captainId: data.captainId ?? null,
+          viceCaptainId: data.viceCaptainId ?? null,
+        },
       },
     })
 

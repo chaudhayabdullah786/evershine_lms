@@ -215,7 +215,7 @@ export default function TeacherAttendancePage() {
     })
     setOptimistic({})
     setPendingDate(null)
-  }, [])
+  }, [setPendingDate])
 
   const nextMonth = useCallback(() => {
     setViewMonth((m) => {
@@ -224,7 +224,7 @@ export default function TeacherAttendancePage() {
     })
     setOptimistic({})
     setPendingDate(null)
-  }, [])
+  }, [setPendingDate])
 
   // ── Calendar grid ──────────────────────────────────────────────────────────
   const calendarGrid = useMemo(

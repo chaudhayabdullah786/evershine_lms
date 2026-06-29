@@ -54,7 +54,7 @@ interface BankAccountItem {
   number: string
 }
 
-export function parseBankAccounts(str: string) {
+function parseBankAccounts(str: string) {
   const accounts: BankAccountItem[] = []
   let accountTitle = ''
   
@@ -88,7 +88,7 @@ export function parseBankAccounts(str: string) {
   return { accountTitle, accounts }
 }
 
-export const renderBankAccountsTable = (bankAccountsStr: string) => {
+const renderBankAccountsTable = (bankAccountsStr: string) => {
   const { accountTitle, accounts } = parseBankAccounts(bankAccountsStr)
   if (accounts.length === 0 && !accountTitle) {
     return <p className="text-[10px] text-gray-500 italic">Please deposit cash at the Accounts Office.</p>

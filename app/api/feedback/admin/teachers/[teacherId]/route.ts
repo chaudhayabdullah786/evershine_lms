@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
-import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
+import { requireSession, requirePermission, campusScope } from '@/lib/academic/api-helpers'
 import { summarizeLikertAnswers } from '@/lib/feedback/engine'
 import type { Role } from '@prisma/client'
 
@@ -33,11 +33,11 @@ export async function GET(
 
   const campusId = campusScope(session.user.role as Role, session.user.campusId as string)
 
-  const feedbacks = await prisma.teacherMonthlyFeedback.findMany({
-    where: { 
-      cycleId, 
-      teacherId,
-      ...(campusId ? { campusId } : {})
+  const feedbacks = await prisma.studentFeedbackSubmission.findMany({
+    where: {
+      cycleId,
+      ...(campusId ? { campusId } : {}),
+      answers: { some: { targetTeacherId: teacherId } },
     },
     include: {
       student: {
@@ -54,7 +54,7 @@ export async function GET(
           classSection: { include: { shift: true, campus: true, batch: true } },
         },
       },
-      answers: { include: { question: true } },
+      answers: { where: { targetTeacherId: teacherId }, include: { question: true } },
     },
     orderBy: { submittedAt: 'desc' },
   })
@@ -70,7 +70,7 @@ export async function GET(
     submissions: isSuperAdmin ? [] : feedbacks.map((f) => ({
       id: f.id,
       submittedAt: f.submittedAt,
-      comments: f.comments,
+      comments: typeof f.suggestions === 'object' && f.suggestions && !Array.isArray(f.suggestions) ? (f.suggestions as Record<string, unknown>)[teacherId] ?? null : null,
       student: f.student,
       placement: {
         campus: f.enrollment.classSection.campus.name,

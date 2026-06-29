@@ -347,8 +347,8 @@ export default function TimetablePage() {
   }
 
   // Extract unique sorted time slots to represent table rows
-  const timeSlots = Array.from(
-    new Set(slots.map((s: any) => `${s.startTime}-${s.endTime}`))
+  const timeSlots: string[] = Array.from(
+    new Set<string>(slots.map((s: any) => `${s.startTime}-${s.endTime}`))
   ).sort()
 
   const defaultTimeSlots = [
@@ -861,7 +861,7 @@ export default function TimetablePage() {
                 Cancel
               </Button>
               <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-                {requestMutation.isLoading ? (
+                {requestMutation.isPending ? (
                   <><RefreshCw className="w-4 h-4 animate-spin" /> Submit Request</>
                 ) : (
                   'Submit Request'

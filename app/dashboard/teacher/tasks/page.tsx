@@ -629,7 +629,7 @@ export default function TeacherTasksPage() {
     enabled:  isTeacher,
     staleTime: 5 * 60 * 1000,
   })
-  const classes = Array.isArray(classesRaw) ? classesRaw : classesRaw?.data ?? []
+  const classes = classesRaw ?? []
 
   // Fetch tasks
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })

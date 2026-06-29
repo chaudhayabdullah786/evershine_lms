@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
+import type { Prisma } from '@prisma/client'
 
 interface CustomField {
   label: string
@@ -43,6 +44,10 @@ function parseFields(raw: unknown): CustomField[] {
     (f): f is CustomField =>
       typeof f === 'object' && f !== null && typeof f.label === 'string' && typeof f.value === 'string'
   )
+}
+
+function toJsonFields(fields: CustomField[]): Prisma.InputJsonArray {
+  return fields.map((field) => ({ label: field.label, value: field.value }))
 }
 
 export async function POST(
@@ -78,7 +83,7 @@ export async function POST(
 
     const updated = await prisma.termResult.update({
       where: { id },
-      data: { customFields: fields },
+      data: { customFields: toJsonFields(fields) },
     })
 
     return successResponse({ customFields: updated.customFields }, 'Custom field added successfully')
@@ -125,7 +130,7 @@ export async function PATCH(
 
     const updated = await prisma.termResult.update({
       where: { id },
-      data: { customFields: fields },
+      data: { customFields: toJsonFields(fields) },
     })
 
     return successResponse({ customFields: updated.customFields }, 'Custom field updated successfully')
@@ -172,7 +177,7 @@ export async function DELETE(
 
     const updated = await prisma.termResult.update({
       where: { id },
-      data: { customFields: fields },
+      data: { customFields: toJsonFields(fields) },
     })
 
     return successResponse({ customFields: updated.customFields }, 'Custom field deleted successfully')

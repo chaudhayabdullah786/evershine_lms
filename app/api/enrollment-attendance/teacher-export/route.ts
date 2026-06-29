@@ -74,19 +74,19 @@ export async function POST(request: NextRequest) {
     const worksheet = workbook.addWorksheet('Daily Attendance')
 
     // Add title section
-    worksheet.merge('A1:E1')
+    worksheet.mergeCells('A1:E1')
     const titleCell = worksheet.getCell('A1')
     titleCell.value = `${classSection.campus.name} - ${classSection.batch.name}`
     titleCell.font = { bold: true, size: 14 }
     titleCell.alignment = { horizontal: 'center' }
 
-    worksheet.merge('A2:E2')
+    worksheet.mergeCells('A2:E2')
     const classCell = worksheet.getCell('A2')
     classCell.value = `Class: ${classSection.className}-${classSection.sectionName} | ${classSection.shift.name}`
     classCell.font = { bold: true }
     classCell.alignment = { horizontal: 'center' }
 
-    worksheet.merge('A3:E3')
+    worksheet.mergeCells('A3:E3')
     const dateCell = worksheet.getCell('A3')
     dateCell.value = `Date: ${new Date(attendanceDate).toLocaleDateString('en-GB', {
       weekday: 'long',
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       (e) => e.attendanceRecords[0]?.status === 'EXCUSED'
     ).length
 
-    worksheet.merge(`A${summaryRow}:B${summaryRow}`)
+    worksheet.mergeCells(`A${summaryRow}:B${summaryRow}`)
     const summaryTitle = worksheet.getCell(`A${summaryRow}`)
     summaryTitle.value = 'SUMMARY'
     summaryTitle.font = { bold: true, size: 11 }
@@ -183,8 +183,10 @@ export async function POST(request: NextRequest) {
     })
 
     const buffer = await workbook.xlsx.writeBuffer()
+    const bytes = Buffer.from(buffer)
+    const responseBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 
-    return new Response(buffer, {
+    return new Response(responseBody, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="attendance_${classSection.className}_${classSection.sectionName}_${date}.xlsx"`,
@@ -192,6 +194,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('Teacher export error:', err)
-    return errors.internal('Failed to generate export')
+    return errors.internal()
   }
 }

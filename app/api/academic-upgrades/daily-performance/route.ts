@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
-import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { AcademicUpgradesService, type SubmitDailyPerformanceInput } from '@/lib/services/academic-upgrades-service'
 import { submitDailyPerformanceSchema } from '@/lib/validation/academic-upgrades'
 import { prisma } from '@/lib/prisma'
 import type { Role } from '@prisma/client'
@@ -128,10 +128,18 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
-    const result = await AcademicUpgradesService.submitDailyPerformance({
-      ...parsed.data,
+    const payload: SubmitDailyPerformanceInput = {
+      subjectOfferingId: parsed.data.subjectOfferingId!,
+      date: parsed.data.date!,
+      records: parsed.data.records!.map((record) => ({
+        studentId: record.studentId!,
+        score: record.score!,
+        isAbsent: record.isAbsent,
+        remarks: record.remarks,
+      })),
       teacherId: session.user.id,
-    })
+    }
+    const result = await AcademicUpgradesService.submitDailyPerformance(payload)
     return successResponse(result, `${result.count} daily performance records saved for ${result.date}.`)
   } catch (err: any) {
     return errors.badRequest(err.message ?? 'Failed to submit daily performance records.')

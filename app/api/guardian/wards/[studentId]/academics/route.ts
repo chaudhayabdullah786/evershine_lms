@@ -21,8 +21,8 @@ export async function GET(
   
   try {
     await assertGuardianOwnsStudent(session.user.id, studentId)
-  } catch (error: any) {
-    return errors.forbidden(error.message)
+  } catch (error) {
+    return errors.forbidden(error instanceof Error ? error.message : 'Access denied')
   }
 
   // Fetch student's academic snapshot (active enrollment, etc.)
@@ -36,8 +36,9 @@ export async function GET(
           academicYear: { select: { name: true } },
           classSection: {
             include: {
-              class: { select: { name: true, grade: true } },
               shift: { select: { name: true } },
+              campus: { select: { name: true } },
+              batch: { select: { name: true } },
             },
           },
         },
@@ -51,7 +52,7 @@ export async function GET(
           totalMarks: true,
           obtainedMarks: true,
           grade: true,
-          exam: { select: { title: true } },
+          exam: { select: { name: true } },
         },
       },
     },

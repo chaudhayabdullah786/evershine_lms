@@ -97,6 +97,7 @@ function SkeletonCard() {
 export default function DashboardPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const [renderedAt] = useState(() => Date.now())
   const role = session?.user?.role as string | undefined
   const isAdminOrAbove = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const isAccountant = role === 'ACCOUNTANT'
@@ -703,7 +704,7 @@ export default function DashboardPage() {
               <div className="divide-y">
                 {(data?.upcomingExams ?? []).map((exam) => {
                   const start = new Date(exam.startDate)
-                  const daysUntil = Math.ceil((start.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                  const daysUntil = Math.ceil((start.getTime() - renderedAt) / (1000 * 60 * 60 * 24))
                   return (
                     <div key={exam.id} className="flex items-start gap-3 px-4 py-3">
                       <div className="w-10 h-10 rounded-lg bg-purple-100 flex flex-col items-center justify-center flex-shrink-0">

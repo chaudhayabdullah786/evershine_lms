@@ -10,15 +10,15 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { classSectionId: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ classSectionId: string }> }
 ) {
   try {
     const session = await auth()
     if (!session?.user) return errors.unauthorized()
     if (session.user.role !== 'TEACHER') return errors.forbidden()
 
-    const { classSectionId } = params
+    const { classSectionId } = await params
 
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {

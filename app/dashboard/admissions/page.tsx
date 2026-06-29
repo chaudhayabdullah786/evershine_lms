@@ -93,6 +93,7 @@ interface AdmissionRequest {
 export default function AdmissionsDashboard() {
   const { data: session, status } = useSession()
   const userRole = session?.user?.role as string | undefined
+  const canManageAdmissions = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('PENDING')
@@ -116,33 +117,23 @@ export default function AdmissionsDashboard() {
 
   const queryClient = useQueryClient()
 
-  // Route guard: only SUPER_ADMIN and ADMIN can access admissions management
-  if (status === 'loading') return null
-  if (userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
-    return (
-      <AccessDenied
-        title="Admissions Access Restricted"
-        message="Only administrators can review and approve student admission requests. Teachers and students cannot access this module."
-      />
-    )
-  }
-
   // Queries
   const { data: reqData, isLoading } = useQuery({
     queryKey: ['admissions', statusFilter],
     queryFn: () => fetchPaginatedApi<AdmissionRequest>(`/api/admissions?status=${statusFilter}&limit=20`),
+    enabled: canManageAdmissions,
   })
   
   const { data: campusesData } = useQuery({
     queryKey: ['campuses'],
     queryFn: () => fetchPaginatedApi<any>('/api/campuses'),
-    enabled: !!selectedRequest
+    enabled: canManageAdmissions && !!selectedRequest
   })
 
   const { data: batchesData } = useQuery({
     queryKey: ['batches', campusId],
     queryFn: () => fetchPaginatedApi<any>(`/api/batches?campusId=${campusId}`),
-    enabled: !!campusId
+    enabled: canManageAdmissions && !!campusId
   })
 
   const { data: classesData, isLoading: isLoadingClasses } = useQuery({
@@ -151,13 +142,13 @@ export default function AdmissionsDashboard() {
       fetchPaginatedApi<any>(
         `/api/classes?campusId=${campusId}&batchId=${batchId}&limit=200`
       ),
-    enabled: !!campusId && !!batchId,
+    enabled: canManageAdmissions && !!campusId && !!batchId,
   })
 
   const { data: housesData } = useQuery({
     queryKey: ['houses', batchId],
     queryFn: () => fetchPaginatedApi<any>(`/api/houses?batchId=${batchId}`),
-    enabled: !!batchId
+    enabled: canManageAdmissions && !!batchId
   })
 
   const { data: classSectionsData } = useQuery({
@@ -362,6 +353,17 @@ export default function AdmissionsDashboard() {
       return
     }
     approveMutation.mutate()
+  }
+
+  // Route guard: only SUPER_ADMIN and ADMIN can access admissions management
+  if (status === 'loading') return null
+  if (!canManageAdmissions) {
+    return (
+      <AccessDenied
+        title="Admissions Access Restricted"
+        message="Only administrators can review and approve student admission requests. Teachers and students cannot access this module."
+      />
+    )
   }
 
   return (

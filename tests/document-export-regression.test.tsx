@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildDocumentFileName, exportPreviewDocument } from '@/app/dashboard/documents/page'
+import { buildDocumentFileName, exportPreviewDocument } from '@/lib/documents/export-preview'
 
 const { downloadPdfMock } = vi.hoisted(() => ({
   downloadPdfMock: vi.fn().mockResolvedValue(undefined),

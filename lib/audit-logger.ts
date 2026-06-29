@@ -1,7 +1,13 @@
-import type { PrismaClient, Prisma } from '@prisma/client'
+import { Prisma, type PrismaClient } from '@prisma/client'
 import type { NextRequest } from 'next/server'
 
 export type AuditLogChanges = Record<string, unknown> | null
+
+
+function toInputJsonValue(value: AuditLogChanges): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  if (value === null) return Prisma.JsonNull
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
 
 export async function logAudit(params: {
   prismaClient: PrismaClient | Prisma.TransactionClient
@@ -26,7 +32,7 @@ export async function logAudit(params: {
       action,
       entityType,
       entityId,
-      changes: changes ?? null,
+      changes: toInputJsonValue(changes ?? null),
       ipAddress,
       userAgent,
     },

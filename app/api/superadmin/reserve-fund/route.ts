@@ -12,7 +12,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import { errors, successResponse, paginatedResponse } from '@/lib/api-response'
+import { errors, successResponse } from '@/lib/api-response'
 
 const querySchema = z.object({
   campusId: z.string().cuid().optional(),
@@ -69,14 +69,17 @@ export async function GET(req: NextRequest) {
       ? Number(entries[0].cumulativeTotal)
       : 0
 
-    return paginatedResponse(
-      {
-        entries,
-        currentBalance,
-        filteredBy: { campusId: campusId ?? 'all', year: year ?? 'all' },
+    return successResponse({
+      entries,
+      currentBalance,
+      filteredBy: { campusId: campusId ?? 'all', year: year ?? 'all' },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      { page, limit, total }
-    )
+    })
   } catch (err) {
     console.error('[RESERVE_FUND_GET]', err)
     return errors.internal()

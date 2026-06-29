@@ -6,8 +6,8 @@ import type { AcademicResource } from '@/lib/rbac'
 
 export async function requireSession() {
   const session = await auth()
-  if (!session?.user) return { error: errors.unauthorized(), session: null as const }
-  return { session, error: null as const }
+  if (!session?.user) return { error: errors.unauthorized(), session: null }
+  return { session, error: null }
 }
 
 export function requirePermission(role: Role, resource: AcademicResource, action: 'create' | 'read' | 'update' | 'delete') {

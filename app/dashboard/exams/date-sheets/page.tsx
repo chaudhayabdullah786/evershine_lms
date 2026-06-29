@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { notify } from '@/lib/notify'
@@ -24,6 +24,19 @@ type DateSheetSlot = {
   startTime: string
   endTime: string
   roomNumber: string
+}
+
+type DateSheetResponse = {
+  title: string
+  slots: Array<{
+    id: string
+    subjectOfferingId: string
+    examDate: string
+    startTime: string
+    endTime: string
+    roomNumber: string | null
+    subjectOffering: { subject: { name: string; code: string } }
+  }>
 }
 
 const EMPTY_SLOT: DateSheetSlot = {
@@ -64,39 +77,30 @@ export default function ExamDateSheetsPage() {
     enabled: !!classSectionId,
   })
 
-  const { data: dateSheet, isFetching: isFetchingSheet } = useQuery<{
-    title: string
-    slots: Array<{
-      id: string
-      subjectOfferingId: string
-      examDate: string
-      startTime: string
-      endTime: string
-      roomNumber: string | null
-      subjectOffering: { subject: { name: string; code: string } }
-    }>
-  } | null>({
+  const { data: dateSheet, isFetching: isFetchingSheet } = useQuery<DateSheetResponse | null>({
     queryKey: ['date-sheet', classSectionId, examSessionId],
-    queryFn: () => fetchApi(`/api/academic-upgrades/date-sheets?classSectionId=${classSectionId}&examSessionId=${examSessionId}`),
+    queryFn: () => fetchApi<DateSheetResponse | null>(`/api/academic-upgrades/date-sheets?classSectionId=${classSectionId}&examSessionId=${examSessionId}`),
     enabled: !!classSectionId && !!examSessionId,
-    onSuccess: (data) => {
-      if (!data) {
-        setTitle('')
-        setSlots([EMPTY_SLOT])
-        return
-      }
-
-      setTitle(data.title)
-      setSlots(data.slots.map((slot) => ({
-        id: slot.id,
-        subjectOfferingId: slot.subjectOfferingId,
-        examDate: slot.examDate.split('T')[0],
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        roomNumber: slot.roomNumber ?? '',
-      })))
-    },
   })
+
+  useEffect(() => {
+    if (!classSectionId || !examSessionId || dateSheet === undefined) return
+    if (!dateSheet) {
+      setTitle('')
+      setSlots([EMPTY_SLOT])
+      return
+    }
+
+    setTitle(dateSheet.title)
+    setSlots(dateSheet.slots.map((slot) => ({
+      id: slot.id,
+      subjectOfferingId: slot.subjectOfferingId,
+      examDate: slot.examDate.split('T')[0],
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      roomNumber: slot.roomNumber ?? '',
+    })))
+  }, [classSectionId, examSessionId, dateSheet])
 
   const handleSectionChange = (value: string) => {
     setClassSectionId(value)
@@ -343,9 +347,9 @@ export default function ExamDateSheetsPage() {
                     <Button
                       type="button"
                       onClick={() => saveDateSheet.mutate()}
-                      disabled={!isValidForm || !hasOfferings || saveDateSheet.isLoading}
+                      disabled={!isValidForm || !hasOfferings || saveDateSheet.isPending}
                     >
-                      {saveDateSheet.isLoading ? 'Saving…' : 'Publish date sheet'}
+                      {saveDateSheet.isPending ? 'Saving…' : 'Publish date sheet'}
                     </Button>
                   </div>
                 </>

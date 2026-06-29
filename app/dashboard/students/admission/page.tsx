@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { fetchApi, ApiError } from '@/lib/api-client'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { createStudentSchema, CreateStudentInput } from '@/lib/validation/student'
+import type { z } from 'zod'
 import { SESSION_SHIFT_LABELS, type SessionShift } from '@/lib/validation/shift'
 import { GUARDIAN_EMPLOYMENT_STATUSES, ACADEMIC_GROUPS, MARKETING_SOURCES, ACADEMIC_LEVELS } from '@/app/admissions/apply/_components'
 
@@ -34,6 +35,7 @@ type SectionData = {
 }
 
 type QueryResult<T> = T | { data?: T }
+type CreateStudentFormValues = z.input<typeof createStudentSchema>
 
 // ─── Field Error Helper ───────────────────────────────────────────────────────
 function FieldError({ message }: { message?: string }) {
@@ -75,7 +77,7 @@ export default function AdmissionPage() {
     control,
     setError,
     formState: { errors },
-  } = useForm<CreateStudentInput>({
+  } = useForm<CreateStudentFormValues, unknown, CreateStudentInput>({
     resolver: zodResolver(createStudentSchema),
     defaultValues: {
       nationality: 'Pakistani',
@@ -232,7 +234,7 @@ export default function AdmissionPage() {
 
           err.fieldErrors.forEach(({ field, message }) => {
             // react-hook-form only accepts known field paths
-            const knownFields: (keyof CreateStudentInput)[] = [
+            const knownFields: (keyof CreateStudentFormValues)[] = [
               'firstName', 'lastName', 'fatherName', 'cnicBForm', 'dateOfBirth', 'gender',
               'address', 'city', 'province', 'phoneNumber', 'emergencyContact', 'email',
               'campusId', 'batchId', 'classSectionId', 'rollNumber', 'academicYear',
@@ -242,8 +244,8 @@ export default function AdmissionPage() {
               'guardianEmail', 'guardianRelationship',
             ]
 
-            if (knownFields.includes(field as keyof CreateStudentInput)) {
-              setError(field as keyof CreateStudentInput, { type: 'server', message })
+            if (knownFields.includes(field as keyof CreateStudentFormValues)) {
+              setError(field as keyof CreateStudentFormValues, { type: 'server', message })
             } else {
               unmapped.push({ field, message })
             }
@@ -272,7 +274,7 @@ export default function AdmissionPage() {
   // CHANGE 1: Collect Zod field errors on invalid submit, show summary banner.
   // WHY: react-hook-form's second arg to handleSubmit fires when validation fails.
   // This gives the super admin a single scannable list of missing required fields.
-  const FIELD_LABELS: Partial<Record<keyof CreateStudentInput, string>> = {
+  const FIELD_LABELS: Partial<Record<keyof CreateStudentFormValues, string>> = {
     firstName: 'First Name',
     lastName: 'Last Name',
     fatherName: "Father's Name",
@@ -291,12 +293,12 @@ export default function AdmissionPage() {
     rollNumber: 'Roll Number',
   }
 
-  const onInvalid = (errors: FieldErrors<CreateStudentInput>) => {
+  const onInvalid = (errors: FieldErrors<CreateStudentFormValues>) => {
     const list: { field: string; label: string }[] = []
     Object.entries(errors).forEach(([field]) => {
       list.push({
         field,
-        label: FIELD_LABELS[field as keyof CreateStudentInput] ?? field,
+        label: FIELD_LABELS[field as keyof CreateStudentFormValues] ?? field,
       })
     })
     setValidationErrors(list)

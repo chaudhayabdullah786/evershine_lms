@@ -12,7 +12,7 @@
 
 import type { Role } from '@prisma/client'
 
-type Action = 'create' | 'read' | 'update' | 'delete'
+export type Action = 'create' | 'read' | 'update' | 'delete'
 export type AcademicResource =
   | 'students'
   | 'teachers'

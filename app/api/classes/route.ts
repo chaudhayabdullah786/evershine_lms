@@ -10,7 +10,7 @@ import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import { createClassSchema } from '@/lib/validation/batch'
 import { sessionShiftSchema } from '@/lib/validation/shift'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -73,7 +73,17 @@ export async function POST(request: NextRequest) {
   const parsed = createClassSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const data = parsed.data
+  const data: Prisma.ClassUncheckedCreateInput = {
+    name: parsed.data.name!,
+    grade: parsed.data.grade!,
+    section: parsed.data.section,
+    shift: parsed.data.shift,
+    campusId: parsed.data.campusId!,
+    batchId: parsed.data.batchId,
+    academicYear: parsed.data.academicYear!,
+    capacity: parsed.data.capacity,
+    roomNumber: parsed.data.roomNumber,
+  }
 
   if (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN' && data.campusId !== session.user.campusId) {
     return errors.forbidden()
@@ -102,7 +112,17 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'Class',
         entityId: cls.id,
-        changes: data,
+        changes: {
+          name: data.name,
+          grade: data.grade,
+          section: data.section ?? null,
+          shift: data.shift,
+          campusId: data.campusId,
+          batchId: data.batchId ?? null,
+          academicYear: data.academicYear,
+          capacity: data.capacity,
+          roomNumber: data.roomNumber ?? null,
+        },
       },
     })
 

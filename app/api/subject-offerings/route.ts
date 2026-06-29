@@ -4,7 +4,7 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createSubjectOfferingSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable } from '@/lib/academic/engine'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
@@ -41,31 +41,47 @@ export async function POST(request: NextRequest) {
   const parsed = createSubjectOfferingSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const data: Prisma.SubjectOfferingUncheckedCreateInput = {
+    academicYearId: parsed.data.academicYearId!,
+    classSectionId: parsed.data.classSectionId!,
+    subjectId: parsed.data.subjectId!,
+    teacherId: parsed.data.teacherId ?? null,
+    isMandatory: parsed.data.isMandatory,
+    electiveGroupId: parsed.data.electiveGroupId ?? null,
+  }
+
   try {
-    await assertAcademicYearEditable(parsed.data.academicYearId)
+    await assertAcademicYearEditable(data.academicYearId)
   } catch {
     return errors.forbidden('Academic year is locked')
   }
 
   const offering = await prisma.$transaction(async (tx) => {
-    const created = await tx.subjectOffering.create({ data: parsed.data })
+    const created = await tx.subjectOffering.create({ data })
     await tx.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'CREATE',
         entityType: 'SubjectOffering',
         entityId: created.id,
-        changes: parsed.data,
+        changes: {
+          academicYearId: data.academicYearId,
+          classSectionId: data.classSectionId,
+          subjectId: data.subjectId,
+          teacherId: data.teacherId ?? null,
+          isMandatory: data.isMandatory,
+          electiveGroupId: data.electiveGroupId ?? null,
+        },
       },
     })
 
     // [FACT] If a mandatory subject is added after students are already enrolled in the section,
     // they miss the initial auto-enrollment hook. We must backfill their subject enrollments.
-    if (parsed.data.isMandatory) {
+    if (data.isMandatory) {
       const activeEnrollments = await tx.studentEnrollment.findMany({
         where: {
-          classSectionId: parsed.data.classSectionId,
-          academicYearId: parsed.data.academicYearId,
+          classSectionId: data.classSectionId,
+          academicYearId: data.academicYearId,
           status: 'ACTIVE'
         },
         select: { id: true }

@@ -142,7 +142,9 @@ export async function GET(req: NextRequest) {
         paymentSource,
       })
       const buffer = await workbook.xlsx.writeBuffer()
-      return new NextResponse(buffer as Buffer, {
+      const bytes = Buffer.from(buffer)
+      const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+      return new NextResponse(body, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="unified_ledger-${new Date().toISOString().split('T')[0]}.xlsx"`,

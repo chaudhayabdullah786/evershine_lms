@@ -21,7 +21,7 @@
  *   />
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '@/components/ui/dialog'
@@ -62,16 +62,6 @@ export default function QRScannerModal({ open, onClose, onDetected }: Props) {
     setSupported(typeof window !== 'undefined' && 'BarcodeDetector' in window)
   }, [])
 
-  // ── Start/stop camera when dialog opens/closes ───────────────────────────────
-  useEffect(() => {
-    if (open && supported) {
-      startCamera()
-    }
-    return () => {
-      stopCamera()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, supported])
 
   const startCamera = async () => {
     setCameraError(null)
@@ -105,7 +95,7 @@ export default function QRScannerModal({ open, onClose, onDetected }: Props) {
     }
   }
 
-  const stopCamera = useCallback(() => {
+  const stopCamera = () => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
@@ -113,7 +103,7 @@ export default function QRScannerModal({ open, onClose, onDetected }: Props) {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setScanning(false)
-  }, [])
+  }
 
   const scheduleScan = () => {
     rafRef.current = requestAnimationFrame(doScan)
@@ -149,6 +139,17 @@ export default function QRScannerModal({ open, onClose, onDetected }: Props) {
     // Continue scanning
     rafRef.current = requestAnimationFrame(doScan)
   }
+
+  // ── Start/stop camera when dialog opens/closes ───────────────────────────────
+  useEffect(() => {
+    if (open && supported) {
+      startCamera()
+    }
+    return () => {
+      stopCamera()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, supported])
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()

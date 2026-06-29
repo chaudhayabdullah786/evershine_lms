@@ -48,6 +48,7 @@ const teacherSchema = z.object({
   profilePicture: z.string().optional(),
 })
 
+type TeacherFormValues = z.input<typeof teacherSchema>
 type TeacherForm = z.infer<typeof teacherSchema>
 
 export default function NewTeacherPage() {
@@ -56,7 +57,7 @@ export default function NewTeacherPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TeacherForm>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TeacherFormValues, unknown, TeacherForm>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
       experienceYears: 0,
@@ -221,12 +222,12 @@ export default function NewTeacherPage() {
     })
   }
 
-  const field = (name: keyof TeacherForm) => ({
+  const field = (name: keyof TeacherFormValues) => ({
     ...register(name, name === 'experienceYears' || name === 'monthlySalary' ? { valueAsNumber: true } : undefined),
     className: (errors[name] ? 'border-destructive ' : '') + '',
   })
 
-  const err = (name: keyof TeacherForm) =>
+  const err = (name: keyof TeacherFormValues) =>
     errors[name] && <p className="text-xs text-destructive mt-1">{String(errors[name]?.message)}</p>
 
   return (

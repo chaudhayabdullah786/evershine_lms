@@ -4,7 +4,7 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { requireSession, requirePermission, campusScope } from '@/lib/academic/api-helpers'
 import { createClassSectionSchema } from '@/lib/validation/academic'
 import { getTeacherByUserId, getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
@@ -67,13 +67,25 @@ export async function POST(request: NextRequest) {
     return errors.forbidden()
   }
 
+  const data: Prisma.ClassSectionUncheckedCreateInput = {
+    campusId: parsed.data.campusId!,
+    batchId: parsed.data.batchId!,
+    shiftId: parsed.data.shiftId!,
+    className: parsed.data.className!.trim(),
+    sectionName: parsed.data.sectionName!.trim(),
+    grade: parsed.data.grade,
+    deliveryMode: parsed.data.deliveryMode,
+    curriculumMode: parsed.data.curriculumMode,
+    capacity: parsed.data.capacity,
+  }
+
   const existingSection = await prisma.classSection.findFirst({
     where: {
-      campusId: parsed.data.campusId,
-      batchId: parsed.data.batchId,
-      shiftId: parsed.data.shiftId,
-      className: parsed.data.className.trim(),
-      sectionName: parsed.data.sectionName.trim(),
+      campusId: data.campusId,
+      batchId: data.batchId,
+      shiftId: data.shiftId,
+      className: data.className,
+      sectionName: data.sectionName,
     },
     select: { id: true },
   })
@@ -86,11 +98,7 @@ export async function POST(request: NextRequest) {
   try {
     section = await prisma.$transaction(async (tx) => {
       const created = await tx.classSection.create({
-        data: {
-          ...parsed.data,
-          className: parsed.data.className.trim(),
-          sectionName: parsed.data.sectionName.trim(),
-        },
+        data,
       })
 
       await tx.auditLog.create({
@@ -99,7 +107,17 @@ export async function POST(request: NextRequest) {
           action: 'CREATE',
           entityType: 'ClassSection',
           entityId: created.id,
-          changes: parsed.data,
+          changes: {
+            campusId: data.campusId,
+            batchId: data.batchId,
+            shiftId: data.shiftId,
+            className: data.className,
+            sectionName: data.sectionName,
+            grade: data.grade ?? null,
+            deliveryMode: data.deliveryMode,
+            curriculumMode: data.curriculumMode,
+            capacity: data.capacity,
+          },
         },
       })
 

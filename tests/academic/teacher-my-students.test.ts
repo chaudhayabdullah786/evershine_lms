@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NextRequest } from 'next/server'
 
 const { authMock, teacherFindUniqueMock, classTeacherFindManyMock, subjectTeacherFindManyMock, subjectOfferingFindManyMock, timetableSlotFindManyMock, studentCountMock, studentFindManyMock, transactionMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -69,7 +70,7 @@ describe('teacher-portal/my-students', () => {
       },
     ])
 
-    const response = await GET(new Request('http://localhost/api/teacher-portal/my-students?classSectionId=section-1&limit=10'))
+    const response = await GET(new Request('http://localhost/api/teacher-portal/my-students?classSectionId=section-1&limit=10') as unknown as NextRequest)
     const json = await response.json()
 
     expect(response.status).toBe(200)
@@ -107,7 +108,7 @@ describe('teacher-portal/my-students', () => {
     transactionMock.mockImplementation(async (queries) => [0, await queries[1]])
     studentFindManyMock.mockResolvedValue([])
 
-    const response = await GET(new Request('http://localhost/api/teacher-portal/my-students?limit=10'))
+    const response = await GET(new Request('http://localhost/api/teacher-portal/my-students?limit=10') as unknown as NextRequest)
 
     expect(response.status).toBe(200)
     expect(timetableSlotFindManyMock).toHaveBeenCalledWith(

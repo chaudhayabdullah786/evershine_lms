@@ -297,6 +297,7 @@ export async function POST(request: NextRequest) {
           guardianOrganization: data.guardianOrganization || null,
           guardianBusinessName: data.guardianBusinessName || null,
           guardianBusinessDealsIn: data.guardianBusinessDealsIn || null,
+          previousSchool: data.previousSchool || null,
           lastClassPassed: data.lastClassPassed ?? null,
           lastPercentage: data.lastPercentage || null,
           previousMarksObtained: data.previousMarksObtained ?? null,

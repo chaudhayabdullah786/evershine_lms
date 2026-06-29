@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { sendApprovalNotification } from '@/lib/notifications'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { createYearEnrollmentForStudent } from '@/lib/academic/enrollment'
-import { batchRequiresGenderSeparation, campusIsGenderCompatible } from '@/lib/academic/gender-policy'
+import { batchRequiresGenderSeparation, campusIsGenderCompatible, inferCampusGender } from '@/lib/academic/gender-policy'
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
 
@@ -65,14 +65,14 @@ export async function POST(
     }
 
     const batch = await prisma.batch.findUnique({ where: { id: batchId }, select: { academicLevel: true, forceGenderSeparation: true } })
-    const campus = await prisma.campus.findUnique({ where: { id: campusId }, select: { gender: true } })
+    const campus = await prisma.campus.findUnique({ where: { id: campusId }, select: { name: true, code: true } })
 
     if (!batch || !campus) {
       return NextResponse.json({ success: false, error: 'Invalid batch or campus selection' }, { status: 400 })
     }
 
     const separationRequired = batchRequiresGenderSeparation(batch.academicLevel, batch.forceGenderSeparation)
-    if (!campusIsGenderCompatible(campus.gender, request.gender, separationRequired)) {
+    if (!campusIsGenderCompatible(inferCampusGender(campus), request.gender, separationRequired)) {
       return NextResponse.json({
         success: false,
         error: separationRequired

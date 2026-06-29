@@ -132,14 +132,6 @@ export default function SectionAttendancePage() {
     onError: (e: Error) => notify.error(e.message),
   })
 
-  if (!isAllowed) {
-    return (
-      <div className="p-8 text-center text-gray-500">
-        You do not have permission to mark section attendance.
-      </div>
-    )
-  }
-
   useEffect(() => {
     if (!roster?.enrollments?.length) {
       setStatusMap({})
@@ -151,6 +143,14 @@ export default function SectionAttendancePage() {
     }
     setStatusMap(next)
   }, [roster])
+
+  if (!isAllowed) {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        You do not have permission to mark section attendance.
+      </div>
+    )
+  }
 
   return (
     <motion.div initial="initial" animate="animate" variants={staggerContainer} className="space-y-6 max-w-7xl mx-auto">

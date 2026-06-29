@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createElectiveGroupSchema } from '@/lib/validation/academic'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
@@ -41,14 +41,21 @@ export async function POST(request: NextRequest) {
   const parsed = createElectiveGroupSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
-  if (parsed.data.maxSelections < parsed.data.minSelections) {
+  const data: Prisma.ElectiveGroupUncheckedCreateInput = {
+    classSectionId: parsed.data.classSectionId!,
+    name: parsed.data.name!,
+    minSelections: parsed.data.minSelections,
+    maxSelections: parsed.data.maxSelections,
+  }
+
+  if (data.maxSelections < data.minSelections) {
     return errors.validation({
       errors: [{ path: ['maxSelections'], message: 'maxSelections must be >= minSelections' }],
     } as never)
   }
 
   const section = await prisma.classSection.findUnique({
-    where: { id: parsed.data.classSectionId },
+    where: { id: data.classSectionId },
     select: { curriculumMode: true },
   })
   if (!section) return errors.notFound('Class section')
@@ -57,14 +64,19 @@ export async function POST(request: NextRequest) {
   }
 
   const group = await prisma.$transaction(async (tx) => {
-    const created = await tx.electiveGroup.create({ data: parsed.data })
+    const created = await tx.electiveGroup.create({ data })
     await tx.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'CREATE',
         entityType: 'ElectiveGroup',
         entityId: created.id,
-        changes: parsed.data,
+        changes: {
+          classSectionId: data.classSectionId,
+          name: data.name,
+          minSelections: data.minSelections,
+          maxSelections: data.maxSelections,
+        },
       },
     })
     return created

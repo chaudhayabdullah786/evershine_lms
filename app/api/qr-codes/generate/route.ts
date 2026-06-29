@@ -74,6 +74,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('QR code generation error:', err)
-    return errors.internal('Failed to generate QR code')
+    return errors.internal()
   }
 }

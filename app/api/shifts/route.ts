@@ -5,7 +5,7 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createShiftSchema } from '@/lib/validation/academic'
 import { SESSION_SHIFT_TIMES } from '@/lib/validation/shift'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 const DEFAULT_SHIFTS: { code: SessionShift; name: string }[] = [
   { code: 'MORNING', name: 'Morning Shift' },
@@ -49,15 +49,29 @@ export async function POST(request: NextRequest) {
   const parsed = createShiftSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const data: Prisma.ShiftUncheckedCreateInput = {
+    code: parsed.data.code!,
+    name: parsed.data.name!,
+    startTime: parsed.data.startTime!,
+    endTime: parsed.data.endTime!,
+    lateGraceMinutes: parsed.data.lateGraceMinutes,
+  }
+
   const shift = await prisma.$transaction(async (tx) => {
-    const created = await tx.shift.create({ data: parsed.data })
+    const created = await tx.shift.create({ data })
     await tx.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'CREATE',
         entityType: 'Shift',
         entityId: created.id,
-        changes: parsed.data,
+        changes: {
+          code: data.code,
+          name: data.name,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          lateGraceMinutes: data.lateGraceMinutes,
+        },
       },
     })
     return created

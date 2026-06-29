@@ -131,17 +131,19 @@ export async function POST(request: NextRequest) {
   const record = await prisma.enrollmentAttendanceRecord.upsert({
     where: {
       studentEnrollmentId_attendanceDate: {
-        studentEnrollmentId: parsed.data.studentEnrollmentId,
-        attendanceDate: new Date(parsed.data.attendanceDate),
+        studentEnrollmentId: parsed.data.studentEnrollmentId!,
+        attendanceDate: new Date(parsed.data.attendanceDate!),
       },
     },
     create: {
-      ...parsed.data,
-      attendanceDate: new Date(parsed.data.attendanceDate),
+      studentEnrollmentId: parsed.data.studentEnrollmentId!,
+      attendanceDate: new Date(parsed.data.attendanceDate!),
+      status: parsed.data.status!,
+      remarks: parsed.data.remarks,
       markedByTeacherId: markedBy,
     },
     update: {
-      status: parsed.data.status,
+      status: parsed.data.status!,
       remarks: parsed.data.remarks,
       markedByTeacherId: markedBy,
     },

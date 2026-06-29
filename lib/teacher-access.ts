@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import type { SessionShift } from '@/lib/validation/shift'
 
 async function resolveLegacyClass(classId: string) {
   return prisma.class.findUnique({
@@ -16,7 +17,7 @@ async function resolveLegacyClass(classId: string) {
 
 async function resolveClassSectionIdForLegacyClass(legacyClass: { grade: number; section: string | null; campusId: string; batchId: string | null; shift: string }) {
   const shift = await prisma.shift.findFirst({
-    where: { code: legacyClass.shift },
+    where: { code: legacyClass.shift as SessionShift },
     select: { id: true },
   })
 

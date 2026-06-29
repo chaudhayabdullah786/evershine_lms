@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import { createCampusSchema } from '@/lib/validation/batch'
+import { inferCampusGender } from '@/lib/academic/gender-policy'
 import type { Role } from '@prisma/client'
 
 export async function GET(_request: NextRequest) {
@@ -35,7 +36,7 @@ export async function GET(_request: NextRequest) {
     },
   })
 
-  return successResponse(campuses)
+  return successResponse(campuses.map((campus) => ({ ...campus, gender: inferCampusGender(campus) })))
 }
 
 export async function POST(request: NextRequest) {
@@ -49,7 +50,14 @@ export async function POST(request: NextRequest) {
   const parsed = createCampusSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const data = parsed.data
+  const data = {
+    name: parsed.data.name!,
+    code: parsed.data.code!,
+    address: parsed.data.address!,
+    phone: parsed.data.phone!,
+    email: parsed.data.email!,
+    principalName: parsed.data.principalName!,
+  }
 
   const existingCode = await prisma.campus.findUnique({ where: { code: data.code }, select: { id: true } })
   if (existingCode) return errors.conflict('A campus with this code already exists')

@@ -250,7 +250,7 @@ Replace Resend with **nodemailer** + Hostinger SMTP.
 | Teacher/student profile (many flows) | Base64 or URL string in DB |
 | `GET /api/upload` | Cloudinary signed upload (**minimal UI usage**) |
 
-Cloudinary was primarily justified for **Vercel 4.5 MB body limits** — not a hard requirement on Hostinger Node.js.
+Cloudinary was primarily justified for **Vercel 4.5 MB body limits** — not a hard requirement on Hostinger Node.js. However, the current production code still uses `lib/cloudinary.ts` and `GET /api/upload` for signed upload flows. Until `HOST-03` is implemented, configure Cloudinary using [`CLOUDINARY_SETUP.md`](./CLOUDINARY_SETUP.md) and set `REQUIRE_CLOUDINARY=true` for production readiness checks.
 
 ### 6.2 Target layout
 
@@ -382,10 +382,18 @@ SMTP_FROM="Evershaheen Academy <noreply@evershineacademy.com>"
 # ACADEMIC_SEED_DEMO="false"
 ```
 
-**Do not set on Hostinger (optimized stack):**
+**Cloudinary interim requirement:**
+
+If upload-backed features are active, set the Cloudinary variables from [`CLOUDINARY_SETUP.md`](./CLOUDINARY_SETUP.md) and validate with:
+
+```bash
+REQUIRE_CLOUDINARY=true npm run check:env
+```
+
+**Do not set on Hostinger once `HOST-03` disk uploads are fully implemented and verified:**
 
 ```env
-# REMOVE — not used
+# REMOVE after Cloudinary migration only
 DIRECT_URL=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=

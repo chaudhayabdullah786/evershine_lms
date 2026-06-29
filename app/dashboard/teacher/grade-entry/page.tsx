@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
 import { fetchApi } from '@/lib/api-client'
@@ -97,22 +97,24 @@ export default function TeacherResultEntryPage() {
     enabled: !!classSectionId,
   })
 
-  useQuery<SubjectOffering[]>({
+  const { data: sectionOfferings = [] } = useQuery<SubjectOffering[]>({
     queryKey: ['section-offerings', classSectionId],
     queryFn: () => fetchApi<SubjectOffering[]>(`/api/teacher-portal/sections/${classSectionId}/offerings`),
     enabled: !!classSectionId && !resultId,
-    onSuccess: (data: SubjectOffering[]) => {
-      setSubjectEntries(data.map((o) => ({
-        subjectOfferingId: o.id,
-        subjectName: o.subject.name,
-        totalMarks: 100,
-        obtainedMarks: '',
-        isAbsent: false,
-        isNotApplicable: false,
-        remarks: '',
-      })))
-    },
   })
+
+  useEffect(() => {
+    if (!classSectionId || resultId) return
+    setSubjectEntries(sectionOfferings.map((o) => ({
+      subjectOfferingId: o.id,
+      subjectName: o.subject.name,
+      totalMarks: 100,
+      obtainedMarks: '',
+      isAbsent: false,
+      isNotApplicable: false,
+      remarks: '',
+    })))
+  }, [classSectionId, resultId, sectionOfferings])
 
   type ExistingResult = {
     id: string
@@ -122,7 +124,7 @@ export default function TeacherResultEntryPage() {
     customFields?: CustomField[] | null
   }
 
-  useQuery<{
+  type ResultDetail = {
     id: string
     studentId: string
     classSectionId: string
@@ -138,31 +140,36 @@ export default function TeacherResultEntryPage() {
       remarks?: string | null
       subjectOffering: { subject: { name: string } }
     }>
-  } | null>({
+  }
+
+  const { data: resultDetail, error: resultDetailError } = useQuery<ResultDetail | null>({
     queryKey: ['result-detail', resultId],
-    queryFn: () => fetchApi(`/api/teacher-portal/results/${resultId}`),
+    queryFn: () => fetchApi<ResultDetail | null>(`/api/teacher-portal/results/${resultId}`),
     enabled: !!resultId,
-    onSuccess: (data) => {
-      if (!data) return
-      setClassSectionId(data.classSectionId)
-      setExamSessionId(data.examSessionId)
-      setStudentId(data.studentId)
-      setTeacherRemarks(data.teacherRemarks ?? '')
-      setSelectedResultId(data.id)
-      setSubjectEntries(data.subjectResults.map((sr) => ({
-        subjectOfferingId: sr.subjectOfferingId,
-        subjectName: sr.subjectOffering.subject.name,
-        totalMarks: sr.totalMarks,
-        obtainedMarks: sr.obtainedMarks === null ? '' : String(sr.obtainedMarks),
-        isAbsent: sr.isAbsent,
-        isNotApplicable: sr.isNotApplicable,
-        remarks: sr.remarks ?? '',
-      })))
-    },
-    onError: (err: Error) => {
-      notify.error(err.message || 'Failed to load result details')
-    },
   })
+
+  useEffect(() => {
+    if (!resultDetail) return
+    setClassSectionId(resultDetail.classSectionId)
+    setExamSessionId(resultDetail.examSessionId)
+    setStudentId(resultDetail.studentId)
+    setTeacherRemarks(resultDetail.teacherRemarks ?? '')
+    setSelectedResultId(resultDetail.id)
+    setSubjectEntries(resultDetail.subjectResults.map((sr) => ({
+      subjectOfferingId: sr.subjectOfferingId,
+      subjectName: sr.subjectOffering.subject.name,
+      totalMarks: sr.totalMarks,
+      obtainedMarks: sr.obtainedMarks === null ? '' : String(sr.obtainedMarks),
+      isAbsent: sr.isAbsent,
+      isNotApplicable: sr.isNotApplicable,
+      remarks: sr.remarks ?? '',
+    })))
+  }, [resultDetail])
+
+  useEffect(() => {
+    if (!resultDetailError) return
+    notify.error(resultDetailError instanceof Error ? resultDetailError.message : 'Failed to load result details')
+  }, [resultDetailError])
 
   const { data: existingResult } = useQuery<ExistingResult | null>({
     queryKey: ['existing-result', studentId, classSectionId, examSessionId],

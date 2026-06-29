@@ -63,6 +63,7 @@ const createStudentSchemaBase = z.object({
   fatherCnic:          z.string().optional(),  // Father's own 13-digit CNIC
 
   // ── Academic background (from previous institution) ────────────────────────
+  previousSchool:        z.string().optional(),      // Last school / institution attended
   lastClassPassed:       z.preprocess(blankOptionalNumber, z.number().int().min(1).max(12).optional()),
   lastPercentage:        z.string().optional(),      // e.g. "72.5%" or "710/1100"
   previousMarksObtained: z.preprocess(blankOptionalNumber, z.number().int().min(0).optional()),

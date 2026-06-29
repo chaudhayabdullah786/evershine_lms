@@ -56,10 +56,17 @@ export async function GET(request: NextRequest) {
     orderBy: { dueAmount: 'desc' }, // Highest defaulters first
   })
 
-  const workbook = await buildDefaulterListReport(students)
+  const workbook = await buildDefaulterListReport(
+    students.map((student) => ({
+      ...student,
+      invoices: student.feeInvoices,
+    }))
+  )
   const buffer = await workbook.xlsx.writeBuffer()
+  const bytes = Buffer.from(buffer)
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 
-  return new NextResponse(buffer as Buffer, {
+  return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="fee-defaulters-${new Date().toISOString().split('T')[0]}.xlsx"`,

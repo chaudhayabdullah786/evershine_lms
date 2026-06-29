@@ -128,8 +128,9 @@ export async function POST(req: NextRequest) {
       designation = 'Accountant'
     } else if (employee.admin) {
       employeeName = `${employee.admin.firstName} ${employee.admin.lastName}`
-      employeeNumber = employee.admin.employeeId ?? null
+      employeeNumber = null
       designation = 'Administrator'
+      department = employee.admin.department ?? null
     } else {
       employeeName = employee.email.split('@')[0]
     }

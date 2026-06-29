@@ -55,12 +55,21 @@ export async function POST(request: NextRequest) {
   }
 
   const { components, ...schemeData } = parsed.data
+  const componentData = components.map((component) => ({
+    name: component.name!,
+    maxMarks: component.maxMarks!,
+    weightPercentage: component.weightPercentage!,
+    orderIndex: component.orderIndex,
+  }))
 
   const scheme = await prisma.$transaction(async (tx) => {
     const created = await tx.academicGradingScheme.create({
       data: {
-        ...schemeData,
-        components: { create: components },
+        name: schemeData.name!,
+        academicYear: { connect: { id: schemeData.academicYearId! } },
+        classSection: { connect: { id: schemeData.classSectionId! } },
+        subject: { connect: { id: schemeData.subjectId! } },
+        components: { create: componentData },
       },
       include: { components: true },
     })
@@ -70,7 +79,13 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'AcademicGradingScheme',
         entityId: created.id,
-        changes: schemeData,
+        changes: {
+          name: schemeData.name,
+          academicYearId: schemeData.academicYearId,
+          classSectionId: schemeData.classSectionId,
+          subjectId: schemeData.subjectId,
+          components: componentData,
+        },
       },
     })
     return created

@@ -95,6 +95,7 @@ export default function StudentsListPage() {
   const userRole = session?.user?.role as string | undefined
   const canManage = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
   const canExport = canManage || userRole === 'ACCOUNTANT'
+  const canViewStudents = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(userRole ?? '')
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -108,16 +109,6 @@ export default function StudentsListPage() {
   const [suspendingId, setSuspendingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const limit = 20
-
-  if (status === 'loading') return null
-  if (!['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(userRole ?? '')) {
-    return (
-      <AccessDenied
-        title="Student Directory Restricted"
-        message="The global student directory is for administrators and accountants only. Teachers can view assigned students from Teacher Portal → My Students."
-      />
-    )
-  }
 
   const params = new URLSearchParams()
   params.set('page', String(page))
@@ -134,19 +125,20 @@ export default function StudentsListPage() {
     queryKey: ['students', page, search, feeStatusFilter, enrollmentFilter, campusFilter, batchFilter, classSectionFilter],
     queryFn: () => fetchPaginatedApi<Student>(`/api/students?${params.toString()}`),
     staleTime: 30_000,
+    enabled: canViewStudents,
   })
 
   const { data: campusesRaw } = useQuery({
     queryKey: ['campuses-list'],
     queryFn: () => fetchApi<Array<{ id: string; name: string; code: string }>>('/api/campuses'),
-    enabled: showFilters,
+    enabled: canViewStudents && showFilters,
   })
   const campuses = Array.isArray(campusesRaw) ? campusesRaw : (campusesRaw as { data?: Array<{ id: string; name: string; code: string }> })?.data ?? []
 
   const { data: batchesRaw } = useQuery({
     queryKey: ['batches-list', campusFilter],
     queryFn: () => fetchApi<Array<{ id: string; name: string; code: string }>>(`/api/batches?campusId=${campusFilter}`),
-    enabled: showFilters && !!campusFilter,
+    enabled: canViewStudents && showFilters && !!campusFilter,
   })
   const batches = Array.isArray(batchesRaw) ? batchesRaw : (batchesRaw as { data?: Array<{ id: string; name: string; code: string }> })?.data ?? []
 
@@ -201,6 +193,16 @@ export default function StudentsListPage() {
     } finally {
       setSuspendingId(null)
     }
+  }
+
+  if (status === 'loading') return null
+  if (!canViewStudents) {
+    return (
+      <AccessDenied
+        title="Student Directory Restricted"
+        message="The global student directory is for administrators and accountants only. Teachers can view assigned students from Teacher Portal → My Students."
+      />
+    )
   }
 
   return (

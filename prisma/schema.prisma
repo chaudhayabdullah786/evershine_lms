@@ -414,6 +414,7 @@ model Student {
   guardianBusinessDealsIn  String?
 
   // Academic background (from previous institution)
+  previousSchool        String? // Last school / institution attended
   lastClassPassed       Int? // e.g. 8 = completed Class 8
   lastPercentage        String? // e.g. "72.5%"
   previousMarksObtained Int?

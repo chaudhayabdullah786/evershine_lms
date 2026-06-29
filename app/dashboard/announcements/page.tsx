@@ -160,9 +160,7 @@ export default function AnnouncementsPage() {
         }),
       }),
     onSuccess: () => {
-      notify.success('Announcement published! Email notifications sent.', {
-        icon: <Mail className="w-4 h-4" />,
-      })
+      notify.success('Announcement published! Email notifications sent.')
       queryClient.invalidateQueries({ queryKey: ['announcements'] })
       setCreateOpen(false)
       setCreateForm({ ...EMPTY_FORM })

@@ -65,17 +65,19 @@ export default function AccountantFeesPage() {
   const campuses = campusesData?.data ?? []
 
   const classQuery = selectedCampusId ? `/api/classes?campusId=${selectedCampusId}&limit=200` : '/api/classes?limit=200'
-  const { data: classesData } = useQuery({
+  const { data: classesData, error: classesError } = useQuery({
     queryKey: ['accountant-fees-classes', selectedCampusId],
     queryFn: () => fetchApi<ClassOption[]>(classQuery),
     enabled: !!session,
     staleTime: 60_000,
-    onError: (err: unknown) => {
-      console.error('Failed to load classes for fees page', err)
-      notify.error('Unable to load classes. Please check permissions or try again.')
-    }
   })
   const classes = classesData ?? []
+
+  useEffect(() => {
+    if (!classesError) return
+    console.error('Failed to load classes for fees page', classesError)
+    notify.error('Unable to load classes. Please check permissions or try again.')
+  }, [classesError])
 
   useEffect(() => {
     if (userCampusId) setSelectedCampusId(userCampusId)

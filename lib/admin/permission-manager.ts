@@ -17,6 +17,10 @@ export type RolePermissionOverride = {
 
 export type PermissionMatrix = Record<string, Action[]>
 
+function isAction(value: string): value is Action {
+  return value === 'create' || value === 'read' || value === 'update' || value === 'delete'
+}
+
 export const ACADEMIC_RESOURCES = Object.keys(
   DEFAULT_PERMISSION_MATRIX.SUPER_ADMIN
 ) as AcademicResource[]
@@ -43,6 +47,7 @@ export async function getPermissionMatrix() {
   })
 
   for (const override of overrides) {
+    if (!isAction(override.action)) continue
     const current = matrix[override.role] ?? {}
     const actions = new Set(current[override.resource] ?? [])
     if (override.isEnabled) {
@@ -64,6 +69,7 @@ export async function getEffectivePermissionMatrix(role: Role) {
 
   const overrides = await getRolePermissionOverrides(role)
   for (const override of overrides) {
+    if (!isAction(override.action)) continue
     const actions = new Set(baseMatrix[override.resource] ?? [])
     if (override.isEnabled) {
       actions.add(override.action)
