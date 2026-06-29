@@ -549,8 +549,8 @@ export async function generatePdfBlob({
               rect.height === 0 || 
               c.width === 0 || 
               c.height === 0 ||
-              element.style.display === 'none' ||
-              element.style.visibility === 'hidden' ||
+              (element as HTMLElement).style.display === 'none' ||
+              (element as HTMLElement).style.visibility === 'hidden' ||
               getComputedStyle(element).display === 'none'
             
             if (isBadCanvas) {

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { submitTeacherFeedbackSchema } from '@/lib/validation/feedback'
 import { getPendingTeachersForStudent } from '@/lib/feedback/engine'
+import type { Prisma } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -42,38 +43,74 @@ export async function POST(request: NextRequest) {
     } as never)
   }
 
-  const existing = await prisma.teacherMonthlyFeedback.findUnique({
+  const existing = await prisma.feedbackAnswer.findFirst({
     where: {
-      cycleId_teacherId_studentId: {
+      targetTeacherId: parsed.data.teacherId,
+      submission: {
         cycleId: cycle.id,
-        teacherId: parsed.data.teacherId,
-        studentId: student.id,
+        submitterUserId: session.user.id,
       },
     },
+    select: { id: true },
   })
   if (existing) return errors.conflict('Feedback already submitted for this teacher')
 
-  const feedback = await prisma.$transaction(async (tx) => {
-    const row = await tx.teacherMonthlyFeedback.create({
-      data: {
+  const existingSubmission = await prisma.studentFeedbackSubmission.findUnique({
+    where: {
+      cycleId_submitterUserId: {
         cycleId: cycle.id,
-        teacherId: parsed.data.teacherId,
+        submitterUserId: session.user.id,
+      },
+    },
+    select: { suggestions: true },
+  })
+  const existingSuggestions: Prisma.InputJsonObject =
+    typeof existingSubmission?.suggestions === 'object' &&
+    existingSubmission.suggestions &&
+    !Array.isArray(existingSubmission.suggestions)
+      ? Object.fromEntries(
+          Object.entries(existingSubmission.suggestions).filter((entry): entry is [string, string] =>
+            typeof entry[1] === 'string'
+          )
+        )
+      : {}
+  const suggestions: Prisma.InputJsonObject | undefined = parsed.data.comments
+    ? { ...existingSuggestions, [parsed.data.teacherId]: parsed.data.comments }
+    : Object.keys(existingSuggestions).length > 0
+      ? existingSuggestions
+      : undefined
+
+  const feedback = await prisma.$transaction(async (tx) => {
+    const submission = await tx.studentFeedbackSubmission.upsert({
+      where: {
+        cycleId_submitterUserId: {
+          cycleId: cycle.id,
+          submitterUserId: session.user.id,
+        },
+      },
+      create: {
+        cycleId: cycle.id,
         studentId: student.id,
         studentEnrollmentId: enrollment.id,
         campusId: enrollment.classSection.campusId,
         batchId: enrollment.classSection.batchId,
-        classSectionId: enrollment.classSectionId,
-        comments: parsed.data.comments,
+        submitterRole: 'STUDENT',
+        submitterUserId: session.user.id,
+        suggestions,
       },
+      update: suggestions ? { suggestions } : {},
     })
-    await tx.teacherMonthlyFeedbackAnswer.createMany({
+
+    await tx.feedbackAnswer.createMany({
       data: parsed.data.answers.map((a) => ({
-        feedbackId: row.id,
+        submissionId: submission.id,
         questionId: a.questionId,
+        targetTeacherId: parsed.data.teacherId,
         response: a.response,
       })),
+      skipDuplicates: true,
     })
-    return row
+    return submission
   })
 
   return createdResponse({ id: feedback.id }, 'Feedback submitted')

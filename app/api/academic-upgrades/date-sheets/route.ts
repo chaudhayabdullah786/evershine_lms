@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
-import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { AcademicUpgradesService, type SaveDateSheetInput } from '@/lib/services/academic-upgrades-service'
 import { saveDateSheetSchema } from '@/lib/validation/academic-upgrades'
 import type { Role } from '@prisma/client'
 
@@ -63,10 +63,20 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
-    const sheet = await AcademicUpgradesService.saveDateSheet({
-      ...parsed.data,
-      createdById: session.user.id,   // Required FK on ExamDateSheet
-    })
+    const payload: SaveDateSheetInput = {
+      classSectionId: parsed.data.classSectionId!,
+      examSessionId: parsed.data.examSessionId!,
+      title: parsed.data.title!,
+      slots: parsed.data.slots!.map((slot) => ({
+        subjectOfferingId: slot.subjectOfferingId!,
+        examDate: slot.examDate!,
+        startTime: slot.startTime!,
+        endTime: slot.endTime!,
+        roomNumber: slot.roomNumber,
+      })),
+      createdById: session.user.id,
+    }
+    const sheet = await AcademicUpgradesService.saveDateSheet(payload)
     return successResponse(sheet, 'Date sheet saved successfully.')
   } catch (err: any) {
     return errors.badRequest(err.message ?? 'Failed to save date sheet.')

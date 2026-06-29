@@ -68,12 +68,13 @@ export async function POST(
     const p = await tx.feePayment.create({
       data: {
         invoiceId,
+        studentId: existing.studentId,
         amount: amountToPay,
         paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
         paymentMethod: data.paymentMethod,
         transactionId: data.transactionId,
         remarks: data.remarks,
-        recordedBy: session.user.id,
+        receivedBy: session.user.id,
       },
     })
 
@@ -86,13 +87,14 @@ export async function POST(
       },
     })
 
-    // Update student totals
+    // Update student totals without allowing dueAmount to drift below zero.
+    const remainingStudentDue = Math.max(0, Number(existing.student.dueAmount) - amountToPay)
     await tx.student.update({
       where: { id: existing.studentId },
       data: {
         paidAmount: { increment: amountToPay },
-        dueAmount: { decrement: amountToPay },
-        feeStatus: newStatus === 'PAID' && (Number(existing.student.dueAmount) - amountToPay <= 0) ? 'PAID' : 'UNPAID',
+        dueAmount: remainingStudentDue,
+        feeStatus: newStatus === 'PAID' && remainingStudentDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
       },
     })
 

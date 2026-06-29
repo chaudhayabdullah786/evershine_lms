@@ -118,10 +118,10 @@ export default function AccountantExpensesPage() {
     queryFn: () => fetchApi<{ paymentSource: boolean; paymentReference: boolean }>('/api/accountant/expenses/columns'),
     enabled: canAccess,
     staleTime: 60_000,
-    cacheTime: 300_000,
+    gcTime: 300_000,
   })
 
-  const { mutateAsync: updateExpenseAsync, isLoading: isUpdatingExpense } = useMutation({
+  const { mutateAsync: updateExpenseAsync, isPending: isUpdatingExpense } = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
       fetchApi<void>(`/api/accountant/expenses/${id}`, {
         method: 'PATCH',
@@ -138,7 +138,7 @@ export default function AccountantExpensesPage() {
     },
   })
 
-  const { mutateAsync: deleteExpenseAsync, isLoading: isDeletingExpense } = useMutation({
+  const { mutateAsync: deleteExpenseAsync, isPending: isDeletingExpense } = useMutation({
     mutationFn: async (id: string) =>
       fetchApi<void>(`/api/accountant/expenses/${id}`, {
         method: 'DELETE',
@@ -452,14 +452,14 @@ export default function AccountantExpensesPage() {
             <Button
               onClick={() => mutation.mutate()}
               disabled={
-                mutation.isLoading ||
+                mutation.isPending ||
                 !form.title ||
                 !form.amount ||
                 isLoadingExpenseColumns
               }
               className="w-full bg-teal-600 hover:bg-teal-700 text-white"
             >
-              {mutation.isLoading ? 'Saving…' : isLoadingExpenseColumns ? 'Checking schema…' : 'Record expense'}
+              {mutation.isPending ? 'Saving…' : isLoadingExpenseColumns ? 'Checking schema…' : 'Record expense'}
             </Button>
           </CardContent>
         </Card>

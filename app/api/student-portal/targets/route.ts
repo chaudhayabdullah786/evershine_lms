@@ -57,7 +57,7 @@ export async function GET() {
         },
         assignedBy: {
           select: {
-            name: true,
+            email: true,
           },
         },
       },
@@ -123,7 +123,7 @@ export async function GET() {
           currentPercentage,
           scoresCount: performanceAgg._count.id,
           status,
-          assignedBy: target.assignedBy?.name || 'Teacher',
+          assignedBy: target.assignedBy?.email || 'Teacher',
           updatedAt: target.updatedAt,
         }
       })

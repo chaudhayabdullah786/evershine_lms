@@ -17,6 +17,11 @@ const dateOrDateTimeString = z.preprocess((value) => {
   return value
 }, z.string().datetime({ message: 'Invalid date of birth' }))
 
+const optionalCuid = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  return value
+}, z.string().cuid().optional())
+
 const blankOptionalNumber = (value: unknown) => {
   if (typeof value === 'string' && value.trim() === '') return undefined
   if (typeof value === 'number' && Number.isNaN(value)) return undefined
@@ -58,6 +63,7 @@ const createStudentSchemaBase = z.object({
   fatherCnic:          z.string().optional(),  // Father's own 13-digit CNIC
 
   // ── Academic background (from previous institution) ────────────────────────
+  previousSchool:        z.string().optional(),      // Last school / institution attended
   lastClassPassed:       z.preprocess(blankOptionalNumber, z.number().int().min(1).max(12).optional()),
   lastPercentage:        z.string().optional(),      // e.g. "72.5%" or "710/1100"
   previousMarksObtained: z.preprocess(blankOptionalNumber, z.number().int().min(0).optional()),
@@ -95,13 +101,13 @@ const createStudentSchemaBase = z.object({
   // ── Academic placement ─────────────────────────────────────────────────────
   campusId:       z.string().cuid('Invalid campus ID'),
   batchId:        z.string().cuid('Invalid batch ID'),
-  classId:        z.string().cuid().optional(),
-  classSectionId: z.string().cuid().optional(),
+  classId:        optionalCuid,
+  classSectionId: optionalCuid,
   section:        z.string().max(5).optional(),
   rollNumber:     z.string().min(1).max(20).optional(),
   shift:          sessionShiftSchema.optional(),
   deliveryMode:   deliveryModeSchema.optional(),
-  houseId:        z.string().cuid().optional(),
+  houseId:        optionalCuid,
   academicYear:   z.string().regex(/^\d{4}-\d{4}$/, 'Academic year must be in format YYYY-YYYY'),
 
   // ── Financial ──────────────────────────────────────────────────────────────

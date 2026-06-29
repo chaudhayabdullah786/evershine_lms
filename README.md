@@ -267,11 +267,12 @@ NEXT_PUBLIC_APP_URL="http://localhost:5000"
 NEXT_PUBLIC_APP_NAME="Evershine Academy LMS"
 NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY="true"
 
-# Cloudinary
+# Cloudinary - required while Cloudinary-backed uploads are enabled
 CLOUDINARY_CLOUD_NAME=""
 CLOUDINARY_API_KEY=""
 CLOUDINARY_API_SECRET=""
-CLOUDINARY_UPLOAD_FOLDER="evershine"
+CLOUDINARY_UPLOAD_FOLDER="evershaheen"
+# REQUIRE_CLOUDINARY="true"
 
 # Resend
 RESEND_API_KEY=""
@@ -424,7 +425,7 @@ The live application is deployed on **Hostinger**:
 - HTTPS-enabled domain
 - Production environment variables
 - Persistent process management provided by the hosting environment
-- Cloudinary credentials when uploads are enabled
+- Cloudinary credentials when uploads are enabled; see [`docs/CLOUDINARY_SETUP.md`](docs/CLOUDINARY_SETUP.md)
 - Resend credentials when email delivery is enabled
 - Secure cron secret for scheduled endpoints
 
@@ -490,6 +491,7 @@ Before every production deployment:
 - Back up the database
 - Run dependency and security checks
 - Review uploaded-file restrictions
+- Run `REQUIRE_CLOUDINARY=true npm run check:env` when upload-backed features are enabled
 - Verify authorization on sensitive API routes
 - Avoid displaying real student or staff data in public screenshots
 

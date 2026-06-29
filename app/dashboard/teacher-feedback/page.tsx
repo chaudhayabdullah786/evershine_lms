@@ -68,6 +68,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function FeedbackHubPage() {
   const { data: session } = useSession()
   const role = session?.user?.role
+  const canReviewFeedback = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const qc = useQueryClient()
   const [cycleId, setCycleId] = useState('')
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null)
@@ -79,7 +80,7 @@ export default function FeedbackHubPage() {
       fetchApi<SummaryData>(
         `/api/feedback/admin/summary${cycleId ? `?cycleId=${cycleId}` : ''}`
       ),
-    enabled: role === 'SUPER_ADMIN' || role === 'ADMIN',
+    enabled: canReviewFeedback,
   })
 
   const { data: detail } = useQuery({
@@ -101,10 +102,6 @@ export default function FeedbackHubPage() {
       ),
     enabled: !!selectedTeacherId && !!(summary?.cycle?.id ?? cycleId),
   })
-
-  if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
-    return <AccessDenied title="Feedback Hub" message="Administrators review monthly feedback here." />
-  }
 
   const activeCycleId = cycleId || summary?.cycle?.id || ''
   const selectedCycle = (summary?.cycles ?? []).find((c) => c.id === activeCycleId) ?? summary?.cycle
@@ -130,6 +127,10 @@ export default function FeedbackHubPage() {
         : 'bg-amber-100 text-amber-800'
 
   const stats = summary?.stats
+
+  if (!canReviewFeedback) {
+    return <AccessDenied title="Feedback Hub" message="Administrators review monthly feedback here." />
+  }
 
   return (
     <div className="space-y-6">

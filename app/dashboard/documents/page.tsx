@@ -22,6 +22,7 @@ import { notify } from '@/lib/notify'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { sessionShiftFormalLabel } from '@/lib/validation/shift'
+import { buildDocumentFileName, exportPreviewDocument, type DocumentType } from '@/lib/documents/export-preview'
 
 interface Student {
   id: string
@@ -78,68 +79,6 @@ interface Teacher {
 }
 
 
-export type DocumentType = 'id_card' | 'birthday' | 'bonafide' | 'result_card' | 'performance_card' | 'reports' | 'exports' | 'teacher_id_card' | 'teacher_experience' | 'student_profile' | 'teacher_profile'
-
-type ReportRow = {
-  label: string
-  value: string
-}
-
-type AdminReportData = Record<string, unknown>
-
-export function buildDocumentFileName(docType: DocumentType, reportSubtype: 'fees' | 'attendance' | 'performance', safeStudentIdentifier: string) {
-  const filePrefix = docType === 'reports'
-    ? `${reportSubtype}-report`
-    : `${docType.replace(/_/g, '-')}`
-  return `${safeStudentIdentifier}-${filePrefix}`
-}
-
-export async function exportPreviewDocument(element: HTMLElement, fileName: string, colorMode: 'color' | 'bw' = 'color') {
-  // WHY: We pass the [data-document-page] element DIRECTLY instead of the outer
-  // capture container. The outer container uses width:'100%' which adapts to the
-  // preview panel width (~560px). Passing the page element directly guarantees
-  // getBoundingClientRect() reports the fixed 595px A4 width, not the panel width.
-  const pageEl = element.querySelector('[data-document-page]') as HTMLElement | null
-  const captureTarget = pageEl ?? element
-
-  // Force explicit width on the capture target. If the element specifies a width
-  // (like 680px for ID cards), use it. Otherwise, default to A4 width (595px).
-  const targetWidth = captureTarget.style.width || '595px'
-  const targetHeight = captureTarget.style.height || '842px'
-  
-  const widthNum = parseInt(targetWidth, 10) || 595
-  const heightNum = parseInt(targetHeight, 10) || 842
-  const orientation = widthNum > heightNum ? 'landscape' : 'portrait'
-
-  const savedWidth = captureTarget.style.width
-  const savedMinWidth = captureTarget.style.minWidth
-  const savedMaxWidth = captureTarget.style.maxWidth
-  const savedPosition = captureTarget.style.position
-  captureTarget.style.width = targetWidth
-  captureTarget.style.minWidth = targetWidth
-  captureTarget.style.maxWidth = targetWidth
-
-  // One rAF to allow the browser to reflow at the forced width before capture
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  await new Promise<void>((resolve) => setTimeout(resolve, 80))
-
-  try {
-    await downloadPdf({
-      element: captureTarget,
-      filename: fileName,
-      orientation,
-      scale: 3,
-      colorMode,
-    })
-  } finally {
-    // Always restore — even if download throws, the live preview must not be broken
-    captureTarget.style.width = savedWidth
-    captureTarget.style.minWidth = savedMinWidth
-    captureTarget.style.maxWidth = savedMaxWidth
-    captureTarget.style.position = savedPosition
-  }
-}
-
 type OverdueItem = {
   name: string
   classSection: string
@@ -176,6 +115,8 @@ type PerformanceSection = {
   classAverage: number
   classStatus: 'EXCELLENT' | 'GOOD' | 'SATISFACTORY'
 }
+
+type ReportRow = { label: string; value: string }
 
 function getAvatarDataUrl(firstName: string, lastName: string, bgColor: string) {
   const cleanColor = bgColor.startsWith('#') ? bgColor : `#${bgColor}`;
@@ -571,7 +512,7 @@ export default function DocumentsPage() {
             })
           } catch (auditError) {
             console.warn('Document audit log failed:', auditError)
-            toast.warning('PDF saved', {
+            notify.warning('PDF saved', {
               description: 'Download succeeded, but the server record could not be saved.',
             })
           }
@@ -597,7 +538,7 @@ export default function DocumentsPage() {
             })
           } catch (auditError) {
             console.warn('Teacher document audit log failed:', auditError)
-            toast.warning('PDF saved', {
+            notify.warning('PDF saved', {
               description: 'Download succeeded, but the server record could not be saved.',
             })
           }
@@ -1100,7 +1041,7 @@ export default function DocumentsPage() {
                         </div>
 
                 {/* PDF Download — hidden for reports and exports */}
-                {docType !== 'reports' && docType !== 'exports' && (
+                {docType !== 'reports' && (
                   <Button
                     onClick={handleDownloadDocument}
                     disabled={isGenerating || isExporting || (isTeacherDoc ? !selectedTeacher : !selectedStudent)}

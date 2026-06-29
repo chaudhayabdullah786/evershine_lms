@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
   
-  const denied = requirePermission(session.user.role as Role, 'academic_engine', 'update')
+  const denied = requirePermission(session.user.role as Role, 'subject_offerings', 'update')
   if (denied) return denied
 
   const { id } = await params
@@ -57,7 +57,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
   
-  const denied = requirePermission(session.user.role as Role, 'academic_engine', 'delete')
+  const denied = requirePermission(session.user.role as Role, 'subject_offerings', 'delete')
   if (denied) return denied
 
   const { id } = await params

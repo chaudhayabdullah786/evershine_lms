@@ -22,8 +22,8 @@ export async function GET(
   
   try {
     await assertGuardianOwnsStudent(session.user.id, studentId)
-  } catch (error: any) {
-    return errors.forbidden(error.message)
+  } catch (error) {
+    return errors.forbidden(error instanceof Error ? error.message : 'Access denied')
   }
 
   const { searchParams } = new URL(request.url)
@@ -54,7 +54,8 @@ export async function GET(
       paidAmount: true,
       status: true,
       dueDate: true,
-      paymentProofUrl: true,
+      proofUrl: true,
+      proofStatus: true,
     },
   })
 

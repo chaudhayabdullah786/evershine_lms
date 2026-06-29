@@ -42,7 +42,10 @@ export async function GET(request: Request) {
     where: { studentId: student.id },
     include: {
       classSection: {
-        select: { id: true, className: true, sectionName: true, academicYearId: true },
+        select: { id: true, className: true, sectionName: true },
+      },
+      academicYear: {
+        select: { id: true, name: true, isLocked: true },
       },
       subjectEnrollments: {
         include: {

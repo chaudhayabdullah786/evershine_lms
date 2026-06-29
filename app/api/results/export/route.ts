@@ -63,12 +63,12 @@ export async function POST(request: NextRequest) {
 
       // Add data rows
       exam.results.forEach((result) => {
-        const percentage = (result.marksObtained / result.totalMarks) * 100
+        const percentage = (result.obtainedMarks / result.totalMarks) * 100
         const row = worksheet.addRow({
           rollNumber: result.student.rollNumber,
           name: `${result.student.firstName} ${result.student.lastName}`,
-          subject: result.subject || 'N/A',
-          marksObtained: result.marksObtained,
+          subject: exam.name,
+          marksObtained: result.obtainedMarks,
           totalMarks: result.totalMarks,
           percentage: `${Math.round(percentage)}%`,
           grade: result.grade || 'N/A',
@@ -96,11 +96,11 @@ export async function POST(request: NextRequest) {
       worksheet.getCell(`A${summaryRow}`).font = { bold: true, size: 12 }
 
       const avgMarks = exam.results.length > 0 
-        ? (exam.results.reduce((sum, r) => sum + r.marksObtained, 0) / exam.results.length).toFixed(2)
+        ? (exam.results.reduce((sum, r) => sum + r.obtainedMarks, 0) / exam.results.length).toFixed(2)
         : 0
 
-      const maxMarks = Math.max(...exam.results.map((r) => r.marksObtained), 0)
-      const minMarks = exam.results.length > 0 ? Math.min(...exam.results.map((r) => r.marksObtained)) : 0
+      const maxMarks = Math.max(...exam.results.map((r) => r.obtainedMarks), 0)
+      const minMarks = exam.results.length > 0 ? Math.min(...exam.results.map((r) => r.obtainedMarks)) : 0
 
       worksheet.getCell(`A${summaryRow + 1}`).value = 'Total Students:'
       worksheet.getCell(`B${summaryRow + 1}`).value = exam.results.length
@@ -115,8 +115,10 @@ export async function POST(request: NextRequest) {
       worksheet.getCell(`B${summaryRow + 4}`).value = minMarks
 
       const buffer = await workbook.xlsx.writeBuffer()
+      const bytes = Buffer.from(buffer)
+      const responseBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 
-      return new Response(buffer, {
+      return new Response(responseBody, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="results_${exam.name}_${new Date().toISOString().split('T')[0]}.xlsx"`,
@@ -129,6 +131,6 @@ export async function POST(request: NextRequest) {
     } as never)
   } catch (err) {
     console.error('Results export error:', err)
-    return errors.internal('Failed to generate export')
+    return errors.internal()
   }
 }

@@ -10,8 +10,8 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { classSectionId: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ classSectionId: string }> }
 ) {
   try {
     const session = await auth()
@@ -24,7 +24,7 @@ export async function GET(
     })
     if (!teacher) return successResponse([])
 
-    const { classSectionId } = params
+    const { classSectionId } = await params
 
     const offerings = await prisma.subjectOffering.findMany({
       where: {

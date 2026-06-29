@@ -12,7 +12,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
-import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { AcademicUpgradesService, type SubmitScoresInput } from '@/lib/services/academic-upgrades-service'
 import { submitScoresSchema, declareResultSchema } from '@/lib/validation/academic-upgrades'
 import type { Role } from '@prisma/client'
 
@@ -70,10 +70,21 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
-    const result = await AcademicUpgradesService.submitStudentScores({
-      ...parsed.data,
+    const payload: SubmitScoresInput = {
+      classSectionId: parsed.data.classSectionId!,
+      examSessionId: parsed.data.examSessionId!,
+      studentId: parsed.data.studentId!,
+      scores: parsed.data.scores!.map((score) => ({
+        subjectOfferingId: score.subjectOfferingId!,
+        totalMarks: score.totalMarks!,
+        obtainedMarks: score.obtainedMarks ?? null,
+        isAbsent: score.isAbsent,
+        isNotApplicable: score.isNotApplicable,
+        remarks: score.remarks,
+      })),
       teacherId: session.user.id,
-    })
+    }
+    const result = await AcademicUpgradesService.submitStudentScores(payload)
     return successResponse(result, 'Scores submitted. Overall percentage and grade recalculated.')
   } catch (err: any) {
     return errors.badRequest(err.message ?? 'Failed to submit scores.')

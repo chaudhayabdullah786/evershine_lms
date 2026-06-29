@@ -38,11 +38,7 @@ export async function GET(request: NextRequest) {
     where: { userId: session.user.id, isRead: false },
   })
 
-  return successResponse(
-    { notifications, unreadCount },
-    undefined,
-    { nextCursor }
-  )
+  return successResponse({ notifications, unreadCount, nextCursor })
 }
 
 /**

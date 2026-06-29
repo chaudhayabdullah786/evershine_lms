@@ -43,6 +43,7 @@ export default function ClassesPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const userRole = session?.user?.role as string | undefined
+  const canManageClasses = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
 
   useEffect(() => {
     if (status !== 'authenticated' || !isAcademicEnginePrimary()) return
@@ -64,21 +65,11 @@ export default function ClassesPage() {
 
   const queryClient = useQueryClient()
 
-  // Route guard: class management is restricted to administrators
-  if (status === 'loading') return null
-  if (userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
-    return (
-      <AccessDenied
-        title="Class Management Restricted"
-        message="Defining and managing class sections is restricted to administrators."
-      />
-    )
-  }
-
   // Queries
   const { data: campusesData } = useQuery({
     queryKey: ['campuses'],
     queryFn: () => fetchPaginatedApi<any>('/api/campuses?limit=50'),
+    enabled: canManageClasses,
   })
 
   const { data: batchesData } = useQuery({
@@ -87,7 +78,8 @@ export default function ClassesPage() {
       let url = '/api/batches?limit=100'
       if (filterCampus !== 'ALL') url += `&campusId=${filterCampus}`
       return fetchPaginatedApi<any>(url)
-    }
+    },
+    enabled: canManageClasses,
   })
 
   const { data: classesData, isLoading } = useQuery({
@@ -98,7 +90,8 @@ export default function ClassesPage() {
       if (filterBatch !== 'ALL') url += `&batchId=${filterBatch}`
       if (filterShift !== 'ALL') url += `&shift=${filterShift}`
       return fetchPaginatedApi<any>(url)
-    }
+    },
+    enabled: canManageClasses,
   })
 
   const campuses = campusesData?.data ?? []
@@ -157,6 +150,17 @@ export default function ClassesPage() {
     } catch (err: unknown) {
       notify.error(err instanceof Error ? err.message : 'Failed to deactivate class', { id: 'class-deactivate-err' })
     }
+  }
+
+  // Route guard: class management is restricted to administrators
+  if (status === 'loading') return null
+  if (!canManageClasses) {
+    return (
+      <AccessDenied
+        title="Class Management Restricted"
+        message="Defining and managing class sections is restricted to administrators."
+      />
+    )
   }
 
   return (

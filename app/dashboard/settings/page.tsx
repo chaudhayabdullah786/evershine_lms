@@ -93,7 +93,7 @@ export default function SettingsPage() {
   })
 
   const users = usersData?.data ?? []
-  const totalUsers = usersData?.total ?? 0
+  const totalUsers = usersData?.pagination.total ?? 0
 
   // Query: Get Admin Users List (Admin Control Tab)
   const { data: adminsData, isLoading: isLoadingAdmins, refetch: refetchAdmins } = useQuery({
@@ -112,7 +112,7 @@ export default function SettingsPage() {
   })
 
   const adminsList = adminsData?.data ?? []
-  const totalAdmins = adminsData?.total ?? 0
+  const totalAdmins = adminsData?.pagination.total ?? 0
   const activeCampuses = campusesData?.data ?? []
 
   // Dynamic Summary metrics for Admin Tab

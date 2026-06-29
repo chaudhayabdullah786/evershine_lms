@@ -125,8 +125,14 @@ export async function getPendingTeachersForStudent(
     },
   })
 
-  const submitted: any[] = []
-  const submittedSet = new Set(submitted.map((s) => s.teacherId))
+  const submitted = await prisma.feedbackAnswer.findMany({
+    where: {
+      targetTeacherId: { not: null },
+      submission: { cycleId, studentId },
+    },
+    select: { targetTeacherId: true },
+  })
+  const submittedSet = new Set(submitted.map((s) => s.targetTeacherId).filter(Boolean))
 
   const map = new Map<string, PendingTeacherFeedback>()
 

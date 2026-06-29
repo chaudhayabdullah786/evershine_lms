@@ -5,7 +5,7 @@ import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import { createTimetableSchema } from '@/lib/validation/timetable'
 import { sessionShiftSchema } from '@/lib/validation/shift'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 import { guardLegacyClassMutation } from '@/lib/academic/legacy-guard'
 
 export async function GET(request: NextRequest) {
@@ -93,7 +93,17 @@ export async function POST(request: NextRequest) {
   const parsed = createTimetableSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const data = parsed.data
+  const data: Prisma.TimetableUncheckedCreateInput = {
+    classId: parsed.data.classId!,
+    teacherId: parsed.data.teacherId!,
+    dayOfWeek: parsed.data.dayOfWeek!,
+    startTime: parsed.data.startTime!,
+    endTime: parsed.data.endTime!,
+    subjectName: parsed.data.subjectName!,
+    academicYear: parsed.data.academicYear!,
+    shift: parsed.data.shift,
+    isActive: parsed.data.isActive,
+  }
 
   // Scoping validation: Admin cannot create timetable for a class or teacher in a different campus
   if (role === 'ADMIN' && session.user.campusId) {
@@ -122,7 +132,17 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'Timetable',
         entityId: created.id,
-        changes: data,
+        changes: {
+          classId: data.classId,
+          teacherId: data.teacherId,
+          dayOfWeek: data.dayOfWeek,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          subjectName: data.subjectName,
+          academicYear: data.academicYear,
+          shift: data.shift,
+          isActive: data.isActive,
+        },
       },
     })
 

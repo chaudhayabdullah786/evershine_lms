@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NextRequest } from 'next/server'
 
 const {
   authMock,
@@ -88,7 +89,7 @@ describe('teacher-portal/classes', () => {
     timetableSlotFindManyMock.mockResolvedValue([])
     subjectOfferingFindManyMock.mockResolvedValue([])
 
-    const response = await GET(new Request('http://localhost/api/teacher-portal/classes'))
+    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
     const json = await response.json()
 
     expect(response.status).toBe(200)

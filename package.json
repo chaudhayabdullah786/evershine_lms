@@ -16,6 +16,7 @@
     "test:export": "npx playwright test tests/export-color-bw.spec.ts",
     "playwright:install": "playwright install --with-deps",
     "lint": "eslint",
+    "check:env": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/check-production-env.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

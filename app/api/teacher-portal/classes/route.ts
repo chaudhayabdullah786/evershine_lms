@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
           shiftId: true,
           batchId: true,
           campusId: true,
-          shift: { select: { name: true } },
+          shift: { select: { name: true, code: true } },
           campus: { select: { name: true, code: true } },
           batch:  { select: { name: true, code: true, academicLevel: true } },
         },

@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
-import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { AcademicUpgradesService, type EnrollmentUpdateInput } from '@/lib/services/academic-upgrades-service'
 import { updateEnrollmentTypeSchema } from '@/lib/validation/academic-upgrades'
 import type { Role } from '@prisma/client'
 
@@ -26,10 +26,16 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
-    const auditRecord = await AcademicUpgradesService.updateStudentEnrollmentType({
-      ...parsed.data,
+    const payload: EnrollmentUpdateInput = {
+      studentId: parsed.data.studentId!,
+      academicYearId: parsed.data.academicYearId!,
+      enrollmentType: parsed.data.enrollmentType!,
+      reason: parsed.data.reason!,
+      courseScope: parsed.data.courseScope,
+      timetableScope: parsed.data.timetableScope,
       updatedById: session.user.id,
-    })
+    }
+    const auditRecord = await AcademicUpgradesService.updateStudentEnrollmentType(payload)
     return successResponse(auditRecord, 'Enrollment type updated and audit log created.')
   } catch (err: any) {
     return errors.badRequest(err.message ?? 'Failed to update enrollment type.')

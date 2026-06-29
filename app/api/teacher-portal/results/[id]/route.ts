@@ -127,6 +127,7 @@ export async function PATCH(
           if (!current) continue
 
           const newObtained = sr.obtainedMarks !== undefined ? sr.obtainedMarks : current.obtainedMarks
+          const newObtainedNumber = newObtained === null ? null : Number(newObtained)
           const isAbsent = sr.isAbsent ?? current.isAbsent
           const isNotApplicable = sr.isNotApplicable ?? current.isNotApplicable
 
@@ -146,7 +147,7 @@ export async function PATCH(
               resultStatus: deriveResultStatus({
                 isAbsent,
                 isNotApplicable,
-                obtainedMarks: newObtained,
+                obtainedMarks: newObtainedNumber,
                 totalMarks: current.totalMarks,
               }),
               performanceBatch: pct !== null ? derivePerformanceBatch(pct) : null,

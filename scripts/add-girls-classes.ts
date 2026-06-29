@@ -69,11 +69,12 @@ async function main() {
     if (!batchMap[cd.batchCode]) continue
     await prisma.class.upsert({
       where: {
-        grade_section_campusId_academicYear: {
+        grade_section_campusId_academicYear_shift: {
           grade: cd.grade,
           section: 'A',
           campusId: girlsCampus.id,
           academicYear: '2024-2025',
+          shift: 'MORNING',
         },
       },
       update: {},
@@ -84,6 +85,7 @@ async function main() {
         campusId: girlsCampus.id,
         batchId: batchMap[cd.batchCode],
         academicYear: '2024-2025',
+        shift: 'MORNING',
         capacity: 40,
         roomNumber: `R-${cd.grade}02`,
       },

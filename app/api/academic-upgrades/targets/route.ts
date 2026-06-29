@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
-import { AcademicUpgradesService } from '@/lib/services/academic-upgrades-service'
+import { AcademicUpgradesService, type AssignTargetsInput } from '@/lib/services/academic-upgrades-service'
 import { assignTargetsSchema } from '@/lib/validation/academic-upgrades'
 import type { Role } from '@prisma/client'
 
@@ -55,10 +55,17 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
-    const targets = await AcademicUpgradesService.assignTargets({
-      ...parsed.data,
+    const payload: AssignTargetsInput = {
+      classSectionId: parsed.data.classSectionId!,
+      subjectOfferingId: parsed.data.subjectOfferingId!,
+      targets: parsed.data.targets!.map((target) => ({
+        studentId: target.studentId!,
+        targetGrade: target.targetGrade!,
+        targetPercentage: target.targetPercentage,
+      })),
       assignedById: session.user.id,
-    })
+    }
+    const targets = await AcademicUpgradesService.assignTargets(payload)
     return successResponse(
       targets,
       `${targets.length} student target(s) assigned for the subject offering.`,

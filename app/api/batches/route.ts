@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import { createBatchSchema } from '@/lib/validation/batch'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -52,11 +52,15 @@ export async function POST(request: NextRequest) {
   const parsed = createBatchSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const data = {
-    ...parsed.data,
+  const data: Prisma.BatchUncheckedCreateInput = {
+    name: parsed.data.name!,
+    code: parsed.data.code!,
+    campusId: parsed.data.campusId!,
+    academicLevel: parsed.data.academicLevel!,
+    description: parsed.data.description,
     forceGenderSeparation:
       parsed.data.forceGenderSeparation ??
-      ['Secondary', 'HigherSecondary'].includes(parsed.data.academicLevel),
+      ['Secondary', 'HigherSecondary'].includes(parsed.data.academicLevel!),
   }
 
   if (session.user.role !== 'SUPER_ADMIN' && data.campusId !== session.user.campusId) {
@@ -78,7 +82,14 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'Batch',
         entityId: newBatch.id,
-        changes: data,
+        changes: {
+          name: data.name,
+          code: data.code,
+          campusId: data.campusId,
+          academicLevel: data.academicLevel,
+          forceGenderSeparation: data.forceGenderSeparation,
+          description: data.description ?? null,
+        },
       },
     })
 

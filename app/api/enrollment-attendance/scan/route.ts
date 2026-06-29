@@ -4,7 +4,6 @@ import { errors, successResponse } from '@/lib/api-response'
 import { requireSession } from '@/lib/academic/api-helpers'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { verifyToken } from '@/lib/jwt-utils'
-import type { EnrollmentAttendanceRecord } from '@prisma/client'
 
 /**
  * Mark attendance by scanning QR code
@@ -37,7 +36,6 @@ export async function POST(request: NextRequest) {
           attendanceDate: new Date(),
           status: manualStatus,
           markedByTeacherId: session.user.id,
-          markedAt: new Date(),
         },
       })
 
@@ -57,9 +55,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify JWT token
-    let decodedToken: any
+    let decodedToken: { classSectionId?: string; academicYearId?: string }
     try {
-      decodedToken = verifyToken(qrToken)
+      decodedToken = verifyToken(qrToken) as typeof decodedToken | null
       if (!decodedToken) throw new Error('Invalid token')
     } catch (err) {
       return errors.validation({
@@ -124,7 +122,6 @@ export async function POST(request: NextRequest) {
         attendanceDate: today,
         status: 'PRESENT',
         markedByTeacherId: session.user.id,
-        markedAt: new Date(),
       },
     })
 
@@ -136,6 +133,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('Attendance scan error:', err)
-    return errors.internal('Failed to process attendance')
+    return errors.internal()
   }
 }

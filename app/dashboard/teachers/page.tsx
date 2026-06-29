@@ -58,18 +58,8 @@ export default function TeachersPage() {
   const queryClient = useQueryClient()
   const role = session?.user?.role as string | undefined
   const canAdd = role === 'SUPER_ADMIN' || role === 'ADMIN'
+  const canViewTeachers = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const limit = 20
-
-  // Route guard: only SUPER_ADMIN and ADMIN can manage staff records
-  if (status === 'loading') return null
-  if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
-    return (
-      <AccessDenied
-        title="Staff Directory Restricted"
-        message="The staff directory is restricted to administrators. You can view your own profile from the Staff HR Portal."
-      />
-    )
-  }
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to deactivate ${name}'s profile?`)) return
@@ -94,10 +84,22 @@ export default function TeachersPage() {
     queryKey: ['teachers', page, search],
     queryFn: () => fetchPaginatedApi<Teacher>(`/api/teachers?${params.toString()}`),
     staleTime: 30_000,
+    enabled: canViewTeachers,
   })
 
   const teachers = data?.data ?? []
   const pagination = data?.pagination
+
+  // Route guard: only SUPER_ADMIN and ADMIN can manage staff records
+  if (status === 'loading') return null
+  if (!canViewTeachers) {
+    return (
+      <AccessDenied
+        title="Staff Directory Restricted"
+        message="The staff directory is restricted to administrators. You can view your own profile from the Staff HR Portal."
+      />
+    )
+  }
 
   return (
     <motion.div 

@@ -18,7 +18,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { z } from 'zod'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -27,6 +27,26 @@ const actionSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT']),
   adminReply: z.string().max(500).optional(),
 })
+
+function toAuditJsonObject(value: Record<string, unknown>): Prisma.InputJsonObject {
+  const output: Record<string, Prisma.InputJsonValue | null> = {}
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry instanceof Date) {
+      output[key] = entry.toISOString()
+    } else if (entry === undefined) {
+      output[key] = null
+    } else if (entry === null) {
+      output[key] = null
+    } else if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') {
+      output[key] = entry
+    } else {
+      output[key] = JSON.parse(JSON.stringify(entry)) as Prisma.InputJsonValue
+    }
+  }
+
+  return output as Prisma.InputJsonObject
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -179,7 +199,11 @@ export async function POST(request: NextRequest) {
           action: 'APPROVE',
           entityType: 'TimetableChangeRequest',
           entityId: requestId,
-          changes: { slotSource: req.slotSource, updatedFields: updateData, adminReply }
+          changes: {
+            slotSource: String(req.slotSource ?? ''),
+            updatedFields: toAuditJsonObject(updateData),
+            adminReply: adminReply ?? null,
+          }
         }
       })
 

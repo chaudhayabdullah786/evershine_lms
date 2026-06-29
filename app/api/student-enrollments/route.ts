@@ -57,8 +57,17 @@ export async function POST(request: NextRequest) {
   const parsed = createStudentEnrollmentSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const enrollmentPayload = {
+    studentId: parsed.data.studentId!,
+    academicYearId: parsed.data.academicYearId!,
+    classSectionId: parsed.data.classSectionId!,
+    rollNumber: parsed.data.rollNumber!,
+    deliveryMode: parsed.data.deliveryMode,
+    promotedFromId: parsed.data.promotedFromId,
+  }
+
   try {
-    await assertAcademicYearEditable(parsed.data.academicYearId)
+    await assertAcademicYearEditable(enrollmentPayload.academicYearId)
   } catch {
     return errors.forbidden('Academic year is locked')
   }
@@ -66,9 +75,9 @@ export async function POST(request: NextRequest) {
   const duplicate = await prisma.studentEnrollment.findUnique({
     where: {
       studentId_academicYearId_classSectionId: {
-        studentId: parsed.data.studentId,
-        academicYearId: parsed.data.academicYearId,
-        classSectionId: parsed.data.classSectionId,
+        studentId: enrollmentPayload.studentId,
+        academicYearId: enrollmentPayload.academicYearId,
+        classSectionId: enrollmentPayload.classSectionId,
       },
     },
   })
@@ -76,7 +85,7 @@ export async function POST(request: NextRequest) {
     return errors.conflict('Student is already enrolled in this class section for this year')
   }
 
-  const result = await createYearEnrollmentForStudent(parsed.data)
+  const result = await createYearEnrollmentForStudent(enrollmentPayload)
 
   await prisma.auditLog.create({
     data: {
@@ -84,7 +93,7 @@ export async function POST(request: NextRequest) {
       action: 'CREATE',
       entityType: 'StudentEnrollment',
       entityId: result.enrollmentId,
-      changes: parsed.data,
+      changes: enrollmentPayload,
     },
   })
 

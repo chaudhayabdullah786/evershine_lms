@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, paginatedResponse } from '@/lib/api-response'
 import { guardianAnnouncementQuerySchema } from '@/lib/validation/guardian'
+import type { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const { page, limit } = parsed.data
   const now = new Date()
 
-  const where = {
+  const where: Prisma.AnnouncementWhereInput = {
     isActive: true,
     AND: [
       {
@@ -45,15 +46,15 @@ export async function GET(request: NextRequest) {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { isPinned: 'desc', createdAt: 'desc' },
+      orderBy: { publishedAt: 'desc' },
       select: {
         id: true,
         title: true,
         content: true,
-        isPinned: true,
-        priority: true,
-        createdAt: true,
-        author: { select: { firstName: true, lastName: true } },
+        targetRole: true,
+        publishedAt: true,
+        expiresAt: true,
+        createdBy: true,
       },
     }),
   ])

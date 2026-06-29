@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user) return errors.unauthorized()
@@ -11,7 +11,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return errors.forbidden('Only finance staff can delete P&L statements')
     }
 
-    const id = params.id
+    const { id } = await params
     const statement = await prisma.profitLossStatement.findUnique({ where: { id } })
     if (!statement) return errors.notFound('P&L statement not found')
 

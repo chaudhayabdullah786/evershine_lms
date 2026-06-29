@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NextRequest } from 'next/server'
 
 const { requirePermissionMock, requireSessionMock, teacherCanAccessClassSectionMock } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(async () => ({ session: { user: { id: 'teacher-1', role: 'TEACHER' } }, error: null })),
@@ -64,7 +65,7 @@ describe('QR code generation authorization', () => {
       headers: { 'Content-Type': 'application/json' },
     })
 
-    await POST(request)
+    await POST(request as unknown as NextRequest)
 
     expect(requirePermissionMock).toHaveBeenCalledWith('TEACHER', 'attendance', 'create')
   })

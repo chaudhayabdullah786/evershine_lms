@@ -64,17 +64,6 @@ export default function CampusesPage() {
   const isSuperAdmin = role === 'SUPER_ADMIN'
   const isAdminOrSuper = role === 'SUPER_ADMIN' || role === 'ADMIN'
 
-  // Route guard: only admins can access campus management
-  if (status === 'loading') return null
-  if (!isAdminOrSuper) {
-    return (
-      <AccessDenied
-        title="Campus Management Restricted"
-        message="Campus branch management is restricted to administrators only."
-      />
-    )
-  }
-
   // Primary page search & creation states
   const [search, setSearch] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -100,6 +89,7 @@ export default function CampusesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['campuses', search],
     queryFn: () => fetchApi<Campus[]>(`/api/campuses?search=${search}&limit=50`),
+    enabled: isAdminOrSuper,
   })
 
   // ─── QUERY: Scoped Campus Students ──────────────────────────────────────────
@@ -111,7 +101,7 @@ export default function CampusesPage() {
         `/api/students?campusId=${selectedCampus.id}&search=${studentSearch}&page=${studentPage}&limit=5`
       )
     },
-    enabled: !!selectedCampus?.id && activeTab === 'students',
+    enabled: isAdminOrSuper && !!selectedCampus?.id && activeTab === 'students',
   })
 
   // ─── QUERY: Scoped Campus Teachers ──────────────────────────────────────────
@@ -123,7 +113,7 @@ export default function CampusesPage() {
         `/api/teachers?campusId=${selectedCampus.id}&search=${teacherSearch}&page=${teacherPage}&limit=5`
       )
     },
-    enabled: !!selectedCampus?.id && activeTab === 'teachers',
+    enabled: isAdminOrSuper && !!selectedCampus?.id && activeTab === 'teachers',
   })
 
   // ─── FORMS INITIALIZATION ───────────────────────────────────────────────────
@@ -188,6 +178,17 @@ export default function CampusesPage() {
       notify.error(err.message || 'Failed to deactivate campus')
     }
   })
+
+  // Route guard: only admins can access campus management
+  if (status === 'loading') return null
+  if (!isAdminOrSuper) {
+    return (
+      <AccessDenied
+        title="Campus Management Restricted"
+        message="Campus branch management is restricted to administrators only."
+      />
+    )
+  }
 
   // ─── HANDLERS ───────────────────────────────────────────────────────────────
   const onCreateSubmit = (values: CreateCampusForm) => {

@@ -8,7 +8,9 @@ const DEPRECATION_MESSAGE =
 const MIGRATION_HINT =
   'Use the new Grade Entry workflow at /dashboard/teacher/grade-entry or the academic grading engine APIs under /api/grading-schemes.'
 
-function requireLegacyAccess(session: Awaited<ReturnType<typeof auth>>) {
+type LegacySession = { user?: { role?: string | null } } | null | undefined
+
+function requireLegacyAccess(session: LegacySession) {
   if (!session?.user) return errors.unauthorized()
   if (!ALLOWED_ROLES.includes(session.user.role)) return errors.forbidden('Access denied')
   return null

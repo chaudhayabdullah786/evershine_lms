@@ -4,7 +4,7 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createTimetableSlotSchema, publishTimetableSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
@@ -44,26 +44,43 @@ export async function POST(request: NextRequest) {
   const parsed = createTimetableSlotSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const slotData = {
+    academicYearId: parsed.data.academicYearId!,
+    classSectionId: parsed.data.classSectionId!,
+    subjectOfferingId: parsed.data.subjectOfferingId!,
+    teacherId: parsed.data.teacherId!,
+    roomId: parsed.data.roomId ?? undefined,
+    dayOfWeek: parsed.data.dayOfWeek!,
+    startTime: parsed.data.startTime!,
+    endTime: parsed.data.endTime!,
+  }
+
   try {
-    await assertAcademicYearEditable(parsed.data.academicYearId)
+    await assertAcademicYearEditable(slotData.academicYearId)
   } catch {
     return errors.forbidden('Academic year is locked')
   }
 
-  const conflicts = await validateTimetableSlot(parsed.data)
+  const conflicts = await validateTimetableSlot(slotData)
   if (conflicts.length > 0) {
     return errorResponseConflicts(conflicts)
   }
 
   const slot = await prisma.$transaction(async (tx) => {
-    const created = await tx.timetableSlot.create({ data: { ...parsed.data, isPublished: false } })
+    const created = await tx.timetableSlot.create({
+      data: {
+        ...slotData,
+        roomId: slotData.roomId ?? null,
+        isPublished: false,
+      } satisfies Prisma.TimetableSlotUncheckedCreateInput,
+    })
     await tx.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'CREATE',
         entityType: 'TimetableSlot',
         entityId: created.id,
-        changes: parsed.data,
+        changes: { ...slotData, roomId: slotData.roomId ?? null },
       },
     })
     return created

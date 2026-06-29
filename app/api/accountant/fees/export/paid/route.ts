@@ -56,8 +56,10 @@ export async function GET(request: NextRequest) {
 
   const workbook = await buildPaidListReport(invoices, month)
   const buffer = await workbook.xlsx.writeBuffer()
+  const bytes = Buffer.from(buffer)
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 
-  return new NextResponse(buffer as Buffer, {
+  return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="paid-fees-${month?.replace(' ', '-') || 'all'}.xlsx"`,

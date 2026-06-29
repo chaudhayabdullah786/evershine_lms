@@ -23,17 +23,13 @@ export default function BatchManagePage() {
   const { id } = useParams<{ id: string }>()
   const { data: session, status } = useSession()
   const role = session?.user?.role
+  const canManageBatch = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const router = useRouter()
-
-  if (status === 'loading') return null
-  if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
-    return <AccessDenied title="Restricted" message="Batch management is for administrators only." />
-  }
 
   const { data: batch, isLoading } = useQuery({
     queryKey: ['batch-detail', id],
     queryFn: () => fetchApi<any>(`/api/batches/${id}`),
-    enabled: !!id,
+    enabled: canManageBatch && !!id,
   })
 
   const { data: classesData } = useQuery({
@@ -159,6 +155,11 @@ export default function BatchManagePage() {
   }
 
   // ── Loading / not-found states ────────────────────────────────────────────
+  if (status === 'loading') return null
+  if (!canManageBatch) {
+    return <AccessDenied title="Restricted" message="Batch management is for administrators only." />
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4 max-w-5xl mx-auto">

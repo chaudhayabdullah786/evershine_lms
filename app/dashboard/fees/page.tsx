@@ -196,17 +196,7 @@ export default function FeesManagementPage() {
   const role = (session?.user?.role as string) || ''
   const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(role)
   const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'STUDENT', 'PARENT', 'GUARDIAN']
-
-  // Route guard: teachers have no fee management workflow
-  if (status === 'loading') return null
-  if (!ALLOWED_ROLES.includes(role)) {
-    return (
-      <AccessDenied
-        title="Fee Module Restricted"
-        message="Access to the fee management module is restricted. Teachers are not part of the fee collection workflow."
-      />
-    )
-  }
+  const canViewFees = ALLOWED_ROLES.includes(role)
 
   const searchParams = useSearchParams()
   const filterStudentId = searchParams.get('studentId') ?? ''
@@ -220,7 +210,7 @@ export default function FeesManagementPage() {
   const limit = 20
 
   useEffect(() => {
-    if (!filterStudentId) return
+    if (!canViewFees || !filterStudentId) return
     fetchApi<{ firstName: string; lastName: string; registrationNumber: string }>(
       `/api/students/${filterStudentId}`
     )
@@ -229,7 +219,7 @@ export default function FeesManagementPage() {
         if (s?.registrationNumber) setSearch(s.registrationNumber)
       })
       .catch(() => {})
-  }, [filterStudentId])
+  }, [canViewFees, filterStudentId])
 
   const params = new URLSearchParams()
   params.set('page', String(page))
@@ -242,6 +232,7 @@ export default function FeesManagementPage() {
     queryKey: ['fees', page, statusFilter, filterStudentId],
     queryFn: () => fetchPaginatedApi<FeeInvoice>(`/api/fees?${params.toString()}`),
     staleTime: 30_000,
+    enabled: canViewFees,
   })
 
   const invoices = data?.data ?? []
@@ -255,6 +246,17 @@ export default function FeesManagementPage() {
         f.student.registrationNumber.toLowerCase().includes(search.toLowerCase())
       )
     : invoices
+
+  // Route guard: teachers have no fee management workflow
+  if (status === 'loading') return null
+  if (!canViewFees) {
+    return (
+      <AccessDenied
+        title="Fee Module Restricted"
+        message="Access to the fee management module is restricted. Teachers are not part of the fee collection workflow."
+      />
+    )
+  }
 
   return (
     <motion.div 

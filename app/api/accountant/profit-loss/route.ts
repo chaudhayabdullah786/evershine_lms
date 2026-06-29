@@ -88,26 +88,19 @@ export async function GET(req: NextRequest) {
     const yearStart = year ? new Date(`${year}-01-01T00:00:00.000Z`) : undefined
     const yearEnd = year ? new Date(`${year}-12-31T23:59:59.999Z`) : undefined
 
-    // For accountants, include both statements scoped to their campus AND global statements (campusId == null)
-    let where: Prisma.ProfitLossStatementWhereInput = {
-      ...(yearStart ? { periodStart: { gte: yearStart, lte: yearEnd! } } : {}),
-    }
+    const whereClauses: Prisma.ProfitLossStatementWhereInput[] = []
+    if (yearStart) whereClauses.push({ periodStart: { gte: yearStart, lte: yearEnd! } })
 
     if (scopedCampusId) {
-      if (session.user.role === 'ACCOUNTANT') {
-        where.AND = [
-          ...(where.AND ?? []),
-          {
-            OR: [
-              { campusId: scopedCampusId },
-              { campusId: null },
-            ],
-          },
-        ]
-      } else {
-        Object.assign(where, { campusId: scopedCampusId })
-      }
+      whereClauses.push(
+        session.user.role === 'ACCOUNTANT'
+          ? { OR: [{ campusId: scopedCampusId }, { campusId: null }] }
+          : { campusId: scopedCampusId }
+      )
     }
+
+    const where: Prisma.ProfitLossStatementWhereInput =
+      whereClauses.length > 0 ? { AND: whereClauses } : {}
 
     if (exportType === 'excel') {
       const statements = await prisma.profitLossStatement.findMany({

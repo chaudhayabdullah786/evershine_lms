@@ -14,6 +14,13 @@ const createSalarySchema = z.object({
   notes: z.string().optional(),
 })
 
+function salaryPeriodFromMonth(month: string): { start: Date; end: Date } {
+  const parsed = new Date(`${month} 1`)
+  const start = Number.isNaN(parsed.getTime()) ? new Date() : new Date(parsed.getFullYear(), parsed.getMonth(), 1)
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0)
+  return { start, end }
+}
+
 const queryParamSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -137,7 +144,10 @@ export async function POST(request: NextRequest) {
     employeeName = `${employeeUser.accountant.firstName} ${employeeUser.accountant.lastName}`
   }
 
-  const netSalary = basicSalary + allowances - deductions
+  const totalAdditions = basicSalary + allowances
+  const totalDeductions = deductions
+  const netSalary = totalAdditions - totalDeductions
+  const { start, end } = salaryPeriodFromMonth(month)
 
   const salarySlip = await prisma.salarySlip.create({
     data: {
@@ -145,9 +155,16 @@ export async function POST(request: NextRequest) {
       employeeName,
       employeeRole: employeeUser.role as Role,
       month,
+      employeeNumber: employeeUser.teacher?.employeeId ?? employeeUser.accountant?.employeeId ?? null,
+      designation: employeeUser.teacher?.designation ?? (employeeUser.accountant ? 'Account Manager' : null),
+      department: null,
+      salaryPeriodStart: start,
+      salaryPeriodEnd: end,
       basicSalary,
-      allowances,
-      deductions,
+      overtimeAmount: allowances,
+      lunchDues: deductions,
+      totalAdditions,
+      totalDeductions,
       netSalary,
       status: 'PAID', // mark as PAID directly on generation by default
       notes: notes ?? null,

@@ -46,7 +46,7 @@ interface ResultRow {
   grade: string
   percentage: number
   status: string
-  student: { firstName: string; lastName: string; registrationNumber: string }
+  student: { id: string; firstName: string; lastName: string; registrationNumber: string }
   exam: { id: string; name: string; totalMarks: number }
   subject: { name: string }
 }

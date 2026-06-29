@@ -115,7 +115,7 @@ function createSafeStyleProxy(style: CSSStyleDeclaration): CSSStyleDeclaration {
           return safeColor(val, propertyName)
         }
       }
-      const val = (target as Record<string | symbol, unknown>)[prop]
+      const val = (target as unknown as Record<string | symbol, unknown>)[prop]
       if (typeof val === 'string') {
         return safeColor(val, String(prop))
       }

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
-import type { Role } from '@prisma/client'
+import { Prisma, type Role } from '@prisma/client'
 import { z } from 'zod'
 
 const updateAdminSchema = z.object({
@@ -16,7 +16,7 @@ const updateAdminSchema = z.object({
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
-  const denied = requirePermission(session.user.role as Role, 'settings', 'write')
+  const denied = requirePermission(session.user.role as Role, 'users', 'update')
   if (denied) return denied
 
   try {
@@ -34,10 +34,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     return successResponse({ admin, message: 'Admin updated' })
-  } catch (err: any) {
-    if (err.code === 'P2025') return errors.notFound('Admin not found')
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+      return errors.notFound('Admin not found')
+    }
     console.error('Update admin error:', err)
-    return errors.internal('Failed to update admin')
+    return errors.internal()
   }
 }
 
@@ -45,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession()
   if (error || !session) return error!
-  const denied = requirePermission(session.user.role as Role, 'settings', 'write')
+  const denied = requirePermission(session.user.role as Role, 'users', 'delete')
   if (denied) return denied
 
   try {
@@ -58,9 +60,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     })
 
     return successResponse({ admin, message: 'Admin removed' })
-  } catch (err: any) {
-    if (err.code === 'P2025') return errors.notFound('Admin not found')
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+      return errors.notFound('Admin not found')
+    }
     console.error('Delete admin error:', err)
-    return errors.internal('Failed to delete admin')
+    return errors.internal()
   }
 }

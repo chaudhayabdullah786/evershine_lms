@@ -23,8 +23,8 @@ export async function GET(
   
   try {
     await assertGuardianOwnsStudent(session.user.id, studentId)
-  } catch (error: any) {
-    return errors.forbidden(error.message)
+  } catch (error) {
+    return errors.forbidden(error instanceof Error ? error.message : 'Access denied')
   }
 
   const { searchParams } = new URL(request.url)
@@ -47,15 +47,20 @@ export async function GET(
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   }
 
-  const attendance = await prisma.studentAttendance.findMany({
+  const attendance = await prisma.enrollmentAttendanceRecord.findMany({
     where: {
-      studentId,
-      date: {
+      studentEnrollment: { studentId },
+      attendanceDate: {
         gte: startDate,
         lte: endDate,
       },
     },
-    orderBy: { date: 'asc' },
+    orderBy: { attendanceDate: 'asc' },
+    include: {
+      studentEnrollment: {
+        select: { rollNumber: true, classSection: { select: { className: true, sectionName: true } } },
+      },
+    },
   })
 
   // Calculate summary metrics
@@ -71,7 +76,7 @@ export async function GET(
     if (record.status === 'PRESENT') summary.present++
     else if (record.status === 'ABSENT') summary.absent++
     else if (record.status === 'LATE') summary.late++
-    else if (record.status === 'LEAVE') summary.leave++
+    else if (record.status === 'EXCUSED') summary.leave++
   }
 
   return successResponse({

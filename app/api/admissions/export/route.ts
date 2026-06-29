@@ -141,9 +141,11 @@ export async function GET(request: NextRequest) {
   })
 
   const buffer = await workbookToBuffer(workbook)
+  const bytes = Buffer.from(buffer)
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
   const filename = generateExcelFilename('admissions')
 
-  return new NextResponse(buffer, {
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

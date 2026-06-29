@@ -3,7 +3,7 @@
  */
 
 import ExcelJS from 'exceljs'
-import { FeeInvoice, FeePayment, Student, Class, Campus } from '@prisma/client'
+import type { Class, FeeInvoice, FeePayment, Student } from '@prisma/client'
 
 // ─── Shared Styling Helper ───────────────────────────────────────────────────
 
@@ -43,8 +43,10 @@ function applyBranding(
 
 // ─── Paid List ────────────────────────────────────────────────────────────────
 
+type CampusSummary = { name: string }
+
 type InvoiceWithPayments = FeeInvoice & {
-  student: Student & { class: Class | null; campus: Campus | null }
+  student: Student & { class: Class | null; campus: CampusSummary | null }
   payments: FeePayment[]
 }
 
@@ -113,7 +115,7 @@ export async function buildPaidListReport(
 // ─── Defaulter List ───────────────────────────────────────────────────────────
 
 type DefaulterStudent = Student & {
-  campus: Campus | null
+  campus: CampusSummary | null
   class: Class | null
   invoices: FeeInvoice[]
 }

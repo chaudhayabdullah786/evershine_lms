@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { NextRequest } from 'next/server'
 
 const { studentEnrollmentFindMany, timetableSlotFindFirst, subjectOfferingFindFirst } = vi.hoisted(() => ({
   studentEnrollmentFindMany: vi.fn(),
@@ -61,7 +62,7 @@ describe('attendance roster API', () => {
       headers: { Authorization: 'Bearer valid-token' },
     })
 
-    const response = await GET(request)
+    const response = await GET(request as unknown as NextRequest)
     const json = await response.json()
 
     expect(json.success).toBe(true)
@@ -79,7 +80,7 @@ describe('attendance roster API', () => {
       headers: { Authorization: 'Bearer valid-token' },
     })
 
-    const response = await GET(request)
+    const response = await GET(request as unknown as NextRequest)
     const json = await response.json()
 
     expect(json.success).toBe(false)

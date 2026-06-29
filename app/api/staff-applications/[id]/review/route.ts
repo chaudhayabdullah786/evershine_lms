@@ -26,7 +26,7 @@ import {
 } from '@/lib/notifications'
 import { hash } from '@node-rs/argon2'
 import { ZodError } from 'zod'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
 
@@ -122,11 +122,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 email: application.email,
                 address: application.address || '',
                 city: application.city || '',
+                emergencyContact: application.phone,
                 campusId: validated.campusId,
                 batchId: validated.batchId || null,
                 designation: validated.designation,
                 monthlySalary: validated.salary || 0,
-              },
+              } satisfies Prisma.TeacherUncheckedCreateInput,
             })
 
             // 3. Update application status

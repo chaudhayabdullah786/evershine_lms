@@ -25,6 +25,7 @@ const createBatchSchema = z.object({
   code: z.string().min(2, "Code must be at least 2 characters").max(5),
   campusId: z.string().min(1, "Campus is required"),
   academicLevel: z.enum(['PreSchool', 'Elementary', 'Secondary', 'HigherSecondary']),
+  forceGenderSeparation: z.boolean().default(true),
   description: z.string().optional(),
 })
 
@@ -33,27 +34,18 @@ type CreateBatchForm = z.infer<typeof createBatchSchema>
 export default function BatchesPage() {
   const { data: session, status } = useSession()
   const userRole = session?.user?.role as string | undefined
+  const canManageBatches = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
 
   const [search, setSearch] = useState('')
   const [selectedCampus, setSelectedCampus] = useState('ALL')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  // Route guard: batch management is restricted to administrators
-  if (status === 'loading') return null
-  if (userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
-    return (
-      <AccessDenied
-        title="Batch Management Restricted"
-        message="Academic batch management is restricted to administrators."
-      />
-    )
-  }
-
   // Queries
   const { data: campusesData } = useQuery({
     queryKey: ['campuses'],
     queryFn: () => fetchPaginatedApi<any>('/api/campuses?limit=50'),
+    enabled: canManageBatches,
   })
 
   const { data: batchesData, isLoading } = useQuery({
@@ -63,6 +55,7 @@ export default function BatchesPage() {
       if (selectedCampus !== 'ALL') url += `&campusId=${selectedCampus}`
       return fetchPaginatedApi<any>(url)
     },
+    enabled: canManageBatches,
   })
 
   const campuses = campusesData?.data ?? []
@@ -112,6 +105,17 @@ export default function BatchesPage() {
 
   const onSubmit = (values: CreateBatchForm) => {
     createMutation.mutate(values)
+  }
+
+  // Route guard: batch management is restricted to administrators
+  if (status === 'loading') return null
+  if (!canManageBatches) {
+    return (
+      <AccessDenied
+        title="Batch Management Restricted"
+        message="Academic batch management is restricted to administrators."
+      />
+    )
   }
 
   return (
@@ -281,7 +285,7 @@ export default function BatchesPage() {
                   render={({ field }) => (
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(checked)}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
                     />
                   )}
                 />

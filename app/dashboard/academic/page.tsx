@@ -26,6 +26,72 @@ import {
 const SHIFT_ICONS: Record<string, string> = { MORNING: '🌅', EVENING: '🌆', NIGHT: '🌙' }
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+type DeliveryMode = 'PHYSICAL' | 'ONLINE' | 'HYBRID'
+type CurriculumMode = 'FIXED' | 'ELECTIVE'
+type AcademicYear = { id: string; name: string; isActive: boolean; isLocked: boolean }
+type ShiftOption = { id: string; code: string; name: string; startTime: string; endTime: string }
+type CampusOption = { id: string; name: string; code?: string; gender?: string | null }
+type BatchOption = { id: string; name: string; code?: string }
+type SubjectOption = { id: string; name: string; code: string }
+type TeacherOption = { id: string; firstName: string; lastName: string; designation?: string | null }
+type ClassSectionOption = SectionLike & {
+  id: string
+  campusId: string
+  batchId: string
+  shiftId: string
+  deliveryMode: DeliveryMode
+  curriculumMode?: CurriculumMode | null
+  campus?: { name: string; code?: string } | null
+  batch?: { name: string; code?: string } | null
+}
+type SubjectOfferingOption = {
+  id: string
+  teacherId?: string | null
+  isMandatory: boolean
+  subject: { name: string; code?: string }
+  teacher?: { firstName: string; lastName: string } | null
+}
+type RoomOption = { id: string; name: string; capacity: number; campus?: { name: string; code?: string } | null }
+type ElectiveGroupOption = {
+  id: string
+  name: string
+  minSelections: number
+  maxSelections: number
+  offerings?: Array<{ subject: { name: string } }>
+}
+type SectionEnrollmentRow = {
+  id: string
+  rollNumber: string
+  student: {
+    id: string
+    firstName: string
+    lastName: string
+    house?: { id: string; name: string; color: string } | null
+  }
+}
+type HouseOption = { id: string; name: string; color: string }
+type PendingElectiveRow = {
+  id: string
+  studentEnrollment: { student: { firstName: string; lastName: string }; rollNumber: string }
+  subjectOffering: { subject: { name: string } }
+}
+type TimetableSlotRow = {
+  id: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  isPublished: boolean
+  subjectOffering: { subject: { name: string } }
+  teacher?: { firstName: string; lastName: string } | null
+}
+type GradingSchemeRow = {
+  id: string
+  name: string
+  isPublished: boolean
+  subject: { name: string }
+  components: Array<{ id: string; name: string; weightPercentage: number; assessments: Array<{ id: string; title: string }> }>
+}
+
 type SectionLike = { className: string; sectionName: string; shift?: { name: string; code: string } | null }
 function sectionLabel(s: SectionLike): string {
   const icon = s.shift?.code ? SHIFT_ICONS[s.shift.code] ?? '' : ''
@@ -76,8 +142,8 @@ export default function AcademicEnginePage() {
     className: 'Class 9',
     sectionName: 'A',
     grade: 9,
-    deliveryMode: 'PHYSICAL' as const,
-    curriculumMode: 'ELECTIVE' as const,
+    deliveryMode: 'PHYSICAL' as DeliveryMode,
+    curriculumMode: 'ELECTIVE' as CurriculumMode,
   })
 
   const [offeringForm, setOfferingForm] = useState({
@@ -133,11 +199,11 @@ export default function AcademicEnginePage() {
     { name: 'Final', maxMarks: 40, weightPercentage: 40, orderIndex: 4 },
   ]
 
-  const { data: years } = useQuery({ queryKey: ['academic-years'], queryFn: () => fetchApi<unknown[]>('/api/academic-years') })
-  const activeYear = (years ?? []).find((y: { isActive: boolean }) => y.isActive)
+  const { data: years } = useQuery({ queryKey: ['academic-years'], queryFn: () => fetchApi<AcademicYear[]>('/api/academic-years') })
+  const activeYear = (years ?? []).find((y) => y.isActive)
   const { data: shifts, refetch: refetchShifts } = useQuery({
     queryKey: ['shifts'],
-    queryFn: () => fetchApi<unknown[]>('/api/shifts'),
+    queryFn: () => fetchApi<ShiftOption[]>('/api/shifts'),
   })
   const [shiftEdits, setShiftEdits] = useState<Record<string, { startTime: string; endTime: string }>>({})
 
@@ -156,11 +222,11 @@ export default function AcademicEnginePage() {
     },
     onError: (e: Error) => notify.error(e.message),
   })
-  const { data: sections } = useQuery({ queryKey: ['class-sections'], queryFn: () => fetchApi<unknown[]>('/api/class-sections') })
-  const { data: campuses } = useQuery({ queryKey: ['campuses-ac'], queryFn: () => fetchApi<unknown[]>('/api/campuses') })
+  const { data: sections } = useQuery({ queryKey: ['class-sections'], queryFn: () => fetchApi<ClassSectionOption[]>('/api/class-sections') })
+  const { data: campuses } = useQuery({ queryKey: ['campuses-ac'], queryFn: () => fetchApi<CampusOption[]>('/api/campuses') })
   const { data: batches } = useQuery({
     queryKey: ['batches-ac', sectionForm.campusId],
-    queryFn: () => fetchApi<unknown[]>(`/api/batches?campusId=${sectionForm.campusId}`),
+    queryFn: () => fetchApi<BatchOption[]>(`/api/batches?campusId=${sectionForm.campusId}`),
     enabled: !!sectionForm.campusId,
   })
 
@@ -241,19 +307,19 @@ export default function AcademicEnginePage() {
 
   const { data: subjects } = useQuery({
     queryKey: ['academic-subjects'],
-    queryFn: () => fetchApi<unknown[]>('/api/academic-subjects'),
+    queryFn: () => fetchApi<SubjectOption[]>('/api/academic-subjects'),
   })
 
   const { data: teachersData } = useQuery({
     queryKey: ['teachers-select'],
-    queryFn: () => fetchApi<{ teachers: { id: string; firstName: string; lastName: string }[] }>('/api/teachers/for-selection'),
+    queryFn: () => fetchApi<{ teachers: TeacherOption[] }>('/api/teachers/for-selection'),
   })
   const teachers = teachersData?.teachers ?? []
 
   const { data: offerings } = useQuery({
     queryKey: ['subject-offerings', offeringForm.classSectionId, activeYear?.id],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<SubjectOfferingOption[]>(
         `/api/subject-offerings?academicYearId=${activeYear?.id}&classSectionId=${offeringForm.classSectionId}`
       ),
     enabled: !!activeYear?.id && !!offeringForm.classSectionId,
@@ -262,7 +328,7 @@ export default function AcademicEnginePage() {
   const { data: slotOfferings } = useQuery({
     queryKey: ['subject-offerings-slot', slotFilterSection, activeYear?.id],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<SubjectOfferingOption[]>(
         `/api/subject-offerings?academicYearId=${activeYear?.id}&classSectionId=${slotFilterSection}`
       ),
     enabled: !!activeYear?.id && !!slotFilterSection,
@@ -271,20 +337,20 @@ export default function AcademicEnginePage() {
   const { data: rooms } = useQuery({
     queryKey: ['rooms', roomCampusFilter],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<RoomOption[]>(
         `/api/rooms${roomCampusFilter !== 'all' ? `?campusId=${roomCampusFilter}` : ''}`
       ),
   })
 
   const { data: electiveGroups } = useQuery({
     queryKey: ['elective-groups', electiveSectionFilter],
-    queryFn: () => fetchApi<unknown[]>(`/api/elective-groups?classSectionId=${electiveSectionFilter}`),
+    queryFn: () => fetchApi<ElectiveGroupOption[]>(`/api/elective-groups?classSectionId=${electiveSectionFilter}`),
     enabled: !!electiveSectionFilter,
   })
 
   const { data: offeringElectiveGroups } = useQuery({
     queryKey: ['elective-groups-offering', offeringForm.classSectionId],
-    queryFn: () => fetchApi<unknown[]>(`/api/elective-groups?classSectionId=${offeringForm.classSectionId}`),
+    queryFn: () => fetchApi<ElectiveGroupOption[]>(`/api/elective-groups?classSectionId=${offeringForm.classSectionId}`),
     enabled: !!offeringForm.classSectionId && !offeringForm.isMandatory,
   })
 
@@ -310,12 +376,12 @@ export default function AcademicEnginePage() {
     onError: (e: Error) => notify.error(e.message),
   })
 
-  const enrollSection = (sections ?? []).find((s: { id: string }) => s.id === enrollSectionId)
+  const enrollSection = (sections ?? []).find((s) => s.id === enrollSectionId)
 
   const { data: sectionEnrollments, refetch: refetchEnrollments } = useQuery({
     queryKey: ['section-enrollments', enrollSectionId, activeYear?.id],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<SectionEnrollmentRow[]>(
         `/api/student-enrollments?classSectionId=${enrollSectionId}&academicYearId=${activeYear?.id}&status=ACTIVE`
       ),
     enabled: !!enrollSectionId && !!activeYear?.id,
@@ -323,7 +389,7 @@ export default function AcademicEnginePage() {
 
   const { data: batchHouses } = useQuery({
     queryKey: ['houses-batch', enrollSection?.batchId],
-    queryFn: () => fetchApi<unknown[]>(`/api/houses?batchId=${enrollSection?.batchId}`),
+    queryFn: () => fetchApi<HouseOption[]>(`/api/houses?batchId=${enrollSection?.batchId}`),
     enabled: !!enrollSection?.batchId,
   })
 
@@ -342,13 +408,13 @@ export default function AcademicEnginePage() {
 
   const { data: pendingElectives } = useQuery({
     queryKey: ['pending-electives'],
-    queryFn: () => fetchApi<unknown[]>('/api/subject-enrollments?status=PENDING'),
+    queryFn: () => fetchApi<PendingElectiveRow[]>('/api/subject-enrollments?status=PENDING'),
   })
 
   const { data: timetableSlots } = useQuery({
     queryKey: ['timetable-slots', activeYear?.id, slotFilterSection],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<TimetableSlotRow[]>(
         `/api/timetable/slots?academicYearId=${activeYear?.id}&classSectionId=${slotFilterSection}`
       ),
     enabled: !!activeYear?.id && !!slotFilterSection,
@@ -424,7 +490,7 @@ export default function AcademicEnginePage() {
   const { data: gradingSchemes } = useQuery({
     queryKey: ['grading-schemes', activeYear?.id, gradingSectionId],
     queryFn: () =>
-      fetchApi<unknown[]>(
+      fetchApi<GradingSchemeRow[]>(
         `/api/grading-schemes?academicYearId=${activeYear?.id}&classSectionId=${gradingSectionId}`
       ),
     enabled: !!activeYear?.id && !!gradingSectionId,
@@ -521,7 +587,7 @@ export default function AcademicEnginePage() {
     return <AccessDenied title="Academic Engine" message="Administrators manage academic years, shifts, and class sections here." />
   }
 
-  const filteredSectionsForTimetable = (sections ?? []).filter((s: { campusId: string; shiftId: string }) => {
+  const filteredSectionsForTimetable = (sections ?? []).filter((s) => {
     if (ttCampus !== 'all' && s.campusId !== ttCampus) return false
     if (ttShift !== 'all' && s.shiftId !== ttShift) return false
     return true
@@ -833,7 +899,7 @@ export default function AcademicEnginePage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Session Shift</Label>
-                    <Info className="w-3.5 h-3.5 text-gray-400" title="Each section is linked to one shift. Students enroll in one section per shift per year." />
+                    <Info className="w-3.5 h-3.5 text-gray-400" aria-label="Each section is linked to one shift. Students enroll in one section per shift per year." />
                   </div>
                   <Select value={sectionForm.shiftId} onValueChange={(v) => setSectionForm({ ...sectionForm, shiftId: v })}>
                     <SelectTrigger className="border-gray-200"><SelectValue placeholder="Select Shift (e.g. Morning)" /></SelectTrigger>
@@ -860,9 +926,9 @@ export default function AcademicEnginePage() {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Delivery Mode</Label>
-                      <Info className="w-3.5 h-3.5 text-gray-400" title="Choose where this section will operate: on-campus, remote, or hybrid." />
+                      <Info className="w-3.5 h-3.5 text-gray-400" aria-label="Choose where this section will operate: on-campus, remote, or hybrid." />
                     </div>
-                    <Select value={sectionForm.deliveryMode} onValueChange={(v) => setSectionForm({ ...sectionForm, deliveryMode: v as 'PHYSICAL' })}>
+                    <Select value={sectionForm.deliveryMode} onValueChange={(v) => setSectionForm({ ...sectionForm, deliveryMode: v as DeliveryMode })}>
                       <SelectTrigger className="border-gray-200"><SelectValue placeholder="Mode" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PHYSICAL">Physical (On-Campus)</SelectItem>
@@ -874,11 +940,11 @@ export default function AcademicEnginePage() {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Curriculum</Label>
-                      <Info className="w-3.5 h-3.5 text-gray-400" title="Fixed means a common curriculum. Elective means student choice within group blocks." />
+                      <Info className="w-3.5 h-3.5 text-gray-400" aria-label="Fixed means a common curriculum. Elective means student choice within group blocks." />
                     </div>
                     <Select
                       value={sectionForm.curriculumMode}
-                      onValueChange={(v) => setSectionForm({ ...sectionForm, curriculumMode: v as 'FIXED' | 'ELECTIVE' })}
+                      onValueChange={(v) => setSectionForm({ ...sectionForm, curriculumMode: v as CurriculumMode })}
                     >
                       <SelectTrigger className="border-gray-200"><SelectValue placeholder="Curriculum" /></SelectTrigger>
                       <SelectContent>

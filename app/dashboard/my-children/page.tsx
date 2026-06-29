@@ -389,7 +389,7 @@ export default function MyChildrenPage() {
                             </p>
                             <Badge 
                               variant={
-                                inv.status === 'PAID' ? 'success' : 
+                                inv.status === 'PAID' ? 'default' :
                                 inv.status === 'OVERDUE' ? 'destructive' : 
                                 inv.status === 'CANCELLED' ? 'secondary' : 'default'
                               }
@@ -548,7 +548,7 @@ export default function MyChildrenPage() {
                                 <p className="text-sm text-slate-600">{leave.reason}</p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge variant={leave.status === 'APPROVED' ? 'success' : leave.status === 'REJECTED' ? 'destructive' : 'outline'}>
+                                <Badge variant={leave.status === 'APPROVED' ? 'default' : leave.status === 'REJECTED' ? 'destructive' : 'outline'}>
                                   {leave.status}
                                 </Badge>
                                 <span className="text-xs text-slate-500">Applied {new Date(leave.createdAt).toLocaleDateString('en-PK')}</span>
