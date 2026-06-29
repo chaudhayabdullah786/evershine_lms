@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
-import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
+import { errors, errorResponse, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { createTeacherSchema, teacherQuerySchema } from '@/lib/validation/teacher'
 import { hash } from '@node-rs/argon2'
 import type { Role } from '@prisma/client'
@@ -15,6 +15,33 @@ import { sendTeacherWelcomeEmail } from '@/lib/email'
 import { getEmployeeIdPrefix, isTeachingDesignation } from '@/lib/constants/staff-designations'
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
+
+type PrismaLikeError = {
+  code?: string
+  message?: string
+  meta?: Record<string, unknown>
+}
+
+function getPrismaError(error: unknown): PrismaLikeError {
+  if (error && typeof error === 'object') return error as PrismaLikeError
+  return {}
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'Unknown error'
+}
+
+function logTeacherCreateFailure(stage: string, error: unknown) {
+  const err = getPrismaError(error)
+  console.error('[TEACHERS_POST] create failed', {
+    stage,
+    code: err.code,
+    meta: err.meta,
+    message: getErrorMessage(error),
+  })
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -189,13 +216,32 @@ export async function POST(request: NextRequest) {
 
       return newTeacher
     })
-  } catch (txErr: any) {
-    if (txErr?.code === 'P2002') {
-      const target = txErr?.meta?.target?.join(', ') ?? 'field'
+  } catch (txErr: unknown) {
+    const err = getPrismaError(txErr)
+    if (err.code === 'P2002') {
+      const target = Array.isArray(err.meta?.target) ? err.meta.target.join(', ') : 'field'
       return errors.conflict(`Duplicate value for ${target}. Please check the email or CNIC.`)
     }
 
-    console.error('[TEACHERS_POST] transaction error', txErr)
+    if (err.code === 'P2021' || err.code === 'P2022') {
+      logTeacherCreateFailure('transaction.schema', txErr)
+      return errorResponse(
+        'SCHEMA_OUT_OF_DATE',
+        'The staff database schema is out of date. Please run the production migration and try again.',
+        500
+      )
+    }
+
+    if (['P1001', 'P1002', 'P1008', 'P1017'].includes(err.code ?? '')) {
+      logTeacherCreateFailure('transaction.database', txErr)
+      return errorResponse(
+        'DATABASE_UNAVAILABLE',
+        'The database is temporarily unavailable. Please try again shortly.',
+        503
+      )
+    }
+
+    logTeacherCreateFailure('transaction', txErr)
     return errors.internal()
   }
 
