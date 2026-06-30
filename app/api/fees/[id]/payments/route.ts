@@ -94,13 +94,14 @@ export async function POST(
       },
     })
 
-    // 3. Update student's denormalized fee summary
+    // 3. Update student's denormalized fee summary without allowing negative dues.
+    const remainingStudentDue = Math.max(0, Number(invoice.student.dueAmount) - amount)
     await tx.student.update({
       where: { id: invoice.studentId },
       data: {
         paidAmount: { increment: amount },
-        dueAmount: { decrement: amount },
-        feeStatus: newStatus === 'PAID' ? 'PAID' : 'PARTIALLY_PAID',
+        dueAmount: remainingStudentDue,
+        feeStatus: newStatus === 'PAID' && remainingStudentDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
       },
     })
 

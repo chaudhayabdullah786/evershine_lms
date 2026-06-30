@@ -17,7 +17,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse } from '@/lib/api-response'
 import { recordPaymentSchema } from '@/lib/validation/fee'
-import type { Role, InvoiceStatus, FeeStatus } from '@prisma/client'
+import type { Role, InvoiceStatus } from '@prisma/client'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       totalAmount: true,
       paidAmount: true,
       status: true,
+      student: { select: { dueAmount: true } },
     },
   })
 
@@ -73,9 +74,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Determine new invoice status
   const newInvoiceStatus: InvoiceStatus = newPaid >= total ? 'PAID' : 'PARTIALLY_PAID'
 
-  // Determine new student fee status
-  const newFeeStatus: FeeStatus = newPaid >= total ? 'PAID' : 'PARTIALLY_PAID'
-
   const payment = await prisma.$transaction(async (tx) => {
     const newPayment = await tx.feePayment.create({
       data: {
@@ -99,13 +97,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    // Update denormalized fee summary on Student for fast dashboard reads
+    // Update denormalized fee summary on Student for fast dashboard reads without negative dues.
+    const remainingStudentDue = Math.max(0, Number(invoice.student.dueAmount) - amount)
     await tx.student.update({
       where: { id: invoice.studentId },
       data: {
         paidAmount: { increment: amount },
-        dueAmount: { decrement: amount },
-        feeStatus: newFeeStatus,
+        dueAmount: remainingStudentDue,
+        feeStatus: newInvoiceStatus === 'PAID' && remainingStudentDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
       },
     })
 

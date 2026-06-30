@@ -95,12 +95,13 @@ export async function PATCH(
         },
       })
 
+      const remainingStudentDue = Math.max(0, Number(existing.student.dueAmount) - amountToPay)
       await tx.student.update({
         where: { id: existing.studentId },
         data: {
           paidAmount: { increment: amountToPay },
-          dueAmount: { decrement: amountToPay },
-          feeStatus: newInvoiceStatus,
+          dueAmount: remainingStudentDue,
+          feeStatus: newInvoiceStatus === 'PAID' && remainingStudentDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
         },
       })
 
