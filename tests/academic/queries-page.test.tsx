@@ -3,10 +3,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const mockUseQuery = vi.fn()
 const mockUseMutation = vi.fn()
+let mockRole = 'STUDENT'
 
 vi.mock('next-auth/react', () => ({
   useSession: () => ({
-    data: { user: { role: 'STUDENT' } },
+    data: { user: { role: mockRole } },
   }),
 }))
 
@@ -33,6 +34,7 @@ import QueriesPage from '@/app/dashboard/queries/page'
 
 describe('QueriesPage teacher list handling', () => {
   beforeEach(() => {
+    mockRole = 'STUDENT'
     mockUseQuery.mockImplementation((options: any) => {
       if (options.queryKey[0] === 'student-queries') {
         return { data: { data: [] }, isLoading: false }
@@ -61,4 +63,38 @@ describe('QueriesPage teacher list handling', () => {
 
     expect(screen.getByTestId('teacher-option-teacher-1').textContent).toContain('Alice Teacher (Math)')
   })
+
+  it('shows answer controls to SuperAdmin for pending queries', () => {
+    mockRole = 'SUPER_ADMIN'
+    mockUseQuery.mockImplementation((options: any) => {
+      if (options.queryKey[0] === 'student-queries') {
+        return {
+          data: {
+            data: [
+              {
+                id: 'query-1',
+                studentId: 'student-1',
+                studentName: 'Ali Student',
+                teacherId: 'teacher-1',
+                teacherName: 'Alice Teacher',
+                subject: 'Physics',
+                queryText: 'Explain chapter four.',
+                status: 'PENDING',
+                response: null,
+                createdAt: '2026-06-30T10:00:00.000Z',
+              },
+            ],
+          },
+          isLoading: false,
+        }
+      }
+
+      return { data: undefined, isLoading: false }
+    })
+
+    render(<QueriesPage />)
+
+    expect(screen.getByRole('button', { name: 'Answer' })).toBeTruthy()
+  })
+
 })

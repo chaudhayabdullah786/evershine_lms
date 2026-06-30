@@ -48,6 +48,7 @@ export default function QueriesPage() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const userRole = session?.user?.role ?? ''
+  const canRespondToQueries = userRole === 'TEACHER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
 
   // Form State
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
@@ -182,7 +183,7 @@ export default function QueriesPage() {
             Student Help & Queries
           </h1>
           <p className="mt-2 text-emerald-100 max-w-2xl text-sm leading-relaxed">
-            Need support on coursework or homework? Ask academic questions. Only teachers assigned to the subject will receive and answer your queries.
+            Need support on coursework or homework? Ask academic questions. Teachers answer their assigned queries while administrators can moderate and respond when escalation is needed.
           </p>
         </div>
       </div>
@@ -190,16 +191,16 @@ export default function QueriesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Forms */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Teacher Response Panel */}
-          {userRole === 'TEACHER' && activeQueryId && (
+          {/* Response Panel */}
+          {canRespondToQueries && activeQueryId && (
             <Card className="border-[2px] border-emerald-500/40 bg-emerald-50/50 shadow-md">
               <CardHeader>
                 <CardTitle className="text-emerald-800 text-lg flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  Answer Student Query
+                  {userRole === 'TEACHER' ? 'Answer Student Query' : 'Respond to Academic Query'}
                 </CardTitle>
                 <CardDescription className="text-emerald-700/80">
-                  Write detailed feedback or academic help to resolve the student's doubt.
+                  Write detailed feedback or administrative guidance to resolve the student's question.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -404,7 +405,7 @@ export default function QueriesPage() {
                               {q.status}
                             </span>
 
-                            {userRole === 'TEACHER' && !isAnswered && (
+                            {canRespondToQueries && !isAnswered && (
                               <Button 
                                 size="sm" 
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-7 py-0 text-xs shadow-sm"
