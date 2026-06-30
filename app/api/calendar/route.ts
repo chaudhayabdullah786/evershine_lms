@@ -11,9 +11,13 @@ import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { z } from 'zod'
 import type { Role } from '@prisma/client'
 
+const dateStringSchema = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
+  message: 'Invalid date',
+})
+
 const querySchema = z.object({
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(500).default(50),
 })
@@ -21,11 +25,19 @@ const querySchema = z.object({
 const createSchema = z.object({
   title: z.string().min(2).max(200),
   description: z.string().optional().nullable(),
-  startDate: z.string(),
-  endDate: z.string(),
+  startDate: dateStringSchema,
+  endDate: dateStringSchema,
   eventType: z.enum(['Holiday', 'Exam', 'Sports', 'Ceremony', 'Other']),
   campusId: z.string().optional().nullable(),
 })
+
+function parseRangeStart(value: string) {
+  return new Date(value)
+}
+
+function parseRangeEnd(value: string) {
+  return new Date(value.includes('T') ? value : `${value}T23:59:59`)
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -42,12 +54,17 @@ export async function GET(request: NextRequest) {
     isActive: true,
   }
 
-  if (startDate || endDate) {
-    where.startDate = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate + 'T23:59:59') }),
-    }
+  const rangeStart = startDate ? parseRangeStart(startDate) : null
+  const rangeEnd = endDate ? parseRangeEnd(endDate) : null
+
+  if (rangeStart && rangeEnd && rangeEnd < rangeStart) {
+    return errors.badRequest('endDate cannot be earlier than startDate')
   }
+
+  const rangeFilters: Record<string, any>[] = []
+  if (rangeStart) rangeFilters.push({ endDate: { gte: rangeStart } })
+  if (rangeEnd) rangeFilters.push({ startDate: { lte: rangeEnd } })
+  if (rangeFilters.length) where.AND = rangeFilters
 
   // Scoping: Students, parents, teachers, and accountants only see events for all campuses (null)
   // or their own specific campus. Super Admins and Admins can see all.
@@ -99,6 +116,10 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   const { title, description, startDate, endDate, eventType, campusId } = parsed.data
+
+  if (new Date(endDate) < new Date(startDate)) {
+    return errors.badRequest('endDate cannot be earlier than startDate')
+  }
 
   const event = await prisma.$transaction(async (tx) => {
     const e = await tx.calendarEvent.create({

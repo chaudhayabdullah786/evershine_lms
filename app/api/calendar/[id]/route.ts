@@ -12,11 +12,15 @@ import { errors, successResponse } from '@/lib/api-response'
 import { z } from 'zod'
 import type { Role } from '@prisma/client'
 
+const dateStringSchema = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
+  message: 'Invalid date',
+})
+
 const updateSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().optional().nullable(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
   eventType: z.enum(['Holiday', 'Exam', 'Sports', 'Ceremony', 'Other']).optional(),
   campusId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -77,6 +81,12 @@ export async function PUT(
   if (!parsed.success) return errors.validation(parsed.error)
 
   const { title, description, startDate, endDate, eventType, campusId, isActive } = parsed.data
+
+  const nextStartDate = startDate !== undefined ? new Date(startDate) : existing.startDate
+  const nextEndDate = endDate !== undefined ? new Date(endDate) : existing.endDate
+  if (nextEndDate < nextStartDate) {
+    return errors.badRequest('endDate cannot be earlier than startDate')
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedEvent = await tx.calendarEvent.update({
