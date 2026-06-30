@@ -89,7 +89,6 @@ export async function GET(request: NextRequest) {
   return paginatedResponse(invoices, { page, limit, total })
 }
 
-import fs from 'fs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -100,14 +99,12 @@ export async function POST(request: NextRequest) {
     let body: any
     try {
       body = await request.json()
-      fs.appendFileSync('debug_fee.log', `[BODY] ${JSON.stringify(body)}\n`)
     } catch {
       return errors.validation({ errors: [{ path: [], message: 'Invalid JSON' }] } as never)
     }
 
     const parsed = generateChallanSchema.safeParse(body)
     if (!parsed.success) {
-      fs.appendFileSync('debug_fee.log', `[VALIDATION_ERROR] ${JSON.stringify(parsed.error)}\n`)
       return errors.validation(parsed.error)
     }
 
@@ -125,7 +122,6 @@ export async function POST(request: NextRequest) {
       },
     })
     if (!student || !student.isActive) {
-      fs.appendFileSync('debug_fee.log', `[ERROR] Student not found or inactive. ID: ${studentId}\n`)
       return errors.notFound('Student')
     }
 
@@ -134,7 +130,6 @@ export async function POST(request: NextRequest) {
       select: { challanNumber: true },
     })
     if (duplicate) {
-      fs.appendFileSync('debug_fee.log', `[CONFLICT] Duplicate challan for ${month} ${academicYear}. Existing: ${duplicate.challanNumber}\n`)
       return errors.conflict(
         `A challan for ${month} (${academicYear}) already exists: ${duplicate.challanNumber}`
       )
@@ -194,15 +189,21 @@ export async function POST(request: NextRequest) {
           },
         })
 
+        await tx.student.update({
+          where: { id: studentId },
+          data: {
+            dueAmount: { increment: totalAmount },
+            feeStatus: 'PENDING',
+          },
+        })
+
         return newInvoice
       },
       { timeout: 30000 }
     )
 
-    fs.appendFileSync('debug_fee.log', `[SUCCESS] Challan generated: ${challanNumber}\n`)
     return createdResponse(invoice, `Challan ${challanNumber} generated successfully`)
   } catch (error: any) {
-    fs.appendFileSync('debug_fee.log', `[INTERNAL_ERROR] ${error.message}\n${error.stack}\n`)
     console.error('[GENERATE_CHALLAN_ERROR]', error)
     if (error.code === 'P2002') {
       return errors.conflict(
