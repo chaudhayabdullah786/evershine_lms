@@ -62,7 +62,7 @@ const PERMISSIONS: PermissionMap = {
     users: ['create', 'read', 'update', 'delete'],
     audit_logs: ['read'],
     dashboard: ['read'],
-    results: ['read'],
+    results: ['create', 'read', 'update', 'delete'],
     exams: ['create', 'read', 'update', 'delete'],
     announcements: ['create', 'read', 'update', 'delete'],
     calendar: ['create', 'read', 'update', 'delete'],

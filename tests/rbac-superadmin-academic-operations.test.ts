@@ -20,10 +20,12 @@ describe('SuperAdmin academic operation permissions', () => {
     expect(checkPermission('SUPER_ADMIN', 'grading_engine', 'delete')).toBe(true)
   })
 
-  it('keeps SuperAdmin result mutations view-only under the current policy', () => {
-    expect(getAllowedActions('SUPER_ADMIN', 'results')).toEqual(['read'])
-    expect(checkPermission('SUPER_ADMIN', 'results', 'create')).toBe(false)
-    expect(checkPermission('SUPER_ADMIN', 'results', 'update')).toBe(false)
-    expect(checkPermission('SUPER_ADMIN', 'results', 'delete')).toBe(false)
+  it('allows SuperAdmin to manage results across legacy and Academic Engine flows', () => {
+    expect(getAllowedActions('SUPER_ADMIN', 'results')).toEqual(
+      expect.arrayContaining(['create', 'read', 'update', 'delete'])
+    )
+    expect(checkPermission('SUPER_ADMIN', 'results', 'create')).toBe(true)
+    expect(checkPermission('SUPER_ADMIN', 'results', 'update')).toBe(true)
+    expect(checkPermission('SUPER_ADMIN', 'results', 'delete')).toBe(true)
   })
 })

@@ -401,8 +401,7 @@ export default function ResultsPage() {
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
   const role = session?.user?.role as string | undefined
-  // Only Admins and Teachers may mutate results; Super Admins are view-only.
-  const canManage = role === 'ADMIN' || role === 'TEACHER'
+  const canManage = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TEACHER'
   const queryClient = useQueryClient()
 
   useEffect(() => {

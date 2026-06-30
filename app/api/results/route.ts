@@ -117,9 +117,6 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   if (!checkPermission(session.user.role as Role, 'results', 'create')) return errors.forbidden()
-  // Super Admins are view-only for results entering via legacy endpoint
-  if (session.user.role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for results')
-
   let body: unknown
   try { body = await request.json() } catch {
     return errors.validation({ errors: [{ path: [], message: 'Invalid JSON' }] } as never)
