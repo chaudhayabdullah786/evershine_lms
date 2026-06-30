@@ -64,7 +64,7 @@ const PERMISSIONS: PermissionMap = {
     dashboard: ['read'],
     results: ['read'],
     exams: ['read'],
-    announcements: ['read'],
+    announcements: ['create', 'read', 'update', 'delete'],
     calendar: ['create', 'read', 'update', 'delete'],
     academic_years: ['create', 'read', 'update', 'delete'],
     shifts: ['create', 'read', 'update', 'delete'],
