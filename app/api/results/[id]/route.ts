@@ -55,9 +55,6 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   if (!checkPermission(session.user.role as Role, 'results', 'update')) return errors.forbidden()
-  // Disallow Super Admins from updating legacy results (view-only)
-  if (session.user.role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for results')
-
   const result = await prisma.result.findUnique({
     where: { id: params.id },
     select: { id: true, totalMarks: true, obtainedMarks: true },
@@ -116,9 +113,6 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   if (!checkPermission(session.user.role as Role, 'results', 'delete')) return errors.forbidden()
-  // Disallow Super Admins from deleting legacy results (view-only)
-  if (session.user.role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for results')
-
   const result = await prisma.result.findUnique({ where: { id: params.id }, select: { id: true } })
   if (!result) return errors.notFound('Result')
 

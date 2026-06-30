@@ -59,9 +59,6 @@ export async function POST(request: NextRequest) {
 
   const role = session.user.role as Role
   if (!checkPermission(role, 'results', 'create')) return errors.forbidden()
-  // Enforce view-only for SUPER_ADMIN on result mutations — teacher ownership enforced via teacherId
-  if (role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for academic results')
-
   let body: unknown
   try { body = await request.json() }
   catch { return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never) }
@@ -97,9 +94,6 @@ export async function PATCH(request: NextRequest) {
 
   const role = session.user.role as Role
   if (!checkPermission(role, 'results', 'update')) return errors.forbidden()
-  // Prevent SUPER_ADMIN from toggling declarations via this endpoint (view-only)
-  if (role === 'SUPER_ADMIN') return errors.forbidden('Super Admins are view-only for academic results')
-
   let body: unknown
   try { body = await request.json() }
   catch { return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never) }
