@@ -57,12 +57,17 @@ export default function ExamDateSheetsPage() {
   const [title, setTitle] = useState('')
   const [slots, setSlots] = useState<DateSheetSlot[]>([EMPTY_SLOT])
 
-  const isTeacher = session?.user?.role === 'TEACHER'
+  const role = session?.user?.role
+  const isTeacher = role === 'TEACHER'
+  const isAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN'
+  const canAccess = isTeacher || isAdmin
+  const canManage = isAdmin
 
   const { data: sections = [] } = useQuery<Section[]>({
-    queryKey: ['teacher-sections'],
-    queryFn: () => fetchApi<Section[]>('/api/teacher-portal/sections'),
-    enabled: isTeacher,
+    queryKey: ['date-sheet-sections', role],
+    queryFn: () =>
+      fetchApi<Section[]>(isTeacher ? '/api/teacher-portal/sections' : '/api/class-sections'),
+    enabled: canAccess,
   })
 
   const { data: examSessions = [] } = useQuery<ExamSession[]>({
@@ -72,9 +77,14 @@ export default function ExamDateSheetsPage() {
   })
 
   const { data: offerings = [] } = useQuery<Offering[]>({
-    queryKey: ['date-sheet-offerings', classSectionId],
-    queryFn: () => fetchApi<Offering[]>(`/api/teacher-portal/sections/${classSectionId}/offerings`),
-    enabled: !!classSectionId,
+    queryKey: ['date-sheet-offerings', role, classSectionId],
+    queryFn: () =>
+      fetchApi<Offering[]>(
+        isTeacher
+          ? `/api/teacher-portal/sections/${classSectionId}/offerings`
+          : `/api/subject-offerings?classSectionId=${classSectionId}`
+      ),
+    enabled: canAccess && !!classSectionId && canManage,
   })
 
   const { data: dateSheet, isFetching: isFetchingSheet } = useQuery<DateSheetResponse | null>({
@@ -160,7 +170,7 @@ export default function ExamDateSheetsPage() {
 
   if (status === 'loading') return null
   if (!session?.user) return <AccessDenied title="Exam Date Sheets" message="Please sign in to view exam schedules." />
-  if (!isTeacher) return <AccessDenied title="Exam Date Sheets" message="This page is available to teachers only." />
+  if (!canAccess) return <AccessDenied title="Exam Date Sheets" message="Teachers and administrators can view exam date sheets here." />
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -171,7 +181,9 @@ export default function ExamDateSheetsPage() {
             Exam Date Sheets
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            View your published exam date sheets and draft new schedules for assigned sections.
+            {canManage
+              ? 'Create, update, and review published exam schedules for any class section.'
+              : 'View published exam date sheets for your assigned sections.'}
           </p>
         </div>
       </div>
@@ -253,109 +265,111 @@ export default function ExamDateSheetsPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Draft or update date sheet</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!hasOfferings ? (
-                <p className="text-sm text-slate-500">
-                  You do not have assigned subject offerings for this section. Assign subjects before preparing a date sheet.
-                </p>
-              ) : (
-                <>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="sheetTitle">Schedule title</Label>
-                      <Input
-                        id="sheetTitle"
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        placeholder="Final exam schedule"
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {slots.map((slot, index) => (
-                      <div key={`${slot.id}-${index}`} className="grid gap-3 grid-cols-1 lg:grid-cols-[2fr_1fr_1fr_1fr_auto] items-end">
-                        <div>
-                          <Label htmlFor={`subject-${index}`}>Subject</Label>
-                          <Select
-                            value={slot.subjectOfferingId}
-                            onValueChange={(value) => updateSlot(index, 'subjectOfferingId', value)}
-                          >
-                            <SelectTrigger id={`subject-${index}`} className="mt-2">
-                              <SelectValue placeholder="Select subject" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {offerings.map((option) => (
-                                <SelectItem key={option.id} value={option.id}>
-                                  {option.subject.name} ({option.subject.code})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor={`date-${index}`}>Exam date</Label>
-                          <Input
-                            id={`date-${index}`}
-                            type="date"
-                            value={slot.examDate}
-                            onChange={(event) => updateSlot(index, 'examDate', event.target.value)}
-                            className="mt-2"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor={`start-${index}`}>Start</Label>
-                          <Input
-                            id={`start-${index}`}
-                            type="time"
-                            value={slot.startTime}
-                            onChange={(event) => updateSlot(index, 'startTime', event.target.value)}
-                            className="mt-2"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor={`end-${index}`}>End</Label>
-                          <Input
-                            id={`end-${index}`}
-                            type="time"
-                            value={slot.endTime}
-                            onChange={(event) => updateSlot(index, 'endTime', event.target.value)}
-                            className="mt-2"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="mt-8 h-10 w-10"
-                          onClick={() => removeSlot(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+          {canManage && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Draft or update date sheet</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!hasOfferings ? (
+                  <p className="text-sm text-slate-500">
+                    No subject offerings are configured for this section. Assign subjects before preparing a date sheet.
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="sheetTitle">Schedule title</Label>
+                        <Input
+                          id="sheetTitle"
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          placeholder="Final exam schedule"
+                          className="mt-2"
+                        />
                       </div>
-                    ))}
-                  </div>
+                    </div>
 
-                  <div className="flex items-center gap-3">
-                    <Button type="button" variant="secondary" onClick={addSlot} className="gap-2">
-                      <Plus className="w-4 h-4" /> Add slot
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => saveDateSheet.mutate()}
-                      disabled={!isValidForm || !hasOfferings || saveDateSheet.isPending}
-                    >
-                      {saveDateSheet.isPending ? 'Saving…' : 'Publish date sheet'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="space-y-3">
+                      {slots.map((slot, index) => (
+                        <div key={`${slot.id}-${index}`} className="grid gap-3 grid-cols-1 lg:grid-cols-[2fr_1fr_1fr_1fr_auto] items-end">
+                          <div>
+                            <Label htmlFor={`subject-${index}`}>Subject</Label>
+                            <Select
+                              value={slot.subjectOfferingId}
+                              onValueChange={(value) => updateSlot(index, 'subjectOfferingId', value)}
+                            >
+                              <SelectTrigger id={`subject-${index}`} className="mt-2">
+                                <SelectValue placeholder="Select subject" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {offerings.map((option) => (
+                                  <SelectItem key={option.id} value={option.id}>
+                                    {option.subject.name} ({option.subject.code})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor={`date-${index}`}>Exam date</Label>
+                            <Input
+                              id={`date-${index}`}
+                              type="date"
+                              value={slot.examDate}
+                              onChange={(event) => updateSlot(index, 'examDate', event.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`start-${index}`}>Start</Label>
+                            <Input
+                              id={`start-${index}`}
+                              type="time"
+                              value={slot.startTime}
+                              onChange={(event) => updateSlot(index, 'startTime', event.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`end-${index}`}>End</Label>
+                            <Input
+                              id={`end-${index}`}
+                              type="time"
+                              value={slot.endTime}
+                              onChange={(event) => updateSlot(index, 'endTime', event.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="mt-8 h-10 w-10"
+                            onClick={() => removeSlot(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Button type="button" variant="secondary" onClick={addSlot} className="gap-2">
+                        <Plus className="w-4 h-4" /> Add slot
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => saveDateSheet.mutate()}
+                        disabled={!isValidForm || !hasOfferings || saveDateSheet.isPending}
+                      >
+                        {saveDateSheet.isPending ? 'Saving…' : 'Publish date sheet'}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : null}
     </div>
