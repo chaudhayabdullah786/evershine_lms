@@ -12,32 +12,11 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { assertGuardianOwnsStudent } from '@/lib/guardian/assert-ownership'
-import cloudinary from '@/lib/cloudinary'
+import { isAllowedPaymentProof, uploadPaymentProofToCloudinary } from '@/lib/cloudinary'
 import { dispatchNotification } from '@/lib/notifications/in-app'
 
 // Maximum file size: 4MB (Vercel payload limit is 4.5MB)
 const MAX_FILE_SIZE = 4 * 1024 * 1024
-
-/**
- * Validates magic bytes for JPEG, PNG, or PDF.
- * Returns true if valid, false otherwise.
- */
-function validateMagicBytes(buffer: Buffer): boolean {
-  if (buffer.length < 4) return false
-
-  const hex = buffer.toString('hex', 0, 4).toUpperCase()
-  
-  // JPEG: FF D8 FF
-  if (hex.startsWith('FFD8FF')) return true
-  
-  // PNG: 89 50 4E 47
-  if (hex.startsWith('89504E47')) return true
-  
-  // PDF: 25 50 44 46 (%PDF)
-  if (hex.startsWith('25504446')) return true
-
-  return false
-}
 
 export async function POST(
   request: NextRequest,
@@ -77,10 +56,10 @@ export async function POST(
     return errors.validation({ errors: [{ path: [], message: 'Invalid form data' }] } as never)
   }
 
-  const file = formData.get('file') as File | null
+  const file = formData.get('file')
   const remarks = formData.get('remarks') as string | null
 
-  if (!file) return errors.validation({ errors: [{ path: ['file'], message: 'File is required' }] } as never)
+  if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') return errors.validation({ errors: [{ path: ['file'], message: 'File is required' }] } as never)
   if (!remarks || remarks.trim().length < 5) {
     return errors.validation({ errors: [{ path: ['remarks'], message: 'Please provide at least a brief description' }] } as never)
   }
@@ -93,29 +72,15 @@ export async function POST(
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
   
-  if (!validateMagicBytes(buffer)) {
+  if (!isAllowedPaymentProof(buffer)) {
     return errors.conflict('Invalid file format. Only JPG, PNG, and PDF are allowed.')
   }
 
-  // Upload to Cloudinary using stream
-  const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'evershaheen/fee-proofs',
-        resource_type: 'auto',
-      },
-      (error, result) => {
-        if (error || !result) reject(error || new Error('Upload failed'))
-        else resolve(result)
-      }
-    )
-    uploadStream.end(buffer)
-  }).catch((err) => {
+  let proofUrl: string
+  try {
+    proofUrl = await uploadPaymentProofToCloudinary(buffer, `${invoiceId}-${Date.now()}`)
+  } catch (err) {
     console.error('[PROOF_UPLOAD] Cloudinary error:', err)
-    return null
-  })
-
-  if (!uploadResult) {
     return errors.internal()
   }
 
@@ -124,7 +89,7 @@ export async function POST(
     const inv = await tx.feeInvoice.update({
       where: { id: invoiceId },
       data: {
-        proofUrl: uploadResult.secure_url,
+        proofUrl,
         proofRemarks: remarks,
         proofUploadedAt: new Date(),
         proofStatus: 'PENDING',
@@ -137,7 +102,7 @@ export async function POST(
         action: 'UPDATE',
         entityType: 'FeeInvoice',
         entityId: invoiceId,
-        changes: { proofStatus: 'PENDING', proofUrl: uploadResult.secure_url },
+        changes: { proofStatus: 'PENDING', proofUrl },
       },
     })
 
