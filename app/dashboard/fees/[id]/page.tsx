@@ -770,7 +770,6 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
         open={showUploadModal}
         onOpenChange={setShowUploadModal}
         invoice={invoice}
-        uploadStrategy="signed"
         uploadEndpoint={`/api/fees/${invoice.id}/proof`}
         successMessage="Payment proof submitted successfully!"
         successQueryKeys={[['fee-invoice', id], ['fees']]}

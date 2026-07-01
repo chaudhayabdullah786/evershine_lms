@@ -7,9 +7,10 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
-import { errors, successResponse } from '@/lib/api-response'
+import { errorResponse, errors, successResponse } from '@/lib/api-response'
 import { updateStudentSchema } from '@/lib/validation/student'
 import { enrollmentInclude } from '@/lib/students/enrollment-sync'
+import { isProfileImageDataUrl, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 import type { Role } from '@prisma/client'
 
 export async function GET(
@@ -85,7 +86,7 @@ export async function PATCH(
     return errors.validation({ errors: [{ path: [], message: 'Invalid JSON' }] } as never)
   }
 
-  const existing = await prisma.student.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.student.findUnique({ where: { id }, select: { id: true, registrationNumber: true } })
   if (!existing) return errors.notFound('Student')
 
   const parsed = updateStudentSchema.safeParse(body)
@@ -106,6 +107,28 @@ export async function PATCH(
 
   const safeData: Record<string, unknown> = { ...rest }
   if (safeData.email === '') safeData.email = null
+
+  const submittedProfilePicture = typeof safeData.profilePicture === 'string' ? safeData.profilePicture : null
+  if (isProfileImageDataUrl(submittedProfilePicture)) {
+    try {
+      safeData.profilePicture = await uploadProfileImageToCloudinary(
+        submittedProfilePicture,
+        'students',
+        existing.registrationNumber
+      )
+    } catch (uploadErr: unknown) {
+      const message = uploadErr instanceof Error ? uploadErr.message : 'Profile image upload failed'
+      if (message.startsWith('Invalid image') || message.startsWith('Image too large')) {
+        return errors.validation({ errors: [{ path: ['profilePicture'], message }] } as never)
+      }
+      console.error('[STUDENT_PATCH_PROFILE_IMAGE_UPLOAD]', uploadErr)
+      return errorResponse(
+        'PROFILE_IMAGE_UPLOAD_FAILED',
+        'Profile image upload failed. Please verify Cloudinary configuration and try again.',
+        500
+      )
+    }
+  }
 
   try {
     const updated = await prisma.$transaction(async (tx) => {

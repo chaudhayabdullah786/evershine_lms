@@ -8,8 +8,9 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
-import { errors, successResponse } from '@/lib/api-response'
+import { errorResponse, errors, successResponse } from '@/lib/api-response'
 import { updateTeacherSchema } from '@/lib/validation/teacher'
+import { isProfileImageDataUrl, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -58,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
 
-  const existing = await prisma.teacher.findUnique({ where: { id }, select: { id: true, campusId: true } })
+  const existing = await prisma.teacher.findUnique({ where: { id }, select: { id: true, campusId: true, employeeId: true } })
   if (!existing) return errors.notFound('Teacher')
 
   if (session.user.role === 'ADMIN' && existing.campusId !== session.user.campusId) {
@@ -72,6 +73,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   const { dateOfBirth, joiningDate, campusId, batchId, houseId, ...rest } = parsed.data
+
+  if (isProfileImageDataUrl(rest.profilePicture)) {
+    try {
+      rest.profilePicture = await uploadProfileImageToCloudinary(rest.profilePicture, 'teachers', existing.employeeId)
+    } catch (uploadErr: unknown) {
+      const message = uploadErr instanceof Error ? uploadErr.message : 'Profile image upload failed'
+      if (message.startsWith('Invalid image') || message.startsWith('Image too large')) {
+        return errors.validation({ errors: [{ path: ['profilePicture'], message }] } as never)
+      }
+      console.error('[TEACHER_PATCH_PROFILE_IMAGE_UPLOAD]', uploadErr)
+      return errorResponse(
+        'PROFILE_IMAGE_UPLOAD_FAILED',
+        'Profile image upload failed. Please verify Cloudinary configuration and try again.',
+        500
+      )
+    }
+  }
 
   // ADMIN cannot transfer teachers to another campus
   if (
@@ -101,7 +119,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         action: 'UPDATE',
         entityType: 'Teacher',
         entityId: id,
-        changes: parsed.data,
+        changes: {
+          ...parsed.data,
+          ...(rest.profilePicture !== undefined && { profilePicture: rest.profilePicture }),
+        },
       },
     })
 
