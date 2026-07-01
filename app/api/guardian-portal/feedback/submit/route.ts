@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse } from '@/lib/api-response'
 import { z } from 'zod'
-import type { FeedbackLikertResponse } from '@prisma/client'
+import type { FeedbackLikertResponse, Role } from '@prisma/client'
 
 const guardianFeedbackSchema = z.object({
   cycleId: z.string(),
@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
   })
 
   // Fallback: try parent relation if guardian not found
-  let campusId = guardian?.students[0]?.campus?.id ?? 'UNKNOWN'
-  let batchId = guardian?.students[0]?.batch?.id ?? 'UNKNOWN'
+  let campusId = guardian?.students[0]?.campus?.id ?? null
+  let batchId = guardian?.students[0]?.batch?.id ?? null
 
   if (!guardian) {
     const parentLink = await prisma.parent.findUnique({
@@ -90,9 +90,13 @@ export async function POST(request: NextRequest) {
       },
     })
     if (parentLink?.students[0]) {
-      campusId = parentLink.students[0].campus?.id ?? 'UNKNOWN'
-      batchId = parentLink.students[0].batch?.id ?? 'UNKNOWN'
+      campusId = parentLink.students[0].campus?.id ?? null
+      batchId = parentLink.students[0].batch?.id ?? null
     }
+  }
+
+  if (!campusId || !batchId) {
+    return errors.forbidden('Guardian account is not linked to an active student.')
   }
 
   // Validate all questions exist and are service-type
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest) {
       data: {
         cycleId: cycle.id,
         submitterUserId: session.user.id,
-        submitterRole: session.user.role as any,
+        submitterRole: session.user.role as Role,
         guardianId: guardian?.id ?? undefined,
         campusId,
         batchId,
