@@ -15,15 +15,17 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { checkPermission } from '@/lib/rbac'
-import type { Role } from '@prisma/client'
+import type { CertificateType, Prisma, Role } from '@prisma/client'
+
+const teacherDocumentTypeSchema = z.enum([
+  'TEACHER_ID_CARD',
+  'TEACHER_EXPERIENCE_LETTER',
+  'TEACHER_PROFILE',
+])
 
 const createTeacherDocSchema = z.object({
   teacherId: z.string().cuid('Invalid teacher ID'),
-  type: z.enum([
-    'TEACHER_ID_CARD',
-    'TEACHER_EXPERIENCE_LETTER',
-    'TEACHER_PROFILE',
-  ]),
+  type: teacherDocumentTypeSchema,
   title: z.string().min(2, 'Title is required').trim(),
   // WHY: pdfUrl is a placeholder in dev; Cloudinary URL in production.
   // Non-blocking: if upload fails the PDF was still delivered to the admin.
@@ -109,9 +111,17 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'))
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? '20')))
 
-  const where = {
+  const parsedType = type ? teacherDocumentTypeSchema.safeParse(type) : null
+  if (type && !parsedType?.success) {
+    return errors.validation({ errors: [{ path: ['type'], message: 'Invalid teacher document type' }] } as never)
+  }
+
+  const where: Prisma.TeacherDocumentWhereInput = {
     ...(teacherId && { teacherId }),
-    ...(type && { type: type as never }),
+    ...(parsedType?.success && { type: parsedType.data as CertificateType }),
+    ...(session.user.role === 'ADMIN' && session.user.campusId
+      ? { teacher: { campusId: session.user.campusId } }
+      : {}),
   }
 
   const [total, docs] = await prisma.$transaction([

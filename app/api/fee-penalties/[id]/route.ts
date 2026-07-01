@@ -26,6 +26,22 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const nextCampusId = parsed.data.campusId !== undefined ? parsed.data.campusId ?? null : existing.campusId
+  const nextBatchId = parsed.data.batchId !== undefined ? parsed.data.batchId ?? null : existing.batchId
+  const nextIsActive = parsed.data.isActive !== undefined ? parsed.data.isActive : existing.isActive
+  if (nextIsActive) {
+    const duplicate = await prisma.feePolicy.findFirst({
+      where: {
+        id: { not: id },
+        campusId: nextCampusId,
+        batchId: nextBatchId,
+        isActive: true,
+      },
+      select: { id: true },
+    })
+    if (duplicate) return errors.conflict('An active fee policy already exists for this scope')
+  }
+
   const policy = await prisma.$transaction(async (tx) => {
     const updated = await tx.feePolicy.update({
       where: { id },
