@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { errors, successResponse, createdResponse } from '@/lib/api-response'
+import { errors, createdResponse } from '@/lib/api-response'
 import { submitTeacherFeedbackSchema } from '@/lib/validation/feedback'
 import { getPendingTeachersForStudent } from '@/lib/feedback/engine'
 import type { Prisma } from '@prisma/client'
@@ -36,10 +36,23 @@ export async function POST(request: NextRequest) {
   const allowed = pending.find((p) => p.teacherId === parsed.data.teacherId)
   if (!allowed) return errors.forbidden('You cannot submit feedback for this teacher')
 
-  const questionCount = await prisma.feedbackQuestion.count({ where: { isActive: true } })
-  if (parsed.data.answers.length < questionCount) {
+  const teacherQuestions = await prisma.feedbackQuestion.findMany({
+    where: { isActive: true, category: 'TEACHER' },
+    select: { id: true },
+  })
+  const teacherQuestionIds = new Set(teacherQuestions.map((question) => question.id))
+  const submittedQuestionIds = new Set(parsed.data.answers.map((answer) => answer.questionId))
+  const includesInvalidQuestion = parsed.data.answers.some(
+    (answer) => !teacherQuestionIds.has(answer.questionId)
+  )
+
+  if (
+    teacherQuestionIds.size === 0 ||
+    includesInvalidQuestion ||
+    submittedQuestionIds.size !== teacherQuestionIds.size
+  ) {
     return errors.validation({
-      errors: [{ path: ['answers'], message: 'Answer all questions' }],
+      errors: [{ path: ['answers'], message: 'Answer all active teacher questions only' }],
     } as never)
   }
 

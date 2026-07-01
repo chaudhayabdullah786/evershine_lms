@@ -24,7 +24,7 @@ export async function GET() {
 
   const pending = await getPendingTeachersForStudent(student.id, cycle.id)
   const questions = await prisma.feedbackQuestion.findMany({
-    where: { isActive: true },
+    where: { isActive: true, category: 'TEACHER' },
     orderBy: { orderIndex: 'asc' },
   })
 

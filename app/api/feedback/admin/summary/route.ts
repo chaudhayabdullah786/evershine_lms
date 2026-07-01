@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { errors, successResponse } from '@/lib/api-response'
+import { successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { summarizeLikertAnswers } from '@/lib/feedback/engine'
 import type { Role, FeedbackLikertResponse } from '@prisma/client'
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       question: { select: { id: true, text: true, category: true } },
-      submission: { select: { submitterRole: true } },
+      submission: { select: { id: true, submitterRole: true } },
     },
   })
 
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
   const byCategory = new Map<string, {
     category: string
     answers: { response: FeedbackLikertResponse }[]
-    studentCount: number
-    guardianCount: number
+    studentSubmissionIds: Set<string>
+    guardianSubmissionIds: Set<string>
     questions: Map<string, { text: string; answers: { response: FeedbackLikertResponse }[] }>
   }>()
 
@@ -127,13 +127,13 @@ export async function GET(request: NextRequest) {
     const cur = byCategory.get(cat) ?? {
       category: cat,
       answers: [],
-      studentCount: 0,
-      guardianCount: 0,
+      studentSubmissionIds: new Set<string>(),
+      guardianSubmissionIds: new Set<string>(),
       questions: new Map(),
     }
     cur.answers.push({ response: ans.response })
-    if (ans.submission.submitterRole === 'STUDENT') cur.studentCount++
-    else cur.guardianCount++
+    if (ans.submission.submitterRole === 'STUDENT') cur.studentSubmissionIds.add(ans.submission.id)
+    else cur.guardianSubmissionIds.add(ans.submission.id)
 
     const qEntry = cur.questions.get(ans.question.id) ?? { text: ans.question.text, answers: [] }
     qEntry.answers.push({ response: ans.response })
@@ -145,8 +145,8 @@ export async function GET(request: NextRequest) {
   const serviceFeedback = Array.from(byCategory.values()).map((row) => ({
     category: row.category,
     summary: summarizeLikertAnswers(row.answers),
-    studentResponses: row.studentCount,
-    guardianResponses: row.guardianCount,
+    studentResponses: row.studentSubmissionIds.size,
+    guardianResponses: row.guardianSubmissionIds.size,
     questions: Array.from(row.questions.entries()).map(([id, q]) => ({
       id,
       text: q.text,
