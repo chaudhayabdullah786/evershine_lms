@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const invoice = await prisma.feeInvoice.findUnique({
     where: { id },
-    select: { id: true, status: true, studentId: true, totalAmount: true },
+    select: { id: true, status: true, studentId: true, totalAmount: true, student: { select: { dueAmount: true } } },
   })
 
   if (!invoice) return errors.notFound('Fee Invoice')
@@ -110,12 +110,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       include: { items: true },
     })
 
-    // If cancelled, adjust denormalized student outstanding fees
+    // If cancelled, adjust denormalized student outstanding fees without negative dues.
     if (body.status === 'CANCELLED' && invoice.status !== 'CANCELLED') {
+      const remainingStudentDue = Math.max(0, Number(invoice.student.dueAmount) - Number(invoice.totalAmount))
       await tx.student.update({
         where: { id: invoice.studentId },
         data: {
-          dueAmount: { decrement: invoice.totalAmount },
+          dueAmount: remainingStudentDue,
         },
       })
     }
@@ -145,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const invoice = await prisma.feeInvoice.findUnique({
     where: { id },
-    select: { id: true, status: true, studentId: true, totalAmount: true },
+    select: { id: true, status: true, studentId: true, totalAmount: true, student: { select: { dueAmount: true } } },
   })
 
   if (!invoice) return errors.notFound('Fee Invoice')
@@ -160,12 +161,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Delete invoice itself
     await tx.feeInvoice.delete({ where: { id } })
 
-    // Deduct student dueAmount if it wasn't cancelled already
+    // Deduct student dueAmount if it wasn't cancelled already, without negative dues.
     if (invoice.status !== 'CANCELLED') {
+      const remainingStudentDue = Math.max(0, Number(invoice.student.dueAmount) - Number(invoice.totalAmount))
       await tx.student.update({
         where: { id: invoice.studentId },
         data: {
-          dueAmount: { decrement: invoice.totalAmount },
+          dueAmount: remainingStudentDue,
         },
       })
     }

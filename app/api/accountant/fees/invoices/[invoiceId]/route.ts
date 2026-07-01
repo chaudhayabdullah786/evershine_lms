@@ -24,7 +24,7 @@ export async function PATCH(
 
   const existing = await prisma.feeInvoice.findUnique({
     where: { id: invoiceId },
-    select: { status: true, totalAmount: true, studentId: true, student: { select: { campusId: true } } },
+    select: { status: true, totalAmount: true, studentId: true, student: { select: { campusId: true, dueAmount: true } } },
   })
 
   if (!existing) return errors.notFound('Invoice not found')
@@ -57,11 +57,12 @@ export async function PATCH(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    // If cancelling, we need to deduct the totalAmount from the student's dueAmount
+    // If cancelling, deduct from the student's due amount without allowing negative dues.
     if (data.status === 'CANCELLED' && existing.status !== 'CANCELLED') {
+      const remainingStudentDue = Math.max(0, Number(existing.student.dueAmount) - Number(existing.totalAmount))
       await tx.student.update({
         where: { id: existing.studentId },
-        data: { dueAmount: { decrement: existing.totalAmount } },
+        data: { dueAmount: remainingStudentDue },
       })
     }
     // If changing from CANCELLED to ISSUED, re-add

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       totalAmount: true,
       paidAmount: true,
       proofRemarks: true,
-      student: { select: { userId: true } },
+      student: { select: { userId: true, dueAmount: true } },
     },
   })
 
@@ -89,13 +89,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
       })
 
-      // Update student totals
+      // Update student totals without allowing negative dues.
+      const remainingStudentDue = Math.max(0, Number(invoice.student.dueAmount) - amountToPay)
       await tx.student.update({
         where: { id: invoice.studentId },
         data: {
           paidAmount: { increment: amountToPay },
-          dueAmount: { decrement: amountToPay },
-          feeStatus: newInvoiceStatus,
+          dueAmount: remainingStudentDue,
+          feeStatus: newInvoiceStatus === 'PAID' && remainingStudentDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
         },
       })
 
