@@ -86,9 +86,9 @@ export async function GET(request: NextRequest) {
   let where: any = {}
 
   if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
-    where = {}
+    where = { isDeleted: false }
   } else if (userRole === 'TEACHER' || userRole === 'ACCOUNTANT') {
-    where = { employeeId: session.user.id }
+    where = { employeeId: session.user.id, isDeleted: false }
   } else {
     return errors.forbidden() // Students/Parents cannot access salaries
   }
@@ -144,9 +144,26 @@ export async function POST(request: NextRequest) {
     employeeName = `${employeeUser.accountant.firstName} ${employeeUser.accountant.lastName}`
   }
 
+  const existingSlip = await prisma.salarySlip.findFirst({
+    where: {
+      employeeId,
+      month,
+      isDeleted: false,
+    },
+  })
+
+  if (existingSlip) {
+    return errors.conflict(`A salary slip already exists for this employee for ${month}`)
+  }
+
   const totalAdditions = basicSalary + allowances
   const totalDeductions = deductions
   const netSalary = totalAdditions - totalDeductions
+
+  if (netSalary < 0) {
+    return errors.badRequest('Net salary cannot be negative. Adjust basic salary, allowances, or deductions.')
+  }
+
   const { start, end } = salaryPeriodFromMonth(month)
 
   const salarySlip = await prisma.salarySlip.create({

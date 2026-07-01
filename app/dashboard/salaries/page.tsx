@@ -34,11 +34,13 @@ interface SalarySlip {
   employeeName: string
   employeeRole: string
   month: string
-  basicSalary: number
-  allowances: number
-  deductions: number
-  netSalary: number
-  status: 'PENDING' | 'PAID'
+  basicSalary: number | string
+  overtimeAmount: number | string
+  totalAdditions: number | string
+  lunchDues: number | string
+  totalDeductions: number | string
+  netSalary: number | string
+  status: 'PENDING' | 'ISSUED' | 'PAID' | 'CANCELLED'
   notes: string | null
   createdAt: string
 }
@@ -57,6 +59,19 @@ export default function SalariesPage() {
   const userRole = session?.user?.role ?? ''
   const isAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
   const preparedBy = session?.user?.name ?? 'Account Manager'
+
+  const getAllowanceAmount = (slip: SalarySlip) => {
+    const basic = Number(slip.basicSalary) || 0
+    const totalAdditions = Number(slip.totalAdditions) || 0
+    const overtime = Number(slip.overtimeAmount) || 0
+    return Math.max(totalAdditions - basic, overtime, 0)
+  }
+
+  const getDeductionAmount = (slip: SalarySlip) => {
+    const totalDeductions = Number(slip.totalDeductions)
+    if (Number.isFinite(totalDeductions)) return totalDeductions
+    return Number(slip.lunchDues) || 0
+  }
 
   // Print Ref
   const printContainerRef = useRef<HTMLDivElement>(null)
@@ -330,13 +345,13 @@ export default function SalariesPage() {
                         <tr>
                           <td className="p-2 border border-slate-300 font-medium text-emerald-700">Allowances (Bonuses, Medical, Conveyance)</td>
                           <td className="p-2 border border-slate-300 text-right font-bold text-emerald-700">
-                            + {Number(selectedSlip.allowances).toLocaleString()} /-
+                            + {getAllowanceAmount(selectedSlip).toLocaleString()} /-
                           </td>
                         </tr>
                         <tr>
                           <td className="p-2 border border-slate-300 font-medium text-rose-700">Deductions (Tax, Unexcused Leaves, Fund)</td>
                           <td className="p-2 border border-slate-300 text-right font-bold text-rose-700">
-                            - {Number(selectedSlip.deductions).toLocaleString()} /-
+                            - {getDeductionAmount(selectedSlip).toLocaleString()} /-
                           </td>
                         </tr>
                         <tr className="bg-slate-100 font-bold border-t-[2px] border-slate-800 text-[13px]">

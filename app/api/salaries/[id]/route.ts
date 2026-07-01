@@ -28,7 +28,7 @@ export async function PUT(
     where: { id: slipId },
   })
 
-  if (!slip) return errors.notFound('Salary Slip')
+  if (!slip || slip.isDeleted) return errors.notFound('Salary Slip')
 
   let body: unknown
   try {
@@ -71,11 +71,12 @@ export async function DELETE(
     where: { id: slipId },
   })
 
-  if (!slip) return errors.notFound('Salary Slip')
+  if (!slip || slip.isDeleted) return errors.notFound('Salary Slip')
 
-  await prisma.salarySlip.delete({
+  await prisma.salarySlip.update({
     where: { id: slipId },
+    data: { isDeleted: true },
   })
 
-  return successResponse({ id: slipId }, { message: 'Salary slip deleted successfully' })
+  return successResponse({ id: slipId }, { message: 'Salary slip archived successfully' })
 }
