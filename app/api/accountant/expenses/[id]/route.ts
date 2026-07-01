@@ -10,15 +10,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { updateExpenseSchema } from '@/lib/validation/expense'
-
-function isExpenseColumnMissingError(error: unknown) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2022' &&
-    typeof error.message === 'string' &&
-    /Expense\.(paymentSource|paymentReference)/.test(error.message)
-  )
-}
+import { getExpenseColumnSupport, isExpensePaymentColumnMissingError } from '@/lib/accounting/expense-columns'
 
 export async function GET(
   request: NextRequest,
@@ -33,6 +25,7 @@ export async function GET(
 
   const { id } = await params
 
+  const supportedColumns = await getExpenseColumnSupport()
   const expense = await prisma.expense.findUnique({
     where: { id, isDeleted: false },
     select: {
@@ -45,8 +38,8 @@ export async function GET(
       campusId: true,
       receiptUrl: true,
       notes: true,
-      paymentSource: true,
-      paymentReference: true,
+      ...(supportedColumns.paymentSource ? { paymentSource: true } : {}),
+      ...(supportedColumns.paymentReference ? { paymentReference: true } : {}),
       recordedBy: true,
       isApproved: true,
       approvedBy: true,
@@ -117,10 +110,11 @@ export async function PATCH(
     try {
       e = await tx.expense.update({ where: { id }, data: updatePayload })
     } catch (err) {
-      if (isExpenseColumnMissingError(err)) {
-        delete (updatePayload as any).paymentSource
-        delete (updatePayload as any).paymentReference
-        e = await tx.expense.update({ where: { id }, data: updatePayload })
+      if (isExpensePaymentColumnMissingError(err)) {
+        const safePayload = { ...updatePayload }
+        delete safePayload.paymentSource
+        delete safePayload.paymentReference
+        e = await tx.expense.update({ where: { id }, data: safePayload })
       } else {
         throw err
       }

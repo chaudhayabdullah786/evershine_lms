@@ -9,49 +9,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { createExpenseSchema, expenseQuerySchema } from '@/lib/validation/expense'
-
-function isExpenseColumnMissingError(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false
-  if (error.code !== 'P2022') return false
-
-  const modelName = (error.meta as { modelName?: unknown })?.modelName
-  const rawColumn = (error.meta as { column?: unknown })?.column
-  const columnName = typeof rawColumn === 'string'
-    ? rawColumn.split('.').pop()?.toLowerCase()
-    : undefined
-
-  if (modelName === 'Expense' && (columnName === 'paymentsource' || columnName === 'paymentreference')) {
-    return true
-  }
-
-  return typeof error.message === 'string' && /paymentSource|paymentReference/.test(error.message)
-}
-
-let cachedExpenseColumnSupport: { paymentSource: boolean; paymentReference: boolean } | null = null
-
-async function getExpenseColumnSupport() {
-  if (cachedExpenseColumnSupport) return cachedExpenseColumnSupport
-
-  try {
-    const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
-      SELECT lower(column_name) AS column_name
-      FROM information_schema.columns
-      WHERE lower(table_name) = 'expense'
-        AND lower(column_name) IN ('paymentsource', 'paymentreference')
-    `
-
-    const names = new Set(columns.map((row) => row.column_name))
-    cachedExpenseColumnSupport = {
-      paymentSource: names.has('paymentsource'),
-      paymentReference: names.has('paymentreference'),
-    }
-  } catch (err) {
-    console.error('[EXPENSE_COLUMN_SUPPORT]', err)
-    cachedExpenseColumnSupport = { paymentSource: false, paymentReference: false }
-  }
-
-  return cachedExpenseColumnSupport
-}
+import { getExpenseColumnSupport, isExpensePaymentColumnMissingError } from '@/lib/accounting/expense-columns'
 
 // Helper to resolve the campus context for the current user
 async function resolveCampusId(sessionUser: { id: string; role: string; campusId?: string | null }) {
@@ -115,6 +73,7 @@ export async function GET(request: NextRequest) {
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
   }
 
+  const supportedColumns = await getExpenseColumnSupport()
   const expenseSelect = {
     id: true,
     title: true,
@@ -125,8 +84,8 @@ export async function GET(request: NextRequest) {
     campusId: true,
     receiptUrl: true,
     notes: true,
-    paymentSource: true,
-    paymentReference: true,
+    ...(supportedColumns.paymentSource ? { paymentSource: true } : {}),
+    ...(supportedColumns.paymentReference ? { paymentReference: true } : {}),
     recordedBy: true,
     isApproved: true,
     approvedBy: true,
@@ -202,8 +161,10 @@ export async function POST(request: NextRequest) {
   const stripPaymentMetadata = (
     payload: Prisma.ExpenseUncheckedCreateInput,
   ): Prisma.ExpenseUncheckedCreateInput => {
-    const { paymentSource, paymentReference, ...rest } = payload as Record<string, unknown>
-    return rest as Prisma.ExpenseUncheckedCreateInput
+    const safePayload = { ...payload }
+    delete safePayload.paymentSource
+    delete safePayload.paymentReference
+    return safePayload
   }
 
   let newExpense
@@ -218,7 +179,7 @@ export async function POST(request: NextRequest) {
     })
     newExpense = await prisma.expense.create({ data: expensePayload })
   } catch (err) {
-    if (isExpenseColumnMissingError(err)) {
+    if (isExpensePaymentColumnMissingError(err)) {
       const safePayload = stripPaymentMetadata(expensePayload)
       console.warn('[EXPENSE_CREATE]', 'Retrying without payment metadata after unsupported Expense payment column', {
         userId: session.user.id,
