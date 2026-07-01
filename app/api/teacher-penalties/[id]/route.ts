@@ -26,6 +26,20 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const nextCampusId = parsed.data.campusId !== undefined ? parsed.data.campusId ?? null : existing.campusId
+  const nextIsActive = parsed.data.isActive !== undefined ? parsed.data.isActive : existing.isActive
+  if (nextIsActive) {
+    const duplicate = await prisma.teacherPenaltyPolicy.findFirst({
+      where: {
+        id: { not: id },
+        campusId: nextCampusId,
+        isActive: true,
+      },
+      select: { id: true },
+    })
+    if (duplicate) return errors.conflict('An active teacher penalty policy already exists for this campus')
+  }
+
   const policy = await prisma.$transaction(async (tx) => {
     const updated = await tx.teacherPenaltyPolicy.update({
       where: { id },

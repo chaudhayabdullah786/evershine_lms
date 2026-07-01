@@ -29,10 +29,17 @@ export async function POST(request: NextRequest) {
   const parsed = createTeacherPenaltyPolicySchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const campusId = parsed.data.campusId ?? null
+  const duplicate = await prisma.teacherPenaltyPolicy.findFirst({
+    where: { campusId, isActive: true },
+    select: { id: true },
+  })
+  if (duplicate) return errors.conflict('An active teacher penalty policy already exists for this campus')
+
   const policy = await prisma.$transaction(async (tx) => {
     const created = await tx.teacherPenaltyPolicy.create({
       data: {
-        campusId: parsed.data.campusId ?? null,
+        campusId,
         lateThreshold: parsed.data.lateThreshold,
         penaltyType: parsed.data.penaltyType,
         penaltyValue: parsed.data.penaltyValue,

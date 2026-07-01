@@ -18,7 +18,7 @@ import { z } from 'zod'
 
 const createDocumentSchema = z.object({
   studentId: z.string().cuid(),
-  type: z.enum(['BONAFIDE', 'ACHIEVEMENT', 'COMPLETION', 'BIRTHDAY', 'PERFORMANCE', 'ID_CARD', 'RESULT_CARD']),
+  type: z.enum(['BONAFIDE', 'ACHIEVEMENT', 'COMPLETION', 'BIRTHDAY', 'PERFORMANCE', 'ID_CARD', 'RESULT_CARD', 'STUDENT_PROFILE']),
   title: z.string().min(2),
   pdfUrl: z.string().url(),
   remarks: z.string().optional(),

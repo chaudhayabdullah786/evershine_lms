@@ -29,11 +29,19 @@ export async function POST(request: NextRequest) {
   const parsed = createFeePolicySchema.safeParse(await request.json())
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const campusId = parsed.data.campusId ?? null
+  const batchId = parsed.data.batchId ?? null
+  const duplicate = await prisma.feePolicy.findFirst({
+    where: { campusId, batchId, isActive: true },
+    select: { id: true },
+  })
+  if (duplicate) return errors.conflict('An active fee policy already exists for this scope')
+
   const policy = await prisma.$transaction(async (tx) => {
     const created = await tx.feePolicy.create({
       data: {
-        campusId: parsed.data.campusId,
-        batchId: parsed.data.batchId,
+        campusId,
+        batchId,
         graceDays: parsed.data.graceDays,
         penaltyType: parsed.data.penaltyType,
         penaltyValue: parsed.data.penaltyValue,
