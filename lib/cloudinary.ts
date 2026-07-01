@@ -30,6 +30,11 @@ function normalizeFolderPath(folder: string) {
   return folder.replace(/^\/+|\/+$/g, '').trim()
 }
 
+
+export function isProfileImageDataUrl(value: string | null | undefined): value is string {
+  return typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value)
+}
+
 function signCloudinaryPayload(payload: Record<string, string | number>) {
   const sortedKeys = Object.keys(payload).sort()
   const query = sortedKeys
@@ -59,4 +64,83 @@ export function generateUploadSignature(folder = process.env.CLOUDINARY_UPLOAD_F
     apiKey,
     folder: normalizedFolder,
   }
+}
+
+/**
+ * Uploads a base64 image data-URL to Cloudinary server-side and returns the
+ * secure CDN URL.
+ *
+ * Scope: Profile photos for students and staff members ONLY.
+ * All other assets (documents, PDFs, exports, CVs) remain on local disk.
+ *
+ * WHY server-side upload here instead of signed client-side token:
+ * Profile images arrive as base64 data-URLs embedded in JSON POST bodies
+ * from the admin forms. Re-routing those through a separate signed-upload
+ * flow would require significant frontend refactoring. Server-side streaming
+ * is the correct fix with the smallest change surface.
+ *
+ * TRADEOFF: ~300–800ms added latency on create/edit. Acceptable for low-
+ * frequency admin operations vs. the alternative of storing raw base64
+ * strings in the database (which causes severe DB bloat and column size
+ * violations at scale).
+ *
+ * @param base64DataUrl - data:image/jpeg;base64,... or data:image/png;base64,...
+ * @param subfolder     - e.g. 'students' or 'teachers'
+ * @param publicId      - Unique identifier (e.g. registration number or employee ID)
+ * @returns             - Cloudinary secure_url (HTTPS CDN link)
+ */
+export async function uploadProfileImageToCloudinary(
+  base64DataUrl: string,
+  subfolder: 'students' | 'teachers',
+  publicId: string
+): Promise<string> {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.')
+  }
+
+  // Strip data-URL prefix and decode to raw bytes
+  const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const buffer = Buffer.from(base64Data, 'base64')
+
+  // Magic-byte validation (CWE-434): content-type from extension alone is insufficient
+  const magic = buffer.subarray(0, 4).toString('hex').toUpperCase()
+  const isValidImage =
+    magic.startsWith('FFD8')     || // JPEG
+    magic.startsWith('89504E47') || // PNG
+    magic.startsWith('47494638')    // GIF
+  if (!isValidImage) {
+    throw new Error('Invalid image format. Only JPEG, PNG, and GIF are accepted.')
+  }
+
+  // 5 MB limit on decoded bytes
+  if (buffer.length > 5 * 1024 * 1024) {
+    throw new Error('Image too large. Maximum allowed size is 5 MB.')
+  }
+
+  const baseFolder = (process.env.CLOUDINARY_UPLOAD_FOLDER || 'evershaheen').replace(/^\/+|\/+$/g, '')
+  const fullFolder = `${baseFolder}/${subfolder}`
+  const safePublicId = publicId.replace(/[^a-zA-Z0-9_\-]/g, '-')
+
+  return new Promise<string>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: fullFolder,
+        public_id: safePublicId,
+        resource_type: 'image',
+        quality: 'auto',       // WHY: reduces storage cost with negligible visual loss
+        fetch_format: 'auto',  // Serve WebP/AVIF where supported
+        overwrite: true,       // Replace existing photo on re-upload (same public_id)
+        type: 'upload',
+        access_mode: 'public',
+      },
+      (error, result) => {
+        if (error || !result?.secure_url) {
+          reject(error ?? new Error('Cloudinary upload returned no secure_url'))
+        } else {
+          resolve(result.secure_url)
+        }
+      }
+    )
+    stream.end(buffer)
+  })
 }

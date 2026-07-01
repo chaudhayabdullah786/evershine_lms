@@ -16,6 +16,7 @@ import { createStudentSchema, studentQuerySchema } from '@/lib/validation/studen
 import { ensureActiveYearEnrollment } from '@/lib/students/enrollment-sync'
 import { linkGuardianToStudentDirect } from '@/lib/students/guardian-link'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { isProfileImageDataUrl, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 import { hash } from '@node-rs/argon2'
 import type { Role } from '@prisma/client'
 
@@ -224,6 +225,28 @@ export async function POST(request: NextRequest) {
   const count = await prisma.student.count()
   const registrationNumber = `ESA/${year}/${String(count + 1).padStart(4, '0')}`
 
+  let profilePictureUrl = data.profilePicture || null
+  if (isProfileImageDataUrl(profilePictureUrl)) {
+    try {
+      profilePictureUrl = await uploadProfileImageToCloudinary(
+        profilePictureUrl,
+        'students',
+        registrationNumber
+      )
+    } catch (uploadErr: unknown) {
+      const message = getErrorMessage(uploadErr)
+      if (message.startsWith('Invalid image') || message.startsWith('Image too large')) {
+        return errors.validation({ errors: [{ path: ['profilePicture'], message }] } as never)
+      }
+      logStudentCreateFailure('profile-image-upload', uploadErr)
+      return errorResponse(
+        'PROFILE_IMAGE_UPLOAD_FAILED',
+        'Profile image upload failed. Please verify Cloudinary configuration and try again.',
+        500
+      )
+    }
+  }
+
   // WHY hash before transaction: argon2 with memoryCost=65536 takes 2-4 seconds CPU-bound.
   // Running it inside $transaction consumes most of Prisma's 5-second interactive tx timeout,
   // leaving almost no budget for actual DB writes. Compute it here, outside any tx.
@@ -322,7 +345,7 @@ export async function POST(request: NextRequest) {
           academicYear: data.academicYear,
           totalFeeAmount: data.totalFeeAmount,
           dueAmount: data.totalFeeAmount,
-          profilePicture: data.profilePicture || null,
+          profilePicture: profilePictureUrl,
           bFormDocUrl: data.bFormDocUrl || null,
           previousResultUrl: data.previousResultUrl || null,
           idCardQRCode: `ESA-QR-${registrationNumber.replace(/\//g, '-')}`,

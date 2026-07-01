@@ -3,13 +3,24 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 import { sendPendingNotification, sendAdminAdmissionAlert } from '@/lib/notifications'
 import { Gender } from '@prisma/client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Converts a base64 data-URL string → disk file, returns public URL path */
-async function saveBase64Image(
+/**
+ * Saves a base64-encoded image (B-Form scan, previous result) to local disk.
+ *
+ * WHY local disk for these: Supporting documents are admin-reviewed once then
+ * archived. They do not need CDN delivery. Hostinger's disk is persistent for
+ * documents (unlike profile photos that appear in the UI on every page load).
+ * Keeping them local avoids Cloudinary storage costs for large PDF/image files.
+ *
+ * TRADEOFF: Files are lost on a full server rebuild / disk wipe. Mitigation:
+ * include public/uploads/ in Hostinger's backup schedule.
+ */
+async function saveDocumentToDisk(
   base64DataUrl: string,
   subDir: string,
   filePrefix: string
@@ -17,19 +28,18 @@ async function saveBase64Image(
   const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '')
   const buffer = Buffer.from(base64Data, 'base64')
 
-  // Magic-bytes validation: first 4 bytes must match JPEG (FFD8), PNG (89504E47) or GIF (47494638)
-  const magic = buffer.slice(0, 4).toString('hex').toUpperCase()
+  // Magic-bytes validation (CWE-434)
+  const magic = buffer.subarray(0, 4).toString('hex').toUpperCase()
   const isValidImage =
-    magic.startsWith('FFD8') || // JPEG
+    magic.startsWith('FFD8')     || // JPEG
     magic.startsWith('89504E47') || // PNG
-    magic.startsWith('47494638') // GIF
+    magic.startsWith('47494638')    // GIF
   if (!isValidImage) {
     throw new Error('Invalid image format. Only JPEG, PNG and GIF are accepted.')
   }
 
-  // Enforce 5 MB limit (base64-decoded)
   if (buffer.length > 5 * 1024 * 1024) {
-    throw new Error('Image too large. Maximum allowed size is 5 MB.')
+    throw new Error('Document too large. Maximum allowed size is 5 MB.')
   }
 
   const uploadDir = path.join(process.cwd(), `public/uploads/${subDir}`)
@@ -37,11 +47,11 @@ async function saveBase64Image(
 
   const ext = magic.startsWith('89504E47') ? 'png' : 'jpg'
   const fileName = `${filePrefix}-${Date.now()}.${ext}`
-  const filePath = path.join(uploadDir, fileName)
-  await writeFile(filePath, buffer)
+  await writeFile(path.join(uploadDir, fileName), buffer)
 
   return `/uploads/${subDir}/${fileName}`
 }
+
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 
@@ -204,13 +214,20 @@ export async function POST(req: Request) {
     let passportPhotoUrl: string | null = null
     try {
       const slug = validated.cnicBForm.replace(/-/g, '')
-      passportPhotoUrl = await saveBase64Image(
+      passportPhotoUrl = await uploadProfileImageToCloudinary(
         validated.passportPhotoBase64,
-        'admissions/photos',
+        'students',
         slug
       )
     } catch (imgErr: unknown) {
       const message = imgErr instanceof Error ? imgErr.message : 'Unknown image processing error.'
+      if (!message.startsWith('Invalid image') && !message.startsWith('Image too large')) {
+        console.error('[admissions.apply] Passport photo upload failed', imgErr)
+        return NextResponse.json(
+          { success: false, error: 'Passport photo upload failed. Please try again or contact administration.' },
+          { status: 500 }
+        )
+      }
       return NextResponse.json(
         { success: false, error: `Passport photo error: ${message}` },
         { status: 400 }
@@ -222,7 +239,7 @@ export async function POST(req: Request) {
     if (validated.bFormDocBase64) {
       try {
         const slug = validated.cnicBForm.replace(/-/g, '')
-        bFormDocUrl = await saveBase64Image(
+        bFormDocUrl = await saveDocumentToDisk(
           validated.bFormDocBase64,
           'admissions/documents',
           `${slug}-bform`
@@ -241,7 +258,7 @@ export async function POST(req: Request) {
     if (validated.previousResultBase64) {
       try {
         const slug = validated.cnicBForm.replace(/-/g, '')
-        previousResultUrl = await saveBase64Image(
+        previousResultUrl = await saveDocumentToDisk(
           validated.previousResultBase64,
           'admissions/documents',
           `${slug}-result`

@@ -13,6 +13,7 @@ import { hash } from '@node-rs/argon2'
 import type { Role } from '@prisma/client'
 import { sendTeacherWelcomeEmail } from '@/lib/email'
 import { getEmployeeIdPrefix, isTeachingDesignation } from '@/lib/constants/staff-designations'
+import { isProfileImageDataUrl, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
 
@@ -139,6 +140,24 @@ export async function POST(request: NextRequest) {
   const teacherCount = await prisma.teacher.count()
   const employeeId = `${prefix}-${String(teacherCount + 1).padStart(3, '0')}`
 
+  let profilePictureUrl = data.profilePicture || null
+  if (isProfileImageDataUrl(profilePictureUrl)) {
+    try {
+      profilePictureUrl = await uploadProfileImageToCloudinary(profilePictureUrl, 'teachers', employeeId)
+    } catch (uploadErr: unknown) {
+      const message = getErrorMessage(uploadErr)
+      if (message.startsWith('Invalid image') || message.startsWith('Image too large')) {
+        return errors.validation({ errors: [{ path: ['profilePicture'], message }] } as never)
+      }
+      logTeacherCreateFailure('profile-image-upload', uploadErr)
+      return errorResponse(
+        'PROFILE_IMAGE_UPLOAD_FAILED',
+        'Profile image upload failed. Please verify Cloudinary configuration and try again.',
+        500
+      )
+    }
+  }
+
   // Hash the password outside the transaction to avoid long-running CPU work
   // inside Prisma's transaction timeout window.
   const passwordHash = await hash(data.password, ARGON2_OPTIONS)
@@ -179,7 +198,7 @@ export async function POST(request: NextRequest) {
           houseId: data.houseId || null,
           designation: resolvedDesignation,
           monthlySalary: data.monthlySalary,
-          profilePicture: data.profilePicture || null,
+          profilePicture: profilePictureUrl,
         },
       })
 
