@@ -6,17 +6,27 @@ import { autoEnrollMandatorySubjects } from '@/lib/academic/enrollment'
 import type { Role } from '@prisma/client'
 import { z } from 'zod'
 
+const bulkItemSchema = z.object({
+  studentId: z.string().cuid(),
+  status: z.enum(['PROMOTED', 'RETAINED', 'GRADUATED', 'TRANSFERRED']),
+  toClassSectionId: z.string().cuid().optional().nullable(),
+})
+
 const bulkSchema = z.object({
   fromAcademicYearId: z.string().cuid(),
   toAcademicYearId: z.string().cuid(),
   fromClassSectionId: z.string().cuid(),
-  items: z.array(
-    z.object({
-      studentId: z.string().cuid(),
-      status: z.enum(['PROMOTED', 'RETAINED', 'GRADUATED', 'TRANSFERRED']),
-      toClassSectionId: z.string().cuid().optional().nullable(),
-    })
-  ),
+  items: z.array(bulkItemSchema).min(1, 'At least one student is required'),
+}).superRefine((data, ctx) => {
+  data.items.forEach((item, index) => {
+    if ((item.status === 'PROMOTED' || item.status === 'TRANSFERRED') && !item.toClassSectionId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['items', index, 'toClassSectionId'],
+        message: 'Target class section is required for promoted or transferred students',
+      })
+    }
+  })
 })
 
 export async function POST(request: NextRequest) {

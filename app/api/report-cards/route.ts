@@ -53,7 +53,11 @@ export async function GET(request: NextRequest) {
   }
 
   const enrollments = await prisma.studentEnrollment.findMany({
-    where: { classSectionId, academicYearId, status: 'ACTIVE' },
+    where: {
+      classSectionId,
+      academicYearId,
+      status: { in: ['ACTIVE', 'PROMOTED', 'RETAINED', 'TRANSFERRED', 'GRADUATED'] },
+    },
     orderBy: { rollNumber: 'asc' },
   })
 
