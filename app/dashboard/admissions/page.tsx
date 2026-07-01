@@ -272,7 +272,7 @@ export default function AdmissionsDashboard() {
           batchId, 
           classId, 
           section,
-          houseId,
+          houseId: houseId || undefined,
           rollNumber,
           admissionFee,
           courseFee,
@@ -346,10 +346,6 @@ export default function AdmissionsDashboard() {
     }
     if (totalAcademicFee < admissionFee + courseFee) {
       notify.error('Total academic fee must be at least the sum of admission fee and course fee')
-      return
-    }
-    if (houses.length > 0 && !houseId) {
-      notify.error('Please assign a Performance House for this batch')
       return
     }
     approveMutation.mutate()
@@ -715,7 +711,7 @@ export default function AdmissionsDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-blue-900 font-semibold">
-                        3. Performance House {houses.length > 0 ? '*' : ''}
+                        3. Performance House (Optional)
                       </Label>
                       <Select value={houseId} onValueChange={setHouseId} disabled={!batchId}>
                         <SelectTrigger>
@@ -743,19 +739,17 @@ export default function AdmissionsDashboard() {
                         </SelectContent>
                       </Select>
                       <p className="text-[10px] text-gray-500">
-                        Houses load automatically when you select a batch.
+                        Optional placement label. Leave blank when the batch does not require house placement.
                       </p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-blue-900 font-semibold">4. Assign Class (Optional)</Label>
-                      <Select value={classId} onValueChange={setClassId} disabled={!campusId || !batchId || (houses.length > 0 && !houseId)}>
+                      <Select value={classId} onValueChange={setClassId} disabled={!campusId || !batchId}>
                         <SelectTrigger>
                           <SelectValue placeholder={
                             !batchId
                               ? 'Select batch first'
-                              : houses.length > 0 && !houseId
-                                ? 'Select performance house first'
-                                : 'Select class (1–12)'
+                              : 'Select class (1–12)'
                           } />
                         </SelectTrigger>
                         <SelectContent>
@@ -817,10 +811,10 @@ export default function AdmissionsDashboard() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>7. Class Section (Academic Engine)</Label>
+                    <Label>7. Class Section (Academic Engine, Optional)</Label>
                     <Select value={classSectionId} onValueChange={setClassSectionId} disabled={!campusId || !batchId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Optional — link to formal class section" />
+                        <SelectValue placeholder="Optional — link to formal class section when available" />
                       </SelectTrigger>
                       <SelectContent>
                         {(classSectionsData ?? []).map((s: { id: string; className: string; sectionName: string; shift?: { name: string }; deliveryMode: string }) => (
@@ -979,7 +973,7 @@ export default function AdmissionsDashboard() {
                   <Button variant="outline" onClick={() => setSelectedRequest(null)} disabled={approveMutation.isPending}>Cancel</Button>
                   <Button 
                     onClick={handleApprove} 
-                    disabled={approveMutation.isPending || declineMutation.isPending || !campusId || !batchId || !rollNumber || totalAcademicFee === 0}
+                    disabled={approveMutation.isPending || declineMutation.isPending || !campusId || !batchId || !rollNumber}
                     className="bg-green-600 hover:bg-green-700 text-white min-w-[150px]"
                   >
                     {approveMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Approving...</> : <><CheckCircle className="w-4 h-4 mr-2" /> Approve & Enrol</>}

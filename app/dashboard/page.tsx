@@ -29,6 +29,12 @@ interface DashboardData {
   finance: {
     totalCollected: number
     totalPending: number
+    reserveFundBalance: number
+    latestReserveContribution: {
+      amount: number
+      periodLabel: string
+      transactionDate: string
+    } | null
   }
   attendance: {
     todayPresent: number
@@ -458,6 +464,18 @@ export default function DashboardPage() {
                   color="text-red-600"
                   href="/dashboard/fees"
                 />
+                {role === 'SUPER_ADMIN' && (
+                  <StatCard
+                    title="Reserve Fund"
+                    value={`Rs ${(data?.finance.reserveFundBalance ?? 0).toLocaleString()}`}
+                    sub={data?.finance.latestReserveContribution
+                      ? `Latest: Rs ${data.finance.latestReserveContribution.amount.toLocaleString()} for ${data.finance.latestReserveContribution.periodLabel}`
+                      : 'No reserve allocations yet'}
+                    icon={Wallet}
+                    color="text-teal-700"
+                    href="/dashboard/admin/reserve-fund"
+                  />
+                )}
               </>
             )}
           </>
