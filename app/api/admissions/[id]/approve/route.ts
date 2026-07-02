@@ -10,22 +10,28 @@ import { batchRequiresGenderSeparation, campusIsGenderCompatible, inferCampusGen
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
 
-const optionalTrimmedString = z.preprocess(
-  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-  z.string().trim().optional()
-)
+const optionalCuid = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  return value
+}, z.string().cuid().optional())
+
+const optionalShortText = z.preprocess((value) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}, z.string().max(20).optional())
 
 const approveSchema = z.object({
-  campusId: z.string().trim().min(1, 'Campus is required'),
-  batchId: z.string().trim().min(1, 'Batch is required'),
-  classId: optionalTrimmedString,
-  classSectionId: optionalTrimmedString,
-  section: optionalTrimmedString,
-  houseId: optionalTrimmedString,
-  rollNumber: z.string().trim().min(1, 'Roll number is required'),
-  admissionFee: z.number().min(0).default(0),
-  courseFee: z.number().min(0).default(0),
-  totalAcademicFee: z.number().min(0).default(0),
+  campusId: z.string().cuid('Invalid campus selection'),
+  batchId: z.string().cuid('Invalid batch selection'),
+  classId: optionalCuid,
+  classSectionId: optionalCuid,
+  section: optionalShortText,
+  houseId: optionalCuid,
+  rollNumber: z.string().trim().min(1, 'Roll number is required').max(20, 'Roll number must be 20 characters or fewer'),
+  admissionFee: z.coerce.number().min(0).default(0),
+  courseFee: z.coerce.number().min(0).default(0),
+  totalAcademicFee: z.coerce.number().min(0).default(0),
   shift: z.enum(['MORNING', 'EVENING', 'NIGHT']).default('MORNING'),
   deliveryMode: z.enum(['PHYSICAL', 'ONLINE', 'HYBRID']).default('PHYSICAL'),
 })
@@ -76,6 +82,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Invalid batch or campus selection' }, { status: 400 })
     }
 
+    if (session.user.role === 'ADMIN') {
+      if (!session.user.campusId || session.user.campusId !== campusId) {
+        return NextResponse.json({ success: false, error: 'Administrators can approve admissions only for their assigned campus.' }, { status: 403 })
+      }
+    }
+
     const separationRequired = batchRequiresGenderSeparation(batch.academicLevel, batch.forceGenderSeparation)
     if (!campusIsGenderCompatible(inferCampusGender(campus), request.gender, separationRequired)) {
       return NextResponse.json({
@@ -86,17 +98,36 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Check if roll number already exists in the same class/batch
-    const existingRoll = await prisma.student.findFirst({
-      where: {
-        campusId,
-        batchId,
-        classId: classId ?? undefined,
-        rollNumber
+    if (classId) {
+      const existingRoll = await prisma.student.findFirst({
+        where: {
+          campusId,
+          batchId,
+          classId,
+          rollNumber,
+        },
+        select: { id: true },
+      })
+      if (existingRoll) {
+        return NextResponse.json({ success: false, error: 'Roll number already assigned in this class/batch' }, { status: 409 })
       }
-    })
-    if (existingRoll) {
-      return NextResponse.json({ success: false, error: 'Roll number already assigned in this class/batch' }, { status: 400 })
+    }
+
+    if (classSectionId) {
+      const activeYear = await getActiveAcademicYear()
+      const existingSectionRoll = activeYear
+        ? await prisma.studentEnrollment.findFirst({
+            where: {
+              academicYearId: activeYear.id,
+              classSectionId,
+              rollNumber,
+            },
+            select: { id: true },
+          })
+        : null
+      if (existingSectionRoll) {
+        return NextResponse.json({ success: false, error: 'Roll number already assigned in this academic section' }, { status: 409 })
+      }
     }
 
     // PRE-CALCULATE SLOW HASHES OUTSIDE TRANSACTION
@@ -131,11 +162,11 @@ export async function POST(
       })
 
       // 2. Create User
-      let studentEmailToUse = request.email || `${regNumber.replace(/\//g, '').toLowerCase()}@evershaheen.edu`
+      let studentEmailToUse = request.email || `${regNumber.replace(/\//g, '').toLowerCase()}@evershineacademy.edu.pk`
       const existingStudentUser = await tx.user.findUnique({ where: { email: studentEmailToUse } })
       
       if (existingStudentUser) {
-        studentEmailToUse = `${regNumber.replace(/\//g, '').toLowerCase()}@evershaheen.edu`
+        studentEmailToUse = `${regNumber.replace(/\//g, '').toLowerCase()}@evershineacademy.edu.pk`
       }
 
       const user = await tx.user.create({
@@ -157,7 +188,7 @@ export async function POST(
         if (existingGuardian) {
           guardianId = existingGuardian.id
         } else {
-          const targetEmail = request.guardianEmail || `guardian_${request.guardianCnic.replace(/-/g, '')}@evershaheen.edu`
+          const targetEmail = request.guardianEmail || `guardian_${request.guardianCnic.replace(/-/g, '')}@evershineacademy.edu.pk`
           let guardianUser = await tx.user.findUnique({ where: { email: targetEmail } })
 
           if (!guardianUser) {

@@ -1,5 +1,5 @@
 /**
- * POST /api/users/create-admin — Allow SUPER_ADMIN or ADMIN to provision a new administrator account (User + Admin profile)
+ * POST /api/users/create-admin — Allow SUPER_ADMIN to provision a campus-level administrator account (User + Admin profile)
  */
 
 import { NextRequest } from 'next/server'
@@ -27,9 +27,10 @@ export async function POST(request: NextRequest) {
     return errors.unauthorized()
   }
 
-  // Security gate: only SUPER_ADMIN or ADMIN can create new admin accounts
-  if (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN') {
-    return errors.forbidden()
+  // Security gate: only SuperAdmin can create administrator accounts.
+  // Campus-level Admins are scoped operators and must not provision peer admins.
+  if (session.user.role !== 'SUPER_ADMIN') {
+    return errors.forbidden('Only Super Administrators can create administrator accounts.')
   }
 
   let body: any
@@ -51,9 +52,8 @@ export async function POST(request: NextRequest) {
 
   const { firstName, lastName, email, password, role, campusId, department } = parsed.data
 
-  // Security Gate: ADMINs cannot create SUPER_ADMIN accounts
-  if (session.user.role === 'ADMIN' && role === 'SUPER_ADMIN') {
-    return errors.forbidden('Administrators cannot create Super Administrator accounts.')
+  if (role === 'SUPER_ADMIN') {
+    return errors.forbidden('Super Administrator accounts must be created through the protected bootstrap process.')
   }
 
   try {

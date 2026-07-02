@@ -182,7 +182,7 @@ export default function DocumentsPage() {
   )
   const [expEndDate, setExpEndDate] = useState('')
   const [expPrincipalName, setExpPrincipalName] = useState('Principal')
-  const [expPrincipalTitle, setExpPrincipalTitle] = useState('Principal, Evershaheen Academy')
+  const [expPrincipalTitle, setExpPrincipalTitle] = useState('Principal, EverShine Academy')
 
   useEffect(() => {
     if (selectedStudent) {
@@ -203,16 +203,16 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     const knownQrData = docType === 'birthday' && selectedStudent
-        ? `https://evershaheen.edu/verify/birthday/${selectedStudent.registrationNumber}`
+        ? `https://evershineacadmey.com/verify/birthday/${selectedStudent.registrationNumber}`
         : docType === 'bonafide' && selectedStudent
-          ? `https://evershaheen.edu/verify/bonafide/${selectedStudent.registrationNumber}`
+          ? `https://evershineacadmey.com/verify/bonafide/${selectedStudent.registrationNumber}`
           : docType === 'result_card' && selectedStudent
-            ? `https://evershaheen.edu/verify/result/${selectedStudent.registrationNumber}`
+            ? `https://evershineacadmey.com/verify/result/${selectedStudent.registrationNumber}`
             : docType === 'performance_card' && selectedStudent
-              ? `https://evershaheen.edu/verify/performance/${selectedStudent.registrationNumber}`
+              ? `https://evershineacadmey.com/verify/performance/${selectedStudent.registrationNumber}`
               : docType === 'id_card' && selectedStudent
-                ? `https://evershaheen.edu/verify/id/${selectedStudent.registrationNumber}`
-                : `https://evershaheen.edu/verify/report/${reportSubtype}`
+                ? `https://evershineacadmey.com/verify/id/${selectedStudent.registrationNumber}`
+                : `https://evershineacadmey.com/verify/report/${reportSubtype}`
 
     const colorMap: Record<string, string> = {
       id_card: '#1e3a8a',
@@ -454,24 +454,24 @@ export default function DocumentsPage() {
 
       const knownQrData = encodeURIComponent(
         docType === 'birthday'
-          ? `https://evershaheen.edu/verify/birthday/${safeIdentifier}`
+          ? `https://evershineacadmey.com/verify/birthday/${safeIdentifier}`
           : docType === 'bonafide'
-            ? `https://evershaheen.edu/verify/bonafide/${safeIdentifier}`
+            ? `https://evershineacadmey.com/verify/bonafide/${safeIdentifier}`
             : docType === 'result_card'
-              ? `https://evershaheen.edu/verify/result/${safeIdentifier}`
+              ? `https://evershineacadmey.com/verify/result/${safeIdentifier}`
               : docType === 'performance_card'
-                ? `https://evershaheen.edu/verify/performance/${safeIdentifier}`
+                ? `https://evershineacadmey.com/verify/performance/${safeIdentifier}`
                 : docType === 'id_card'
-                  ? `https://evershaheen.edu/verify/id/${safeIdentifier}`
+                  ? `https://evershineacadmey.com/verify/id/${safeIdentifier}`
                   : docType === 'teacher_id_card'
-                    ? `https://evershaheen.edu/verify/staff/${safeIdentifier}`
+                    ? `https://evershineacadmey.com/verify/staff/${safeIdentifier}`
                     : docType === 'teacher_experience'
-                      ? `https://evershaheen.edu/verify/exp/${safeIdentifier}`
+                      ? `https://evershineacadmey.com/verify/exp/${safeIdentifier}`
                       : docType === 'student_profile'
-                        ? `https://evershaheen.edu/verify/profile/${safeIdentifier}`
+                        ? `https://evershineacadmey.com/verify/profile/${safeIdentifier}`
                         : docType === 'teacher_profile'
-                          ? `https://evershaheen.edu/verify/staff-profile/${safeIdentifier}`
-                          : `https://evershaheen.edu/verify/report/${reportSubtype}`,
+                          ? `https://evershineacadmey.com/verify/staff-profile/${safeIdentifier}`
+                          : `https://evershineacadmey.com/verify/report/${reportSubtype}`,
       )
 
       if (!selectedStudent && !isTeacherDoc && docType !== 'reports' && docType !== 'exports') {
@@ -1265,7 +1265,7 @@ export default function DocumentsPage() {
                             <AcademyLogo className="w-full h-full text-[#1e3a8a]" />
                           </div>
                           <div className="flex flex-col w-[330px]">
-                            <h2 className="text-[24px] font-black tracking-tight text-[#1e3a8a] leading-[1.2] m-0 uppercase whitespace-nowrap">Evershaheen Academy</h2>
+                            <h2 className="text-[24px] font-black tracking-tight text-[#1e3a8a] leading-[1.2] m-0 uppercase whitespace-nowrap">EverShine Academy</h2>
                             <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#2563eb] leading-[1.2] mt-1 block whitespace-nowrap">Student Identity Card</span>
                           </div>
                         </div>
@@ -1407,7 +1407,7 @@ export default function DocumentsPage() {
                                         <div className="text-[11px] uppercase font-black tracking-widest text-[#1e3a8a] leading-[1.2]">Important Notice</div>
                                     </div>
                                     <p className="text-[10px] text-[#4b5563] leading-[1.5] font-medium m-0 p-0 w-full">
-                                        This identity card is the property of <strong className="text-[#1f2937]">Evershaheen Academy</strong>. It must be carried during academy hours and presented upon request. If found, please return it to the administration office immediately or contact the academy helpline.
+                                        This identity card is the property of <strong className="text-[#1f2937]">EverShine Academy</strong>. It must be carried during academy hours and presented upon request. If found, please return it to the administration office immediately or contact the academy helpline.
                                     </p>
                                 </div>
                             </div>
@@ -1447,7 +1447,7 @@ export default function DocumentsPage() {
                         <AcademyLogo className="w-8 h-8 text-[#d4af37]" />
                       </div>
                       <div className="text-center">
-                        <h2 className="text-[#d4af37] text-[16px] font-black uppercase tracking-[0.2em]">Evershaheen Academy</h2>
+                        <h2 className="text-[#d4af37] text-[16px] font-black uppercase tracking-[0.2em]">EverShine Academy</h2>
                         <p className="text-[7.5px] text-gray-500 uppercase tracking-widest font-black mt-0.5">We Make your Children More Valuable</p>
                         <p className="text-[6.5px] text-gray-600 font-bold leading-normal mt-0.5 max-w-[240px] mx-auto">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                         <p className="text-[7.5px] text-[#d4af37] font-black mt-0.5">📱 Boys: 0328-4010522 · Girls: 0324-8985526</p>
@@ -1489,7 +1489,7 @@ export default function DocumentsPage() {
 
                     {/* Message Body */}
                     <p className="text-[11px] text-gray-700 max-w-sm text-center leading-relaxed mt-4 px-4 font-medium relative z-10">
-                      On this beautiful day, the administration and faculty of Evershaheen Academy come together to celebrate your life and academic progress. We wish you an abundance of joy, wisdom, sound health, and spectacular future endeavors. Keep shining and climbing high!
+                      On this beautiful day, the administration and faculty of EverShine Academy come together to celebrate your life and academic progress. We wish you an abundance of joy, wisdom, sound health, and spectacular future endeavors. Keep shining and climbing high!
                     </p>
 
                     {/* Date Details */}
@@ -1554,7 +1554,7 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-3">
                           <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                           <div>
-                            <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHAHEEN ACADEMY</h2>
+                            <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
                             <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                           </div>
@@ -1617,7 +1617,7 @@ export default function DocumentsPage() {
                         <p>
                           This is to certify that <strong className="font-black text-[#1e3a8a] text-[13px] border-b border-[#1e3a8a]/30">{selectedStudent.firstName} {selectedStudent.lastName}</strong>,{' '}
                           son / daughter of Mr. <strong className="font-black text-[#1e3a8a] text-[13px] border-b border-[#1e3a8a]/30">{selectedStudent.fatherName || '__________________'}</strong>, bearing B-Form / CNIC number{' '}
-                          <strong className="font-black text-gray-900">{selectedStudent.cnicBForm || 'on file'}</strong>, is a bonafide student of Evershaheen Academy, Madina Town Campus.
+                          <strong className="font-black text-gray-900">{selectedStudent.cnicBForm || 'on file'}</strong>, is a bonafide student of EverShine Academy, Madina Town Campus.
                         </p>
                         <p>
                           The student is currently active in <strong className="font-black text-gray-900">{selectedStudent.class?.name || 'Scholar Section'}</strong>
@@ -1693,7 +1693,7 @@ export default function DocumentsPage() {
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-black" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[22px] font-black uppercase tracking-wide text-black leading-tight mb-1">EVERSHAHEEN ACADEMY</h1>
+                          <h1 className="text-[22px] font-black uppercase tracking-wide text-black leading-tight mb-1">EVERSHINE ACADEMY</h1>
                           <div className="w-72 h-[2px] bg-black mx-auto mb-1" />
                           <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-600">Pakistan Education System</p>
                           <p className="text-[8px] text-gray-500 mt-0.5">Madina Town, near Mandiala Warraich Road, Labor Gulshan Colony</p>
@@ -1849,7 +1849,7 @@ export default function DocumentsPage() {
                             </div>
                             <span style={{ fontSize: '6px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>Scan to Verify</span>
                           </div>
-                          <p style={{ fontSize: '6.5px', color: '#9ca3af', textAlign: 'right', lineHeight: '1.4', fontStyle: 'italic', maxWidth: '72%' }}>This document is computer-generated by Evershaheen Academy. For authenticity, scan the QR code.</p>
+                          <p style={{ fontSize: '6.5px', color: '#9ca3af', textAlign: 'right', lineHeight: '1.4', fontStyle: 'italic', maxWidth: '72%' }}>This document is computer-generated by EverShine Academy. For authenticity, scan the QR code.</p>
                         </div>
                       </div>
                     </div>
@@ -1888,7 +1888,7 @@ export default function DocumentsPage() {
                           <div className="flex items-center gap-3">
                             <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                             <div>
-                              <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHAHEEN ACADEMY</h2>
+                              <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
                               <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
                               <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                             </div>
@@ -2035,7 +2035,7 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-3">
                           <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                           <div>
-                            <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHAHEEN ACADEMY</h2>
+                            <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
                             <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                           </div>
@@ -2337,7 +2337,7 @@ export default function DocumentsPage() {
                             <AcademyLogo className="w-full h-full text-[#0f172a]" />
                           </div>
                           <div className="flex flex-col w-[330px]">
-                            <h2 className="text-[24px] font-black tracking-tight text-[#0f172a] leading-[1.2] m-0 uppercase whitespace-nowrap">Evershaheen Academy</h2>
+                            <h2 className="text-[24px] font-black tracking-tight text-[#0f172a] leading-[1.2] m-0 uppercase whitespace-nowrap">EverShine Academy</h2>
                             <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#475569] leading-[1.2] mt-1 block whitespace-nowrap">Staff Identity Card</span>
                           </div>
                         </div>
@@ -2474,7 +2474,7 @@ export default function DocumentsPage() {
                                         <div className="text-[11px] uppercase font-black tracking-widest text-[#0f172a] leading-[1.2]">Important Notice</div>
                                     </div>
                                     <p className="text-[10px] text-[#4b5563] leading-[1.5] font-medium m-0 p-0 w-full">
-                                        This identity card is the property of <strong className="text-[#1f2937]">Evershaheen Academy</strong>. It must be worn and visible at all times while on campus. If found by a third party, please return to the administration immediately.
+                                        This identity card is the property of <strong className="text-[#1f2937]">EverShine Academy</strong>. It must be worn and visible at all times while on campus. If found by a third party, please return to the administration immediately.
                                     </p>
                                 </div>
                             </div>
@@ -2508,7 +2508,7 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-3">
                           <AcademyLogo className="w-14 h-14 text-[#065F46] shrink-0" />
                           <div>
-                            <h2 className="text-[20px] font-black uppercase text-[#065F46] leading-none tracking-tight">EVERSHAHEEN ACADEMY</h2>
+                            <h2 className="text-[20px] font-black uppercase text-[#065F46] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
                             <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near Labor Gulshan Colony</p>
                           </div>
@@ -2569,7 +2569,7 @@ export default function DocumentsPage() {
                       {/* Body */}
                       <div className="w-full text-[12px] text-gray-800 space-y-4 leading-relaxed text-left relative z-10 font-medium">
                         <p>
-                          This is to certify that <strong className="font-black text-[#065F46] text-[13px] border-b border-[#065F46]/30">{selectedTeacher.firstName} {selectedTeacher.lastName}</strong>, holding Employee ID <strong className="font-black text-gray-900">{selectedTeacher.employeeId}</strong>, has served as <strong className="font-black text-gray-900">{selectedTeacher.designation}</strong> in the <strong className="font-black text-gray-900">{selectedTeacher.specialization ?? 'Academic'}</strong> Department at Evershaheen Academy, {selectedTeacher.campus?.name ?? 'Madina Town Campus'}, since <strong className="font-black text-gray-900">{selectedTeacher.joiningDate ? new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</strong>
+                          This is to certify that <strong className="font-black text-[#065F46] text-[13px] border-b border-[#065F46]/30">{selectedTeacher.firstName} {selectedTeacher.lastName}</strong>, holding Employee ID <strong className="font-black text-gray-900">{selectedTeacher.employeeId}</strong>, has served as <strong className="font-black text-gray-900">{selectedTeacher.designation}</strong> in the <strong className="font-black text-gray-900">{selectedTeacher.specialization ?? 'Academic'}</strong> Department at EverShine Academy, {selectedTeacher.campus?.name ?? 'Madina Town Campus'}, since <strong className="font-black text-gray-900">{selectedTeacher.joiningDate ? new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</strong>
                           {expEndDate ? ` to ${new Date(expEndDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' })}` : ' and is currently serving in this role'}.
                         </p>
                         <p>
@@ -2600,7 +2600,7 @@ export default function DocumentsPage() {
                           <div className="w-32 border-b border-gray-400 pb-2 mx-auto mb-2">
                             <span className="font-black text-[12px] text-gray-900 block">HR Administrator</span>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">Evershaheen Academy</span>
+                          <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">EverShine Academy</span>
                         </div>
 
                         {/* Seal / QR placeholder */}
@@ -2645,7 +2645,7 @@ export default function DocumentsPage() {
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-black" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[18px] font-black uppercase tracking-wider text-black leading-tight mb-1.5">EVERSHAHEEN ACADEMY</h1>
+                          <h1 className="text-[18px] font-black uppercase tracking-wider text-black leading-tight mb-1.5">EVERSHINE ACADEMY</h1>
                           <div className="w-56 h-[2px] bg-black mx-auto"></div>
                           <p className="text-[8px] font-bold tracking-widest mt-1.5 uppercase text-gray-600">Pakistan Education System</p>
                           <div className="mt-1 text-[11px] font-black uppercase border border-black inline-block px-3 py-0.5 bg-gray-100">Admission / Student Profile</div>
@@ -2745,7 +2745,7 @@ export default function DocumentsPage() {
                         </div>
                         <div className="px-6 py-3 text-[10.5px] text-justify leading-relaxed font-medium">
                           <p>
-                            I solemnly declare that the information provided is accurate. I agree to abide by the rules, regulations, and disciplinary policies of Evershaheen Academy. I commit to maintaining regular attendance and paying all dues on time.
+                            I solemnly declare that the information provided is accurate. I agree to abide by the rules, regulations, and disciplinary policies of EverShine Academy. I commit to maintaining regular attendance and paying all dues on time.
                           </p>
                         </div>
                         
@@ -2787,7 +2787,7 @@ export default function DocumentsPage() {
                         </div>
                         <div className="flex-1 text-center">
                           <h1 className="text-[20px] font-black uppercase tracking-wider text-[#065F46] leading-tight border-b-2 border-[#065F46] inline-block pb-1 px-4">
-                            EVERSHAHEEN ACADEMY
+                            EVERSHINE ACADEMY
                           </h1>
                           <p className="text-[10px] font-bold tracking-widest mt-2 uppercase text-gray-600">Pakistan Education System</p>
                           <div className="mt-2 text-[14px] font-black uppercase border border-[#065F46] inline-block px-4 py-1 bg-emerald-50 text-[#065F46]">
@@ -2880,7 +2880,7 @@ export default function DocumentsPage() {
                         </div>
                         <div className="p-4 py-3 text-[10px] text-justify leading-relaxed font-medium space-y-1">
                           <p>
-                            I declare that the particulars furnished in this profile are true and complete. I shall perform my duties with dedication, maintain confidentiality, and uphold the academic standards of Evershaheen Academy.
+                            I declare that the particulars furnished in this profile are true and complete. I shall perform my duties with dedication, maintain confidentiality, and uphold the academic standards of EverShine Academy.
                           </p>
                         </div>
                         

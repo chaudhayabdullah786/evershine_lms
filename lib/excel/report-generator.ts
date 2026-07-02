@@ -1,5 +1,5 @@
 /**
- * Branded Excel Report Generator — Evershaheen Academy
+ * Branded Excel Report Generator — EverShine Academy
  *
  * WHY: Server-side .xlsx generation using ExcelJS, shared by all export endpoints.
  * Every exported workbook is professionally branded with:
@@ -81,7 +81,7 @@ export async function createBrandedWorkbook(
   const { title, subtitle, sheetName, columns, rows, statusColumn, summaryRow } = options
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'Evershaheen Academy LMS'
+  workbook.creator = 'EverShine Academy LMS'
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet(sheetName, {
@@ -108,7 +108,7 @@ export async function createBrandedWorkbook(
 
   sheet.mergeCells(1, 1, 1, totalCols)
   const brandCell = sheet.getCell(1, 1)
-  brandCell.value = 'EVERSHAHEEN ACADEMY'
+  brandCell.value = 'EVERSHINE ACADEMY'
   brandCell.font = HEADER_FONT
   brandCell.alignment = { horizontal: 'center', vertical: 'middle' }
   brandCell.fill = {
@@ -295,5 +295,5 @@ export async function workbookToBuffer(workbook: ExcelJS.Workbook): Promise<Buff
 
 export function generateExcelFilename(prefix: string): string {
   const date = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  return `evershaheen_${prefix}_${date}.xlsx`
+  return `evershine_${prefix}_${date}.xlsx`
 }

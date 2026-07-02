@@ -29,6 +29,11 @@ export async function POST(
     if (request.status !== 'PENDING') {
       return NextResponse.json({ success: false, error: 'Request is already processed' }, { status: 400 })
     }
+    if (session.user.role === 'ADMIN') {
+      if (!session.user.campusId || request.preferredCampusId !== session.user.campusId) {
+        return NextResponse.json({ success: false, error: 'Administrators can decline admissions only for their assigned campus.' }, { status: 403 })
+      }
+    }
 
     // Mark Request as Declined
     const updatedRequest = await prisma.admissionRequest.update({

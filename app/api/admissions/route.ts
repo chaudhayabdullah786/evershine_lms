@@ -19,6 +19,12 @@ export async function GET(req: Request) {
     if (status) {
       where.status = status
     }
+    if (session.user.role === 'ADMIN') {
+      if (!session.user.campusId) {
+        return NextResponse.json({ success: false, error: 'Admin campus assignment is required' }, { status: 403 })
+      }
+      where.preferredCampusId = session.user.campusId
+    }
 
     const [requests, total] = await Promise.all([
       prisma.admissionRequest.findMany({

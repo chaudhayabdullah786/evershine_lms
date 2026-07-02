@@ -28,7 +28,7 @@ export function DocumentExportSmokeClient() {
           style={{ width: '595px', minHeight: '842px', padding: '48px' }}
         >
           <div className="border-b-4 border-blue-800 pb-4">
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-800">Evershaheen Academy</p>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-800">EverShine Academy</p>
             <h1 className="mt-2 text-3xl font-black">Document Export Smoke Test</h1>
             <p className="mt-2 text-sm text-slate-600">Stable fixture used by CI to verify preview capture and PDF export plumbing.</p>
           </div>
