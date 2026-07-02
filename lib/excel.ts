@@ -25,7 +25,7 @@ function buildMetaRows(reportTitle: string, subtype: string): string[][] {
     year: 'numeric',
   })
   return [
-    ['EVERSHAHEEN ACADEMY — ADMINISTRATIVE REPORT'],
+    ['EVERSHINE ACADEMY — ADMINISTRATIVE REPORT'],
     [`Report: ${reportTitle}`],
     [`Generated: ${date}`],
     [`Report Type: ${subtype.toUpperCase()}`],
@@ -958,7 +958,7 @@ const STUDENT_IMPORT_HEADERS = [
 export function downloadStudentImportTemplate(): void {
   const wb = XLSX.utils.book_new()
   const instructions = [
-    ['EVERSHAHEEN ACADEMY — STUDENT BULK IMPORT TEMPLATE'],
+    ['EVERSHINE ACADEMY — STUDENT BULK IMPORT TEMPLATE'],
     ['Fill one row per student. Do not change column headers in row 3.'],
     ['dateOfBirth: YYYY-MM-DD | gender: MALE or FEMALE | shift: MORNING, EVENING, or NIGHT'],
     ['campusCode/batchCode: match codes in Academic Engine (e.g. EA, MATRIC)'],
@@ -1057,7 +1057,7 @@ export function downloadStudentImportFailuresExcel(
     headers.map((h) => (h === 'importError' ? f.importError : h === 'importRow' ? f.importRow : f[h] ?? ''))
   )
   const sheet = XLSX.utils.aoa_to_sheet([
-    ['EVERSHAHEEN ACADEMY — FAILED IMPORT ROWS (fix and re-upload)'],
+    ['EVERSHINE ACADEMY — FAILED IMPORT ROWS (fix and re-upload)'],
     [],
     headers,
     ...rows,

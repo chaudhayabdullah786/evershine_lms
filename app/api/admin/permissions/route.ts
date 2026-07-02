@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
-import { ADMIN_ROLES, DEFAULT_PERMISSION_MATRIX } from '@/lib/rbac'
+import { DEFAULT_PERMISSION_MATRIX } from '@/lib/rbac'
 import { logAudit } from '@/lib/audit-logger'
 import {
   getPermissionMatrix,
@@ -35,10 +35,10 @@ const rolePermissionPayload = z.object({
   reason: z.string().max(255).optional(),
 })
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!ADMIN_ROLES.includes(session.user.role)) return errors.forbidden()
+  if (session.user.role !== 'SUPER_ADMIN') return errors.forbidden('Only Super Administrators can manage role permissions.')
 
   const matrix = await getPermissionMatrix()
   const overrides = await prisma.rolePermission.findMany({
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!ADMIN_ROLES.includes(session.user.role)) return errors.forbidden()
+  if (session.user.role !== 'SUPER_ADMIN') return errors.forbidden('Only Super Administrators can manage role permissions.')
 
   let payload: unknown
   try {
@@ -63,10 +63,6 @@ export async function POST(request: NextRequest) {
   const parsed = rolePermissionPayload.safeParse(payload)
   if (!parsed.success) {
     return errors.validation(parsed.error)
-  }
-
-  if (session.user.role !== 'SUPER_ADMIN' && parsed.data.role === 'SUPER_ADMIN') {
-    return errors.forbidden('Administrators cannot alter Super Administrator system permissions.')
   }
 
   const updatedPermission = await upsertRolePermission({
@@ -100,7 +96,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!ADMIN_ROLES.includes(session.user.role)) return errors.forbidden()
+  if (session.user.role !== 'SUPER_ADMIN') return errors.forbidden('Only Super Administrators can manage role permissions.')
 
   let payload: unknown
   try {
@@ -109,16 +105,12 @@ export async function DELETE(request: NextRequest) {
     return errors.badRequest('Invalid JSON payload')
   }
 
-  const idSchema = z.object({ id: z.string().uuid() })
+  const idSchema = z.object({ id: z.string().min(1) })
   const parsed = idSchema.safeParse(payload)
   if (!parsed.success) return errors.validation(parsed.error)
 
   const existing = await prisma.rolePermission.findUnique({ where: { id: parsed.data.id } })
   if (!existing) return errors.notFound('Permission override not found.')
-
-  if (session.user.role !== 'SUPER_ADMIN' && existing.role === 'SUPER_ADMIN') {
-    return errors.forbidden('Administrators cannot delete Super Administrator permission overrides.')
-  }
 
   const deleted = await deleteRolePermission(parsed.data.id)
 

@@ -312,7 +312,7 @@ export async function generateIDCardDirect(studentData: {
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(3.5)
   setTextColorC(pdf, 147, 197, 253, cm)
-  pdf.text('evershaheen.edu.pk | Boys: 0328-4010522 | Girls: 0324-8985526', W / 2, H - 2, { align: 'center' })
+  pdf.text('evershineacadmey.com | Boys: 0328-4010522 | Girls: 0324-8985526', W / 2, H - 2, { align: 'center' })
 
   return pdf
 }
@@ -873,7 +873,7 @@ export async function generateTeacherIDCardDirect(data: TeacherIDCardData): Prom
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(4)
   setTextColorC(pdf, 107, 114, 128, data.colorMode)
-  pdf.text('Evershaheen Academy', leftW / 2, 48, { align: 'center' })
+  pdf.text('EverShine Academy', leftW / 2, 48, { align: 'center' })
 
   // Right info panel
   setDrawColorC(pdf, 226, 232, 240, data.colorMode)
@@ -924,7 +924,7 @@ export async function generateTeacherIDCardDirect(data: TeacherIDCardData): Prom
   pdf.setFontSize(4.5)
   setTextColorC(pdf, 51, 65, 85, data.colorMode)
   const policies = [
-    'Property of Evershaheen Academy.',
+    'Property of EverShine Academy.',
     'Must be visible at all times on campus.',
     'Report loss to HR within 24 hours.',
     'Non-transferable under any circumstances.',
@@ -967,7 +967,7 @@ export async function generateTeacherIDCardDirect(data: TeacherIDCardData): Prom
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(3.5)
   setTextColorC(pdf, 255, 255, 255, data.colorMode)
-  pdf.text('www.evershaheen.edu.pk | Boys: 0328-4010522 | Girls: 0324-8985526', 42, 53, { align: 'center' })
+  pdf.text('evershineacadmey.com | Boys: 0328-4010522 | Girls: 0324-8985526', 42, 53, { align: 'center' })
 
   return pdf
 }
@@ -1003,7 +1003,7 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
   pdf.rect(0, 0, 210, 4, 'F')
 
   // Letterhead
-  drawLetterhead(pdf, 'EVERSHAHEEN ACADEMY', '"We Make your Children More Valuable"', data.logo, data.colorMode)
+  drawLetterhead(pdf, 'EVERSHINE ACADEMY', '"We Make your Children More Valuable"', data.logo, data.colorMode)
 
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(8)
@@ -1043,7 +1043,7 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
   setTextColorC(pdf, 51, 65, 85, data.colorMode)
 
   let y = 68
-  const para1 = `This is to certify that ${formatPersonName(fullName)}, holding Employee ID ${data.employeeId}, has served as ${data.designation} in the ${data.department} Department at Evershaheen Academy, Madina Town Campus, ${tenure}.`
+  const para1 = `This is to certify that ${formatPersonName(fullName)}, holding Employee ID ${data.employeeId}, has served as ${data.designation} in the ${data.department} Department at EverShine Academy, Madina Town Campus, ${tenure}.`
   pdf.text(pdf.splitTextToSize(para1, 170), 20, y)
   y += 26
 
@@ -1092,7 +1092,7 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7)
   setTextColorC(pdf, 107, 114, 128, data.colorMode)
-  pdf.text('Evershaheen Academy | Madina Town, Gujranwala | Boys: 0328-4010522 | Girls: 0324-8985526', 105, 285, { align: 'center' })
+  pdf.text('EverShine Academy | Madina Town, Gujranwala | Boys: 0328-4010522 | Girls: 0324-8985526', 105, 285, { align: 'center' })
 
   // Emerald bottom stripe
   setFillColorC(pdf, 6, 95, 70, data.colorMode)

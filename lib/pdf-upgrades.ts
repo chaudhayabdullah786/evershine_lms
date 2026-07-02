@@ -2,8 +2,8 @@
  * lib/pdf-upgrades.ts
  * Client-side direct PDF generation using jsPDF for Date Sheets and Result Cards.
  *
- * Enforces Evershaheen Academy branding standards:
- * - Title: EVERSHAHEEN ACADEMY
+ * Enforces EverShine Academy branding standards:
+ * - Title: EVERSHINE ACADEMY
  * - Slogan: "We Make your Children More Valueable"
  * - Address: Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony
  * - Contacts: Boys: 0328-4010522, Girls: 0324-8985526
@@ -78,7 +78,7 @@ function drawBrandingHeader(pdf: jsPDF, title: string, subtitle: string, logoUrl
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(16)
   setTextColor(pdf, 30, 58, 138, bw)
-  pdf.text('EVERSHAHEEN ACADEMY', 105, 12, { align: 'center' })
+  pdf.text('EVERSHINE ACADEMY', 105, 12, { align: 'center' })
 
   // Slogan
   pdf.setFont('helvetica', 'italic')
@@ -226,7 +226,7 @@ export function generateExamDateSheetPDF(options: DateSheetPDFOptions): jsPDF {
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7)
   setTextColor(pdf, 107, 114, 128, bw)
-  pdf.text('This date sheet is generated dynamically by Evershaheen Academy Examination System. Verify at office.', 105, y + 5, { align: 'center' })
+  pdf.text('This date sheet is generated dynamically by EverShine Academy Examination System. Verify at office.', 105, y + 5, { align: 'center' })
 
   return pdf
 }
@@ -445,7 +445,7 @@ export function generateResultCardPDF(options: ResultCardPDFOptions): jsPDF {
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(5)
   setTextColor(pdf, 30, 58, 138, bw)
-  pdf.text('EVERSHAHEEN', 115, 240, { align: 'center' })
+  pdf.text('EVERSHINE', 115, 240, { align: 'center' })
   pdf.text('ACADEMY', 115, 244, { align: 'center' })
 
   // Bottom Footer
@@ -455,7 +455,7 @@ export function generateResultCardPDF(options: ResultCardPDFOptions): jsPDF {
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7)
   setTextColor(pdf, 107, 114, 128, bw)
-  pdf.text('Evershaheen Academy Management System © All Rights Reserved. For any corrections, contact the examination controller.', 105, y + 5, { align: 'center' })
+  pdf.text('EverShine Academy Management System © All Rights Reserved. For any corrections, contact the examination controller.', 105, y + 5, { align: 'center' })
 
   return pdf
 }

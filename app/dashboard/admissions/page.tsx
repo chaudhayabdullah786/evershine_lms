@@ -85,7 +85,7 @@ interface AdmissionRequest {
   preferredShift?: string
   preferredClassSectionId?: string
   deliveryMode: string
-  
+
   status: 'PENDING' | 'APPROVED' | 'DECLINED'
   createdAt: string
 }
@@ -99,7 +99,7 @@ export default function AdmissionsDashboard() {
   const [statusFilter, setStatusFilter] = useState('PENDING')
   const [selectedRequest, setSelectedRequest] = useState<AdmissionRequest | null>(null)
   const [requestToDelete, setRequestToDelete] = useState<AdmissionRequest | null>(null)
-  
+
   // Assignment State
   const [campusId, setCampusId] = useState('')
   const [batchId, setBatchId] = useState('')
@@ -117,13 +117,45 @@ export default function AdmissionsDashboard() {
 
   const queryClient = useQueryClient()
 
+  const resetAssignmentState = () => {
+    setCampusId('')
+    setBatchId('')
+    setClassId('')
+    setSection('')
+    setHouseId('')
+    setRollNumber('')
+    setAdmissionFee(0)
+    setCourseFee(0)
+    setTotalAcademicFee(0)
+    setManualTotalOverride(false)
+    setShift('MORNING')
+    setDeliveryMode('PHYSICAL')
+    setClassSectionId('')
+  }
+
+  const openReviewDialog = (request: AdmissionRequest) => {
+    resetAssignmentState()
+    setSelectedRequest(request)
+    setCampusId(request.preferredCampusId || '')
+    setBatchId(request.preferredBatchId || '')
+    setClassSectionId(request.preferredClassSectionId || '')
+    setShift((request.preferredShift as typeof shift) || 'MORNING')
+    setDeliveryMode((request.deliveryMode as typeof deliveryMode) || 'PHYSICAL')
+  }
+
+  const closeReviewDialog = () => {
+    if (approveMutation.isPending || declineMutation.isPending) return
+    setSelectedRequest(null)
+    resetAssignmentState()
+  }
+
   // Queries
   const { data: reqData, isLoading } = useQuery({
     queryKey: ['admissions', statusFilter],
     queryFn: () => fetchPaginatedApi<AdmissionRequest>(`/api/admissions?status=${statusFilter}&limit=20`),
     enabled: canManageAdmissions,
   })
-  
+
   const { data: campusesData } = useQuery({
     queryKey: ['campuses'],
     queryFn: () => fetchPaginatedApi<any>('/api/campuses'),
@@ -159,6 +191,9 @@ export default function AdmissionsDashboard() {
 
   const requests = reqData?.data ?? []
   const campuses = campusesData?.data ?? []
+  const classSections = Array.isArray(classSectionsData)
+    ? classSectionsData
+    : ((classSectionsData as { data?: any[] } | undefined)?.data ?? [])
   const autoAcademicTotal = admissionFee + courseFee
 
   useEffect(() => {
@@ -206,12 +241,12 @@ export default function AdmissionsDashboard() {
   if (batchId) {
     const level = activeBatch?.academicLevel
     const batchLabel = (activeBatch?.name + (activeBatch?.code || '')).toLowerCase()
-    
+
     // Determine compatibility
     classesRaw.forEach((c: any) => {
       const isDirectMatch = c.batchId === batchId
       let isGradeMatch = false
-      
+
       if (level === 'Secondary' || batchLabel.includes('matric')) {
         // Matriculation Tier: Grades 9–10
         isGradeMatch = c.grade === 9 || c.grade === 10
@@ -253,12 +288,12 @@ export default function AdmissionsDashboard() {
   // Sort groups
   const sortedCompatible = [...compatibleClasses].sort((a, b) => a.grade - b.grade)
   const sortedOther = [...otherClasses].sort((a, b) => a.grade - b.grade)
-  
+
   // Use compatible classes for the primary list, but we'll show otherClasses as a fallback group
   const classes = sortedCompatible.length > 0 ? sortedCompatible : sortedOther
   const grades = Array.from(new Set(classes.map((c: any) => c.grade))).sort((a, b) => (a as any) - (b as any))
   const hasCompatible = sortedCompatible.length > 0
-  
+
   // Restrictions removed: All campus batches and classes are now visible for the admin to choose
 
 
@@ -267,13 +302,13 @@ export default function AdmissionsDashboard() {
     mutationFn: async () => {
       return fetchApi(`/api/admissions/${selectedRequest?.id}/approve`, {
         method: 'POST',
-        body: JSON.stringify({ 
-          campusId, 
-          batchId, 
-          classId, 
-          section,
+        body: JSON.stringify({
+          campusId,
+          batchId,
+          classId: classId || undefined,
+          section: section.trim() || undefined,
           houseId: houseId || undefined,
-          rollNumber,
+          rollNumber: rollNumber.trim(),
           admissionFee,
           courseFee,
           totalAcademicFee,
@@ -287,10 +322,7 @@ export default function AdmissionsDashboard() {
       notify.success('Admission approved and student profile generated!')
       queryClient.invalidateQueries({ queryKey: ['admissions'] })
       setSelectedRequest(null)
-      // Reset form
-      setCampusId(''); setBatchId(''); setClassId(''); setSection(''); setHouseId(''); setRollNumber(''); setAdmissionFee(0);
-      setCourseFee(0); setTotalAcademicFee(0);
-      setShift('MORNING'); setDeliveryMode('PHYSICAL'); setClassSectionId('');
+      resetAssignmentState()
     },
     onError: (err: any) => {
       notify.error(err.message || 'Failed to approve admission')
@@ -363,7 +395,7 @@ export default function AdmissionsDashboard() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial="initial"
       animate="animate"
       variants={staggerContainer}
@@ -431,7 +463,7 @@ export default function AdmissionsDashboard() {
                 ) : requests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-64">
-                      <EmptyState 
+                      <EmptyState
                         icon={User}
                         title={`No ${statusFilter.toLowerCase()} requests`}
                         description={search ? "Try adjusting your search criteria." : `There are currently no admission requests with the status: ${statusFilter}.`}
@@ -468,12 +500,12 @@ export default function AdmissionsDashboard() {
                         <div className="flex justify-end gap-2">
                           {req.status === 'PENDING' && (
                             <>
-                              <Button size="sm" onClick={() => setSelectedRequest(req)} className="gap-2">
+                              <Button size="sm" onClick={() => openReviewDialog(req)} className="gap-2">
                                 Review & Assign <CheckCircle className="w-4 h-4" />
                               </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                   onClick={() => setRequestToDelete(req)}
                                 >
@@ -485,9 +517,9 @@ export default function AdmissionsDashboard() {
                             <Badge variant="secondary" className="bg-green-50 text-green-700">Account Active</Badge>
                           )}
                           {req.status === 'DECLINED' && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               className="text-red-600"
                               onClick={() => setRequestToDelete(req)}
                             >
@@ -505,8 +537,12 @@ export default function AdmissionsDashboard() {
       </motion.div>
 
       {/* Approval & Assignment Modal */}
-      <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) closeReviewDialog() }}>
+        <DialogContent
+          className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => event.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Review & Assign Candidate</DialogTitle>
             <DialogDescription>
@@ -649,7 +685,7 @@ export default function AdmissionsDashboard() {
                 </div>
 
                 <div className="flex justify-between pt-4 border-t border-slate-200">
-                  <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" 
+                  <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                     onClick={() => {
                       const reason = prompt('Reason for declining this application (Optional):')
                       if (reason !== null) {
@@ -660,7 +696,7 @@ export default function AdmissionsDashboard() {
                   >
                     {declineMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />} Decline
                   </Button>
-                  <Button variant="outline" onClick={() => setSelectedRequest(null)} disabled={approveMutation.isPending}>Cancel</Button>
+                  <Button variant="outline" onClick={closeReviewDialog} disabled={approveMutation.isPending}>Cancel</Button>
                 </div>
               </TabsContent>
 
@@ -670,7 +706,7 @@ export default function AdmissionsDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-blue-900 font-semibold">1. Assign Campus *</Label>
-                      <Select value={campusId} onValueChange={(val) => { setCampusId(val); setBatchId(''); setHouseId(''); setClassId('') }}>
+                      <Select value={campusId} onValueChange={(val) => { setCampusId(val); setBatchId(''); setHouseId(''); setClassId(''); setClassSectionId('') }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select Campus" />
                         </SelectTrigger>
@@ -690,7 +726,7 @@ export default function AdmissionsDashboard() {
                       <Label className="text-blue-900 font-semibold">
                         2. Assign Batch *
                       </Label>
-                      <Select value={batchId} onValueChange={(val) => { setBatchId(val); setHouseId(''); setClassId('') }} disabled={!campusId}>
+                      <Select value={batchId} onValueChange={(val) => { setBatchId(val); setHouseId(''); setClassId(''); setClassSectionId('') }} disabled={!campusId}>
                         <SelectTrigger>
                           <SelectValue placeholder={!campusId ? 'Select campus first' : 'Select batch'} />
                         </SelectTrigger>
@@ -817,7 +853,7 @@ export default function AdmissionsDashboard() {
                         <SelectValue placeholder="Optional — link to formal class section when available" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(classSectionsData ?? []).map((s: { id: string; className: string; sectionName: string; shift?: { name: string }; deliveryMode: string }) => (
+                        {classSections.map((s: { id: string; className: string; sectionName: string; shift?: { name: string }; deliveryMode: string }) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.className}-{s.sectionName} · {s.shift?.name ?? ''} · {s.deliveryMode}
                           </SelectItem>
@@ -970,9 +1006,9 @@ export default function AdmissionsDashboard() {
                 </div>
 
                 <DialogFooter className="mt-6 pt-4 border-t border-gray-100 flex justify-between sm:justify-between items-center w-full">
-                  <Button variant="outline" onClick={() => setSelectedRequest(null)} disabled={approveMutation.isPending}>Cancel</Button>
-                  <Button 
-                    onClick={handleApprove} 
+                  <Button variant="outline" onClick={closeReviewDialog} disabled={approveMutation.isPending}>Cancel</Button>
+                  <Button
+                    onClick={handleApprove}
                     disabled={approveMutation.isPending || declineMutation.isPending || !campusId || !batchId || !rollNumber}
                     className="bg-green-600 hover:bg-green-700 text-white min-w-[150px]"
                   >
@@ -992,7 +1028,7 @@ export default function AdmissionsDashboard() {
               <AlertCircle className="w-5 h-5" /> Confirm Deletion
             </DialogTitle>
             <DialogDescription className="py-2">
-              Are you sure you want to delete the admission request for <span className="font-bold text-gray-900">{requestToDelete?.firstName} {requestToDelete?.lastName}</span>? 
+              Are you sure you want to delete the admission request for <span className="font-bold text-gray-900">{requestToDelete?.firstName} {requestToDelete?.lastName}</span>?
               <br /><br />
               This action is permanent and will remove all associated application data.
             </DialogDescription>
@@ -1001,8 +1037,8 @@ export default function AdmissionsDashboard() {
             <Button variant="outline" onClick={() => setRequestToDelete(null)} disabled={deleteMutation.isPending}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               className="bg-red-600 hover:bg-red-700"
               onClick={() => requestToDelete && deleteMutation.mutate(requestToDelete.id)}
               disabled={deleteMutation.isPending}

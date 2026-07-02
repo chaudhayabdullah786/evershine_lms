@@ -18,6 +18,11 @@ export async function DELETE(
     if (!request) {
       return NextResponse.json({ success: false, error: 'Request not found' }, { status: 404 })
     }
+    if (session.user.role === 'ADMIN') {
+      if (!session.user.campusId || request.preferredCampusId !== session.user.campusId) {
+        return NextResponse.json({ success: false, error: 'Administrators can delete admissions only for their assigned campus.' }, { status: 403 })
+      }
+    }
 
     await prisma.admissionRequest.delete({
       where: { id }
