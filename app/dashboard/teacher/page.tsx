@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Users, ClipboardList, Megaphone, UserCheck, Wallet,
-  GraduationCap, ClipboardCheck, BarChart2, LineChart, Target,
+  ClipboardCheck, BarChart2, LineChart, Target,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -25,8 +25,8 @@ const TEACHER_QUICK_LINKS = [
   {
     href: '/dashboard/attendance',
     icon: ClipboardCheck,
-    label: 'Mark Attendance',
-    description: 'Take roll call for today\'s classes',
+    label: 'Student Attendance',
+    description: 'Take roll call for assigned classes',
     color: 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100',
     iconBg: 'bg-emerald-100',
   },

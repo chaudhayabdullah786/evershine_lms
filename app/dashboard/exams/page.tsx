@@ -205,7 +205,7 @@ function MultiClassSelector({
               🏫 {campus.name}
             </div>
             {campusClasses.length === 0 ? (
-              <p className="text-xs text-gray-400 pl-8 italic">No classes available. Create them in the Classes module first.</p>
+              <p className="text-xs text-gray-400 pl-8 italic">No legacy classes available for this scope. Create a legacy class or clear the filters.</p>
             ) : (
               <div className="grid grid-cols-2 gap-1 pl-4">
                 {campusClasses.sort((a, b) => a.grade - b.grade || (a.section ?? '').localeCompare(b.section ?? '')).map((cls) => (
@@ -434,6 +434,11 @@ export default function ExamsPage() {
   const scopedClassesForForms = useMemo((): ClassRecord[] => {
     const base = allClasses as ClassRecord[]
     if (!createOpen && !editExam) return base
+
+    const hasExplicitScope = Boolean(listScope.campusId || listScope.batchId || listScope.classId)
+    if (!hasExplicitScope) return base
+    if (listScope.classId) return base.filter((c) => c.id === listScope.classId)
+
     return filterClassesByScope(base, {
       campusId: listScope.campusId || undefined,
       batchId: listScope.batchId || undefined,
@@ -588,7 +593,7 @@ export default function ExamsPage() {
 
       <motion.div variants={fadeUp(0.2)} className="bg-white rounded-2xl border border-slate-200/60 shadow-soft-md p-4">
         <p className="text-xs text-slate-500 mb-3">
-          Narrow exams by campus, batch, and session. Class list in Schedule Exam uses the same scope.
+          Narrow exams by campus, batch, and session. Schedule Exam shows all legacy classes until you choose a campus, batch, or class filter.
         </p>
         <AcademicScopeFilters
           hierarchy={listHierarchy}

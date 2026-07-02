@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
 import { useSession } from 'next-auth/react'
@@ -31,7 +31,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  User,
   AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -43,6 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { SESSION_SHIFT_LABELS, type SessionShift } from '@/lib/validation/shift'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,8 +55,25 @@ interface AttendanceRecord {
   date: string
   shift?: SessionShift
   status: AttendanceStatus
-  remarks?: string
+  hrStatus?: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | null
+  checkInTime?: string | null
+  lateMinutes?: number
+  penaltyAmount?: number | string
+  isPenaltyApplied?: boolean
+  remarks?: string | null
   createdAt: string
+}
+
+interface TeacherDetail {
+  id: string
+  firstName: string
+  lastName: string
+  employeeId: string
+  designation: string
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -130,7 +147,6 @@ function buildCalendarGrid(year: number, month: number): (Date | null)[][] {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TeacherAttendancePage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const { data: session } = useSession()
   const queryClient = useQueryClient()
 
@@ -147,22 +163,28 @@ export default function TeacherAttendancePage() {
 
   // Pending mark state (to show the status picker)
   const [pendingDate, setPendingDate] = useState<string | null>(null)
+  const [attendanceForm, setAttendanceForm] = useState({
+    checkInTime: '',
+    remarks: '',
+    penaltyAmount: '',
+    isPenaltyApplied: true,
+  })
 
   // ── Fetch teacher details ───────────────────────────────────────────────────
   const { data: teacherRaw, isLoading: loadingTeacher } = useQuery({
     queryKey: ['teacher-detail', id],
-    queryFn: () => fetchApi<any>(`/api/teachers/${id}`),
+    queryFn: () => fetchApi<TeacherDetail>(`/api/teachers/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   })
-  const teacher = teacherRaw?.data ?? teacherRaw
+  const teacher = teacherRaw
 
   // ── Fetch attendance records for current month ─────────────────────────────
   const attendanceKey = ['teacher-attendance', id, viewYear, viewMonth + 1, sessionShift]
   const { data: attendanceRaw, isLoading: loadingAttendance } = useQuery({
     queryKey: attendanceKey,
     queryFn: () =>
-      fetchApi<any>(
+      fetchApi<AttendanceRecord[]>(
         `/api/teachers/${id}/attendance?month=${viewMonth + 1}&year=${viewYear}&shift=${sessionShift}&limit=31`
       ),
     enabled: !!id,
@@ -171,8 +193,7 @@ export default function TeacherAttendancePage() {
 
   // Build a map of date → record from the fetched list
   const recordMap = useMemo(() => {
-    const records: AttendanceRecord[] =
-      attendanceRaw?.data ?? attendanceRaw?.data ?? []
+    const records: AttendanceRecord[] = attendanceRaw ?? []
     return records.reduce<Record<string, AttendanceRecord>>((acc, r) => {
       acc[toDateKey(new Date(r.date))] = r
       return acc
@@ -182,9 +203,17 @@ export default function TeacherAttendancePage() {
   // ── Mark attendance mutation ───────────────────────────────────────────────
   const markMutation = useMutation({
     mutationFn: async ({ date, status }: { date: string; status: AttendanceStatus }) => {
+      const body: Record<string, unknown> = { date, status, shift: sessionShift }
+      if ((status === 'PRESENT' || status === 'LATE') && attendanceForm.checkInTime) {
+        body.checkInTime = new Date(`${date}T${attendanceForm.checkInTime}:00`).toISOString()
+      }
+      if (attendanceForm.remarks.trim()) body.remarks = attendanceForm.remarks.trim()
+      if (attendanceForm.penaltyAmount !== '') body.penaltyAmount = Number(attendanceForm.penaltyAmount)
+      body.isPenaltyApplied = attendanceForm.isPenaltyApplied
+
       return fetchApi(`/api/teachers/${id}/attendance`, {
         method: 'POST',
-        body: JSON.stringify({ date, status, shift: sessionShift }),
+        body: JSON.stringify(body),
       })
     },
     onMutate: ({ date, status }) => {
@@ -196,14 +225,14 @@ export default function TeacherAttendancePage() {
       notify.success(`Attendance marked: ${status} for ${date}`)
       queryClient.invalidateQueries({ queryKey: attendanceKey })
     },
-    onError: (err: any, { date }) => {
+    onError: (err: unknown, { date }) => {
       // Roll back optimistic
       setOptimistic((prev) => {
         const next = { ...prev }
         delete next[date]
         return next
       })
-      notify.error('Failed to mark attendance', { description: err.message })
+      notify.error('Failed to mark attendance', { description: getErrorMessage(err, 'Please try again') })
     },
   })
 
@@ -234,7 +263,7 @@ export default function TeacherAttendancePage() {
 
   // ── Monthly stats ──────────────────────────────────────────────────────────
   const allRecords = useMemo(() => {
-    const fetched: AttendanceRecord[] = attendanceRaw?.data ?? []
+    const fetched: AttendanceRecord[] = attendanceRaw ?? []
     const merged: Record<string, AttendanceStatus> = {}
     fetched.forEach((r) => { merged[toDateKey(new Date(r.date))] = r.status })
     Object.entries(optimistic).forEach(([k, v]) => { merged[k] = v })
@@ -256,6 +285,18 @@ export default function TeacherAttendancePage() {
   const getStatus = (dateKey: string): AttendanceStatus | null => {
     if (optimistic[dateKey]) return optimistic[dateKey]
     return recordMap[dateKey]?.status ?? null
+  }
+
+  const openMarkPanel = (dateKey: string) => {
+    const record = recordMap[dateKey]
+    const checkIn = record?.checkInTime ? new Date(record.checkInTime) : null
+    setAttendanceForm({
+      checkInTime: checkIn ? checkIn.toTimeString().slice(0, 5) : '',
+      remarks: record?.remarks ?? '',
+      penaltyAmount: record?.penaltyAmount != null && Number(record.penaltyAmount) > 0 ? String(Number(record.penaltyAmount)) : '',
+      isPenaltyApplied: record?.isPenaltyApplied ?? true,
+    })
+    setPendingDate((prev) => (prev === dateKey ? null : dateKey))
   }
 
   const isToday = (date: Date) => toDateKey(date) === toDateKey(today)
@@ -407,7 +448,7 @@ export default function TeacherAttendancePage() {
                       key={di}
                       onClick={() => {
                         if (!canMark || isFutureDay || isWeekend) return
-                        setPendingDate((prev) => (prev === dateKey ? null : dateKey))
+                        openMarkPanel(dateKey)
                       }}
                       className={[
                         'h-14 flex flex-col items-center justify-center relative transition-all select-none',
@@ -476,7 +517,46 @@ export default function TeacherAttendancePage() {
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
+              <div className="space-y-1">
+                <Label className="text-xs">Observed arrival time</Label>
+                <Input
+                  type="time"
+                  value={attendanceForm.checkInTime}
+                  onChange={(event) => setAttendanceForm((prev) => ({ ...prev, checkInTime: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Penalty override (PKR)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={attendanceForm.penaltyAmount}
+                  placeholder="Auto"
+                  onChange={(event) => setAttendanceForm((prev) => ({ ...prev, penaltyAmount: event.target.value }))}
+                />
+              </div>
+              <label className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-gray-600 md:mt-5">
+                <input
+                  type="checkbox"
+                  checked={!attendanceForm.isPenaltyApplied}
+                  onChange={(event) => setAttendanceForm((prev) => ({ ...prev, isPenaltyApplied: !event.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                Remove penalty
+              </label>
+            </div>
+
+            <div className="mt-3 space-y-1">
+              <Label className="text-xs">Admin remarks</Label>
+              <Input
+                value={attendanceForm.remarks}
+                placeholder="Optional note for this correction"
+                onChange={(event) => setAttendanceForm((prev) => ({ ...prev, remarks: event.target.value }))}
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
               {(Object.keys(STATUS_CONFIG) as AttendanceStatus[]).map((status) => {
                 const cfg = STATUS_CONFIG[status]
                 const isActive = getStatus(pendingDate) === status
@@ -490,7 +570,7 @@ export default function TeacherAttendancePage() {
                       'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all',
                       isActive
                         ? `${cfg.bg} ${cfg.color} ${cfg.border} ring-2 ring-offset-1 ring-current`
-                        : `bg-white ${cfg.color} ${cfg.border} hover:${cfg.bg}`,
+                        : `bg-white ${cfg.color} ${cfg.border}`,
                       markMutation.isPending ? 'opacity-60 cursor-not-allowed' : '',
                     ].join(' ')}
                   >
@@ -500,6 +580,11 @@ export default function TeacherAttendancePage() {
                 )
               })}
             </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
+              HR attendance is campus-level. Arrival within the configured grace window is present; later arrival is present but late unless marked absent.
+              Penalties are calculated from the active teacher penalty policy and can be removed or overridden by SuperAdmin/Admin.
+            </p>
           </div>
         )}
       </div>

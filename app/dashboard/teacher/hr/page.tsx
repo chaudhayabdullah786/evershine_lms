@@ -22,12 +22,22 @@ interface Application { id: string; title: string; description: string; type: st
 
 type ShiftInfo = {
   code: SessionShift; label: string; startTime: string; endTime: string; lateGraceMinutes: number
-  today: { id: string; checkInTime: string; status: string; hrStatus: string | null; lateMinutes: number; penaltyAmount: number } | null
+  today: { id: string; checkInTime: string | null; status: string; hrStatus: string | null; lateMinutes: number; penaltyAmount: number } | null
 }
 type MonthlyStats = { present: number; late: number; absent: number; leave: number; totalPenalty: number; gracePassesUsed: number; gracePassesAllowed: number }
 type CheckInData = {
   teacher: { id: string; name: string }; defaultShift: string; shifts: ShiftInfo[]; monthlyStats: MonthlyStats
   history: Array<{ id: string; date: string; shift: string; status: string; hrStatus: string | null; lateMinutes: number; penaltyAmount: number; checkInTime: string | null; remarks: string | null }>
+}
+type HrTab = 'checkin' | 'salary' | 'applications'
+const HR_TABS: Array<readonly [HrTab, typeof UserCheck, string]> = [
+  ['checkin', UserCheck, 'Attendance'],
+  ['salary', Wallet, 'Salary Slips'],
+  ['applications', FileText, 'My Applications'],
+]
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 function LiveClock() {
@@ -64,39 +74,55 @@ function detectActiveShift(shifts: ShiftInfo[]): ShiftInfo | null {
   return shifts[0] ?? null
 }
 
+function hrStatusMeta(status?: string | null) {
+  switch (status) {
+    case 'LATE':
+      return { label: 'Marked late', className: 'bg-amber-50 text-amber-800 border border-amber-200', Icon: AlertTriangle }
+    case 'ABSENT':
+      return { label: 'Marked absent', className: 'bg-red-50 text-red-800 border border-red-200', Icon: XCircle }
+    case 'LEAVE':
+      return { label: 'Marked leave', className: 'bg-blue-50 text-blue-800 border border-blue-200', Icon: ShieldCheck }
+    default:
+      return { label: 'Marked present', className: 'bg-emerald-50 text-emerald-800 border border-emerald-200', Icon: CheckCircle }
+  }
+}
+
+function formatCheckInTime(value?: string | null) {
+  return value ? new Date(value).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true }) : null
+}
+
+function hrStatusStripeClass(status?: string | null) {
+  switch (status) {
+    case 'LATE': return 'bg-amber-500'
+    case 'ABSENT': return 'bg-red-500'
+    case 'LEAVE': return 'bg-blue-500'
+    case 'PRESENT': return 'bg-emerald-500'
+    default: return 'bg-indigo-500'
+  }
+}
+
+function hrStatusCardClass(status?: string | null) {
+  switch (status) {
+    case 'LATE': return 'bg-amber-50 border-amber-200'
+    case 'ABSENT': return 'bg-red-50 border-red-200'
+    case 'LEAVE': return 'bg-blue-50 border-blue-200'
+    case 'PRESENT': return 'bg-emerald-50 border-emerald-200'
+    default: return 'bg-slate-50 border-slate-200'
+  }
+}
+
 export default function TeacherHRPage() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === 'TEACHER'
-  const [activeTab, setActiveTab] = useState<'checkin' | 'salary' | 'applications'>('checkin')
+  const [activeTab, setActiveTab] = useState<HrTab>('checkin')
   const [isApplying, setIsApplying] = useState(false)
   const [formData, setFormData] = useState({ type: 'LEAVE', title: '', description: '' })
 
-  const { data: checkInData, isLoading: isLoadingCheckIn, refetch: refetchCheckIn } = useQuery({
+  const { data: checkInData, isLoading: isLoadingCheckIn } = useQuery({
     queryKey: ['teacher-check-in'],
     queryFn: () => fetchApi<CheckInData>('/api/teacher-portal/check-in'),
     enabled: isTeacher && activeTab === 'checkin',
-  })
-
-  const checkInMutation = useMutation({
-    mutationFn: (shift: SessionShift) =>
-      fetchApi('/api/teacher-attendance/check-in', {
-        method: 'POST',
-        body: JSON.stringify({ teacherId: checkInData!.teacher.id, shift }),
-      }),
-    onSuccess: (record: { lateMinutes?: number; penaltyAmount?: number; hrStatus?: string; gracePassUsed?: boolean }) => {
-      const late = record.lateMinutes ?? 0
-      const penalty = Number(record.penaltyAmount ?? 0)
-      if (record.gracePassUsed) {
-        notify.warning(`Checked in ${late} min late — monthly grace pass used. Next late arrival will incur a penalty.`)
-      } else if (penalty > 0) {
-        notify.error(`Checked in ${late} min late · Penalty: Rs ${penalty}`)
-      } else {
-        notify.success('Attendance marked — on time ✓')
-      }
-      refetchCheckIn()
-    },
-    onError: (err: Error) => notify.error(err.message || 'Check-in failed'),
   })
 
   const { data: salarySlips, isLoading: isLoadingSalary } = useQuery({
@@ -114,7 +140,7 @@ export default function TeacherHRPage() {
   const applyMutation = useMutation({
     mutationFn: (data: typeof formData) => fetchApi('/api/teacher-portal/applications', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => { notify.success('Application submitted successfully'); queryClient.invalidateQueries({ queryKey: ['teacher-applications'] }); setIsApplying(false); setFormData({ type: 'LEAVE', title: '', description: '' }) },
-    onError: (err: any) => notify.error(err.message || 'Failed to submit application'),
+    onError: (err: unknown) => notify.error(getErrorMessage(err, 'Failed to submit application')),
   })
 
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); applyMutation.mutate(formData) }
@@ -124,24 +150,25 @@ export default function TeacherHRPage() {
   const activeShift = checkInData ? detectActiveShift(checkInData.shifts) : null
   const stats = checkInData?.monthlyStats
   const graceRemaining = stats ? Math.max(0, stats.gracePassesAllowed - stats.gracePassesUsed) : 1
+  const activeTodayMeta = activeShift?.today ? hrStatusMeta(activeShift.today.hrStatus) : null
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">My HR Portal</h1>
-        <p className="text-gray-500">View your salary slips and submit applications to administration.</p>
+        <p className="text-gray-500">View your attendance records, salary slips, and applications.</p>
       </div>
 
       <div className="flex border-b border-gray-200 flex-wrap">
-        {([['checkin', UserCheck, 'Attendance'], ['salary', Wallet, 'Salary Slips'], ['applications', FileText, 'My Applications']] as const).map(([key, Icon, label]) => (
-          <button key={key} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`} onClick={() => setActiveTab(key as any)}>
+        {HR_TABS.map(([key, Icon, label]) => (
+          <button key={key} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`} onClick={() => setActiveTab(key)}>
             <span className="flex items-center gap-2"><Icon className="w-4 h-4" /> {label}</span>
           </button>
         ))}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          ATTENDANCE TAB — Professional check-in with live clock
+          ATTENDANCE TAB — Read-only HR record maintained by administration
           ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'checkin' && (
         <div className="space-y-5">
@@ -151,7 +178,7 @@ export default function TeacherHRPage() {
             <>
               {/* ── Main Attendance Card ───────────────────────────────── */}
               <Card className="border-slate-200 shadow-md overflow-hidden">
-                <div className={`h-1.5 ${activeShift?.today ? (activeShift.today.hrStatus === 'LATE' ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-indigo-500'}`} />
+                <div className={`h-1.5 ${hrStatusStripeClass(activeShift?.today?.hrStatus)}`} />
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -176,56 +203,51 @@ export default function TeacherHRPage() {
                   <div className="bg-gradient-to-b from-slate-50 to-white border border-slate-100 rounded-xl p-6 text-center space-y-5">
                     <LiveClock />
 
-                    {activeShift?.today ? (
+                    {activeShift?.today && activeTodayMeta ? (
                       <div className="space-y-2">
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${activeShift.today.hrStatus === 'LATE' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
-                          {activeShift.today.hrStatus === 'LATE' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                          {activeShift.today.hrStatus === 'LATE' ? 'Checked in late' : 'Checked in on time'}
-                          {' · '}
-                          {new Date(activeShift.today.checkInTime).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${activeTodayMeta.className}`}>
+                          <activeTodayMeta.Icon className="w-4 h-4" />
+                          {activeTodayMeta.label}
+                          {formatCheckInTime(activeShift.today.checkInTime) ? ` · ${formatCheckInTime(activeShift.today.checkInTime)}` : ''}
                         </div>
-                        {activeShift.today.lateMinutes > 0 && (
-                          <p className="text-xs text-slate-500">
-                            {activeShift.today.lateMinutes} min late
-                            {activeShift.today.penaltyAmount > 0 ? ` · Penalty: Rs ${activeShift.today.penaltyAmount}` : ' · No penalty (grace pass)'}
-                          </p>
-                        )}
+                        <p className="text-xs text-slate-500">
+                          {activeShift.today.lateMinutes > 0 ? `${activeShift.today.lateMinutes} min late` : 'Recorded by campus administration'}
+                          {activeShift.today.penaltyAmount > 0 ? ` · Penalty: Rs ${activeShift.today.penaltyAmount}` : ''}
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         <p className="text-sm text-slate-500">
-                          {activeShift ? `Grace period: ${activeShift.lateGraceMinutes} minutes after shift start` : 'No shift detected'}
+                          Attendance is recorded by campus administration.
+                          {activeShift ? ` Grace period: ${activeShift.lateGraceMinutes} minutes after shift start.` : ''}
                         </p>
-                        <Button
-                          size="lg"
-                          className="px-8 py-3 text-base font-semibold shadow-md"
-                          disabled={!activeShift || checkInMutation.isPending || !checkInData?.teacher.id}
-                          onClick={() => activeShift && checkInMutation.mutate(activeShift.code)}
-                        >
-                          {checkInMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <UserCheck className="w-5 h-5 mr-2" />}
-                          Mark Attendance
-                        </Button>
+                        <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
+                          Not marked yet
+                        </Badge>
                       </div>
                     )}
                   </div>
 
                   {/* All shifts quick view */}
                   <div className="grid sm:grid-cols-3 gap-3">
-                    {(checkInData?.shifts ?? []).map((s) => (
-                      <div key={s.code} className={`flex items-center justify-between p-3 rounded-lg border text-sm ${s.today ? (s.today.hrStatus === 'LATE' ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200') : 'bg-slate-50 border-slate-200'}`}>
-                        <div>
-                          <p className="font-medium text-slate-800">{SESSION_SHIFT_LABELS[s.code]}</p>
-                          <p className="text-xs text-slate-500">{s.startTime} – {s.endTime}</p>
+                    {(checkInData?.shifts ?? []).map((s) => {
+                      const meta = hrStatusMeta(s.today?.hrStatus)
+                      return (
+                        <div key={s.code} className={`flex items-center justify-between p-3 rounded-lg border text-sm ${hrStatusCardClass(s.today?.hrStatus)}`}>
+                          <div>
+                            <p className="font-medium text-slate-800">{SESSION_SHIFT_LABELS[s.code]}</p>
+                            <p className="text-xs text-slate-500">{s.startTime} – {s.endTime}</p>
+                          </div>
+                          {s.today ? (
+                            <Badge variant="outline" className={`text-xs ${meta.className}`}>
+                              {formatCheckInTime(s.today.checkInTime) ?? meta.label.replace('Marked ', '')}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
                         </div>
-                        {s.today ? (
-                          <Badge className={`text-xs ${s.today.hrStatus === 'LATE' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                            {new Date(s.today.checkInTime).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </CardContent>
               </Card>
