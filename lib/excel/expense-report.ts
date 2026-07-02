@@ -6,7 +6,8 @@ import ExcelJS from 'exceljs'
 import { Expense } from '@prisma/client'
 
 type ExpenseWithAccountant = Expense & {
-  accountant: { firstName: string; lastName: string }
+  accountant?: { firstName: string; lastName: string } | null
+  recordedByUser?: { email: string } | null
   campus: { name: string }
 }
 
@@ -137,7 +138,9 @@ export async function buildExpenseReport(
       amount: Number(exp.amount),
       paymentMethod: exp.paymentSource || '',
       paymentReference: exp.paymentReference || '',
-      recordedBy: `${exp.accountant.firstName} ${exp.accountant.lastName}`,
+      recordedBy: exp.accountant
+        ? `${exp.accountant.firstName} ${exp.accountant.lastName}`
+        : exp.recordedByUser?.email || exp.recordedByUserId || 'Admin',
       status: exp.isApproved ? 'Approved' : 'Pending',
       notes: exp.notes || '',
     })

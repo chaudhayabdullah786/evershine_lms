@@ -27,7 +27,9 @@ interface ExpenseRecord {
   paymentReference?: string | null
   isApproved: boolean
   notes?: string | null
-  accountant?: { firstName?: string; lastName?: string }
+  accountant?: { firstName?: string; lastName?: string } | null
+  recordedByUser?: { email?: string | null } | null
+  recordedByUserId?: string | null
 }
 
 const EXPENSE_CATEGORIES = [
@@ -111,6 +113,10 @@ export default function AccountantExpensesPage() {
   })
 
   const expenses = useMemo(() => data?.data ?? [], [data?.data])
+  const getRecorderName = (item: ExpenseRecord) => {
+    const accountantName = [item.accountant?.firstName, item.accountant?.lastName].filter(Boolean).join(' ').trim()
+    return accountantName || item.recordedByUser?.email || item.recordedByUserId || 'Admin'
+  }
   const total = useMemo(() => expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0), [expenses])
 
   const { data: expenseColumnSupport, isLoading: isLoadingExpenseColumns, isError: expenseColumnSupportError } = useQuery({
@@ -540,7 +546,7 @@ export default function AccountantExpensesPage() {
                           {item.paymentReference && <span className="rounded-full bg-slate-100 px-2 py-1">Ref: {item.paymentReference}</span>}
                         </div>
                       )}
-                      <p className="text-xs text-slate-400">Recorded on {formatDate(item.date)} by {item.accountant?.firstName || 'Accountant'} {item.accountant?.lastName || ''}</p>
+                      <p className="text-xs text-slate-400">Recorded on {formatDate(item.date)} by {getRecorderName(item)}</p>
                     </div>
                     <div className="flex flex-col items-start gap-3 text-right md:items-end">
                       <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.amount)}</span>

@@ -6,8 +6,9 @@
  * generates a signed token, and the client uploads directly to Cloudinary.
  */
 
-import { createHmac } from 'crypto'
 import { v2 as cloudinary } from 'cloudinary'
+
+const DEFAULT_UPLOAD_FOLDER = 'evershine-academy'
 
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim()
 const apiKey = process.env.CLOUDINARY_API_KEY?.trim()
@@ -30,12 +31,34 @@ function normalizeFolderPath(folder: string) {
   return folder.replace(/^\/+|\/+$/g, '').trim()
 }
 
+function getRequiredCloudinaryConfig() {
+  const missing = [
+    !cloudName && 'CLOUDINARY_CLOUD_NAME',
+    !apiKey && 'CLOUDINARY_API_KEY',
+    !apiSecret && 'CLOUDINARY_API_SECRET',
+  ].filter(Boolean)
+
+  if (missing.length > 0) {
+    throw new Error(`Cloudinary is not configured. Missing: ${missing.join(', ')}.`)
+  }
+
+  return {
+    cloudName: cloudName!,
+    apiKey: apiKey!,
+    apiSecret: apiSecret!,
+  }
+}
+
 export function isProfileImageDataUrl(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value)
 }
 
-function getBaseUploadFolder() {
-  return (process.env.CLOUDINARY_UPLOAD_FOLDER || 'evershaheen').replace(/^\/+|\/+$/g, '')
+export function getBaseUploadFolder() {
+  const folder = normalizeFolderPath(process.env.CLOUDINARY_UPLOAD_FOLDER || DEFAULT_UPLOAD_FOLDER)
+  if (!folder) {
+    throw new Error('Cloudinary upload folder is not configured. Set CLOUDINARY_UPLOAD_FOLDER.')
+  }
+  return folder
 }
 
 function getImageMagic(buffer: Buffer) {
@@ -70,9 +93,7 @@ async function uploadBufferToCloudinary(params: {
   resourceType: 'image' | 'auto'
   overwrite?: boolean
 }) {
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.')
-  }
+  getRequiredCloudinaryConfig()
 
   const fullFolder = `${getBaseUploadFolder()}/${params.subfolder}`
   const safePublicId = params.publicId.replace(/[^a-zA-Z0-9_\-]/g, '-')
@@ -101,33 +122,21 @@ async function uploadBufferToCloudinary(params: {
   })
 }
 
-function signCloudinaryPayload(payload: Record<string, string | number>) {
-  const sortedKeys = Object.keys(payload).sort()
-  const query = sortedKeys
-    .map((key) => `${key}=${payload[key]}`)
-    .join('&')
-
-  return createHmac('sha256', apiSecret!).update(query).digest('hex')
-}
-
 /**
  * Generates a signed payload for client-side direct upload.
  * Valid for 1 hour.
  */
-export function generateUploadSignature(folder = process.env.CLOUDINARY_UPLOAD_FOLDER || 'evershaheen/misc') {
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Missing Cloudinary configuration for signature generation')
-  }
-
+export function generateUploadSignature(folder = `${getBaseUploadFolder()}/misc`) {
+  const config = getRequiredCloudinaryConfig()
   const normalizedFolder = normalizeFolderPath(folder)
   const timestamp = Math.round(Date.now() / 1000)
-  const signature = signCloudinaryPayload({ folder: normalizedFolder, timestamp })
+  const signature = cloudinary.utils.api_sign_request({ folder: normalizedFolder, timestamp }, config.apiSecret)
 
   return {
     timestamp,
     signature,
-    cloudName,
-    apiKey,
+    cloudName: config.cloudName,
+    apiKey: config.apiKey,
     folder: normalizedFolder,
   }
 }
@@ -161,9 +170,7 @@ export async function uploadProfileImageToCloudinary(
   subfolder: 'students' | 'teachers',
   publicId: string
 ): Promise<string> {
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.')
-  }
+  getRequiredCloudinaryConfig()
 
   // Strip data-URL prefix and decode to raw bytes
   const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '')
