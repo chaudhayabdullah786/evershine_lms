@@ -273,7 +273,6 @@ export default function FeesManagementPage() {
         open={!!uploadInvoice}
         onOpenChange={(open) => { if (!open) setUploadInvoice(null) }}
         invoice={uploadInvoice}
-        uploadStrategy="signed"
         uploadEndpoint={uploadInvoice ? `/api/fees/${uploadInvoice.id}/proof` : ''}
         successMessage="Payment proof submitted successfully!"
         successQueryKeys={[['fees']]}

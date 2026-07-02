@@ -30,9 +30,75 @@ function normalizeFolderPath(folder: string) {
   return folder.replace(/^\/+|\/+$/g, '').trim()
 }
 
-
 export function isProfileImageDataUrl(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value)
+}
+
+function getBaseUploadFolder() {
+  return (process.env.CLOUDINARY_UPLOAD_FOLDER || 'evershaheen').replace(/^\/+|\/+$/g, '')
+}
+
+function getImageMagic(buffer: Buffer) {
+  return buffer.subarray(0, 4).toString('hex').toUpperCase()
+}
+
+function assertAllowedImage(buffer: Buffer) {
+  const magic = getImageMagic(buffer)
+  const isValidImage =
+    magic.startsWith('FFD8')     || // JPEG
+    magic.startsWith('89504E47') || // PNG
+    magic.startsWith('47494638')    // GIF
+  if (!isValidImage) {
+    throw new Error('Invalid image format. Only JPEG, PNG, and GIF are accepted.')
+  }
+}
+
+export function isAllowedPaymentProof(buffer: Buffer) {
+  if (buffer.length < 4) return false
+  const magic = getImageMagic(buffer)
+  return (
+    magic.startsWith('FFD8') ||
+    magic.startsWith('89504E47') ||
+    magic.startsWith('25504446')
+  )
+}
+
+async function uploadBufferToCloudinary(params: {
+  buffer: Buffer
+  subfolder: 'students' | 'teachers' | 'fee-proofs'
+  publicId: string
+  resourceType: 'image' | 'auto'
+  overwrite?: boolean
+}) {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.')
+  }
+
+  const fullFolder = `${getBaseUploadFolder()}/${params.subfolder}`
+  const safePublicId = params.publicId.replace(/[^a-zA-Z0-9_\-]/g, '-')
+
+  return new Promise<string>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: fullFolder,
+        public_id: safePublicId,
+        resource_type: params.resourceType,
+        quality: params.resourceType === 'image' ? 'auto' : undefined,
+        fetch_format: params.resourceType === 'image' ? 'auto' : undefined,
+        overwrite: params.overwrite ?? true,
+        type: 'upload',
+        access_mode: 'public',
+      },
+      (error, result) => {
+        if (error || !result?.secure_url) {
+          reject(error ?? new Error('Cloudinary upload returned no secure_url'))
+        } else {
+          resolve(result.secure_url)
+        }
+      }
+    )
+    stream.end(params.buffer)
+  })
 }
 
 function signCloudinaryPayload(payload: Record<string, string | number>) {
@@ -70,8 +136,9 @@ export function generateUploadSignature(folder = process.env.CLOUDINARY_UPLOAD_F
  * Uploads a base64 image data-URL to Cloudinary server-side and returns the
  * secure CDN URL.
  *
- * Scope: Profile photos for students and staff members ONLY.
- * All other assets (documents, PDFs, exports, CVs) remain on local disk.
+ * Scope: Profile photos for students and staff members. Payment proof
+ * screenshots/receipts use uploadPaymentProofToCloudinary below. Other
+ * documents, generated PDFs, exports, and CVs remain on local disk.
  *
  * WHY server-side upload here instead of signed client-side token:
  * Profile images arrive as base64 data-URLs embedded in JSON POST bodies
@@ -102,45 +169,36 @@ export async function uploadProfileImageToCloudinary(
   const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '')
   const buffer = Buffer.from(base64Data, 'base64')
 
-  // Magic-byte validation (CWE-434): content-type from extension alone is insufficient
-  const magic = buffer.subarray(0, 4).toString('hex').toUpperCase()
-  const isValidImage =
-    magic.startsWith('FFD8')     || // JPEG
-    magic.startsWith('89504E47') || // PNG
-    magic.startsWith('47494638')    // GIF
-  if (!isValidImage) {
-    throw new Error('Invalid image format. Only JPEG, PNG, and GIF are accepted.')
-  }
+  assertAllowedImage(buffer)
 
   // 5 MB limit on decoded bytes
   if (buffer.length > 5 * 1024 * 1024) {
     throw new Error('Image too large. Maximum allowed size is 5 MB.')
   }
 
-  const baseFolder = (process.env.CLOUDINARY_UPLOAD_FOLDER || 'evershaheen').replace(/^\/+|\/+$/g, '')
-  const fullFolder = `${baseFolder}/${subfolder}`
-  const safePublicId = publicId.replace(/[^a-zA-Z0-9_\-]/g, '-')
+  return uploadBufferToCloudinary({
+    buffer,
+    subfolder,
+    publicId,
+    resourceType: 'image',
+    overwrite: true,
+  })
+}
 
-  return new Promise<string>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: fullFolder,
-        public_id: safePublicId,
-        resource_type: 'image',
-        quality: 'auto',       // WHY: reduces storage cost with negligible visual loss
-        fetch_format: 'auto',  // Serve WebP/AVIF where supported
-        overwrite: true,       // Replace existing photo on re-upload (same public_id)
-        type: 'upload',
-        access_mode: 'public',
-      },
-      (error, result) => {
-        if (error || !result?.secure_url) {
-          reject(error ?? new Error('Cloudinary upload returned no secure_url'))
-        } else {
-          resolve(result.secure_url)
-        }
-      }
-    )
-    stream.end(buffer)
+export async function uploadPaymentProofToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
+  if (!isAllowedPaymentProof(buffer)) {
+    throw new Error('Invalid payment proof format. Only JPG, PNG, and PDF are accepted.')
+  }
+
+  if (buffer.length > 4 * 1024 * 1024) {
+    throw new Error('Payment proof too large. Maximum allowed size is 4 MB.')
+  }
+
+  return uploadBufferToCloudinary({
+    buffer,
+    subfolder: 'fee-proofs',
+    publicId,
+    resourceType: 'auto',
+    overwrite: true,
   })
 }

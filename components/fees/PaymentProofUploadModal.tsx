@@ -46,7 +46,7 @@ export function PaymentProofUploadModal({
   onOpenChange,
   invoice,
   uploadEndpoint,
-  uploadStrategy = 'signed',
+  uploadStrategy = 'direct',
   successMessage = 'Payment proof submitted successfully!',
   successQueryKeys = [],
   maxFileSize = 4 * 1024 * 1024,
