@@ -43,11 +43,29 @@ interface ClassRecord {
   name: string
   grade: number
   section?: string
-  shift?: 'MORNING' | 'EVENING'
+  shift?: 'MORNING' | 'EVENING' | 'NIGHT'
   campusId: string
   batchId?: string
   campus: Campus
   academicYear: string
+}
+
+interface ClassSectionRecord {
+  id: string
+  className: string
+  sectionName: string
+  grade?: number | null
+  campusId: string
+  batchId: string
+  capacity: number
+  campus: Campus
+  shift?: { name: string; code: 'MORNING' | 'EVENING' | 'NIGHT' | string }
+}
+
+interface ExamClassOption extends ClassRecord {
+  optionId: string
+  source: 'legacy' | 'section'
+  sourceLabel: string
 }
 
 interface Exam {
@@ -159,7 +177,7 @@ function MultiClassSelector({
   value,
   onChange,
 }: {
-  classes: ClassRecord[]
+  classes: ExamClassOption[]
   campuses: Campus[]
   value: string[]
   onChange: (v: string[]) => void
@@ -174,8 +192,8 @@ function MultiClassSelector({
     else onChange([...value, id])
   }
 
-  const toggleCampus = (campusClasses: ClassRecord[]) => {
-    const classIds = campusClasses.map(c => c.id)
+  const toggleCampus = (campusClasses: ExamClassOption[]) => {
+    const classIds = campusClasses.map(c => c.optionId)
     const allSelected = classIds.every(id => value.includes(id))
     if (allSelected) {
       onChange(value.filter(v => !classIds.includes(v)))
@@ -189,7 +207,7 @@ function MultiClassSelector({
     <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-3 bg-white">
       {groups.length === 0 && <p className="text-sm text-gray-400 p-2">Loading classes...</p>}
       {groups.map(({ campus, classes: campusClasses }) => {
-        const classIds = campusClasses.map(c => c.id)
+        const classIds = campusClasses.map(c => c.optionId)
         const allSelected = classIds.length > 0 && classIds.every(id => value.includes(id))
         const someSelected = classIds.some(id => value.includes(id))
         return (
@@ -205,19 +223,20 @@ function MultiClassSelector({
               🏫 {campus.name}
             </div>
             {campusClasses.length === 0 ? (
-              <p className="text-xs text-gray-400 pl-8 italic">No legacy classes available for this scope. Create a legacy class or clear the filters.</p>
+              <p className="text-xs text-gray-400 pl-8 italic">No Academic Engine sections or legacy classes available for this scope. Create class sections in Academic Engine or clear the filters.</p>
             ) : (
               <div className="grid grid-cols-2 gap-1 pl-4">
-                {campusClasses.sort((a, b) => a.grade - b.grade || (a.section ?? '').localeCompare(b.section ?? '')).map((cls) => (
-                  <div 
-                    key={cls.id} 
+                {campusClasses.sort((a, b) => a.grade - b.grade || (a.section ?? '').localeCompare(b.section ?? '') || a.source.localeCompare(b.source)).map((cls) => (
+                  <div
+                    key={cls.optionId}
                     className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-600"
-                    onClick={() => toggle(cls.id)}
+                    onClick={() => toggle(cls.optionId)}
                   >
-                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${value.includes(cls.id) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
-                      {value.includes(cls.id) && <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${value.includes(cls.optionId) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                      {value.includes(cls.optionId) && <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
-                    {cls.name}
+                    <span className="min-w-0 flex-1 truncate">{cls.name}</span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">{cls.sourceLabel}</span>
                   </div>
                 ))}
               </div>
@@ -237,7 +256,7 @@ function CreateExamForm({
 }: {
   form: typeof EMPTY_CREATE_FORM
   onChange: (patch: Partial<typeof EMPTY_CREATE_FORM>) => void
-  classes: ClassRecord[]
+  classes: ExamClassOption[]
   campuses: Campus[]
 }) {
   return (
@@ -431,6 +450,14 @@ export default function ExamsPage() {
   })
   const allClasses = useMemo(() => classesRaw ?? [], [classesRaw])
 
+  const { data: classSectionsRaw } = useQuery<ClassSectionRecord[]>({
+    queryKey: ['class-sections-for-exams'],
+    queryFn: () => fetchApi<ClassSectionRecord[]>('/api/class-sections'),
+    enabled: createOpen,
+    staleTime: 5 * 60 * 1000,
+  })
+  const allClassSections = useMemo(() => classSectionsRaw ?? [], [classSectionsRaw])
+
   const scopedClassesForForms = useMemo((): ClassRecord[] => {
     const base = allClasses as ClassRecord[]
     if (!createOpen && !editExam) return base
@@ -445,6 +472,44 @@ export default function ExamsPage() {
       shift: listScope.shift,
     }) as ClassRecord[]
   }, [allClasses, createOpen, editExam, listScope])
+
+  const scopedClassOptionsForCreate = useMemo((): ExamClassOption[] => {
+    const legacyOptions: ExamClassOption[] = scopedClassesForForms.map((cls) => ({
+      ...cls,
+      optionId: `legacy:${cls.id}`,
+      source: 'legacy',
+      sourceLabel: 'Legacy',
+    }))
+
+    const sectionOptions: ExamClassOption[] = allClassSections
+      .filter((section) => {
+        if (listScope.campusId && section.campusId !== listScope.campusId) return false
+        if (listScope.batchId && section.batchId !== listScope.batchId) return false
+        if (listScope.shift && section.shift?.code && section.shift.code !== listScope.shift) return false
+        return true
+      })
+      .map((section) => ({
+        id: section.id,
+        optionId: `section:${section.id}`,
+        source: 'section',
+        sourceLabel: 'Engine',
+        name: [section.className, section.sectionName, section.shift?.name].filter(Boolean).join(' - '),
+        grade: section.grade ?? 0,
+        section: section.sectionName,
+        shift: section.shift?.code as ClassRecord['shift'],
+        campusId: section.campusId,
+        batchId: section.batchId,
+        campus: section.campus,
+        academicYear: CURRENT_YEAR,
+      }))
+
+    const seen = new Set<string>()
+    return [...sectionOptions, ...legacyOptions].filter((option) => {
+      if (seen.has(option.optionId)) return false
+      seen.add(option.optionId)
+      return true
+    })
+  }, [allClassSections, scopedClassesForForms, listScope])
 
   // Fetch all campuses to explicitly display them even if empty
   const { data: campusesRaw } = useQuery<Campus[]>({
@@ -470,16 +535,27 @@ export default function ExamsPage() {
   // ── Mutations ──────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
-    mutationFn: (f: typeof EMPTY_CREATE_FORM) =>
-      fetchApi('/api/exams', {
+    mutationFn: (f: typeof EMPTY_CREATE_FORM) => {
+      const classIds: string[] = []
+      const classSectionIds: string[] = []
+      f.classIds.forEach((value) => {
+        if (value.startsWith('section:')) classSectionIds.push(value.slice('section:'.length))
+        else if (value.startsWith('legacy:')) classIds.push(value.slice('legacy:'.length))
+        else classIds.push(value)
+      })
+
+      return fetchApi('/api/exams', {
         method: 'POST',
         body: JSON.stringify({
           ...f,
+          classIds,
+          classSectionIds,
           startDate: new Date(f.startDate + 'T00:00:00').toISOString(),
           endDate: new Date(f.endDate + 'T23:59:59').toISOString(),
           totalMarks: Number(f.totalMarks),
         }),
-      }),
+      })
+    },
     onSuccess: () => {
       notify.success('Exam(s) scheduled successfully')
       queryClient.invalidateQueries({ queryKey: ['exams'] })
@@ -593,7 +669,7 @@ export default function ExamsPage() {
 
       <motion.div variants={fadeUp(0.2)} className="bg-white rounded-2xl border border-slate-200/60 shadow-soft-md p-4">
         <p className="text-xs text-slate-500 mb-3">
-          Narrow exams by campus, batch, and session. Schedule Exam shows all legacy classes until you choose a campus, batch, or class filter.
+          Narrow exams by campus, batch, and session. Schedule Exam lists Academic Engine sections first and reuses compatible legacy classes for results.
         </p>
         <AcademicScopeFilters
           hierarchy={listHierarchy}
@@ -725,7 +801,7 @@ export default function ExamsPage() {
           <CreateExamForm
             form={createForm}
             onChange={(patch) => setCreateForm((f) => ({ ...f, ...patch }))}
-            classes={scopedClassesForForms}
+            classes={scopedClassOptionsForCreate}
             campuses={campuses}
           />
           <DialogFooter>

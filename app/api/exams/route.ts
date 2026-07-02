@@ -8,17 +8,142 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role, SessionShift } from '@prisma/client'
 import { z } from 'zod'
 
 const createExamSchema = z.object({
   name: z.string().min(2),
-  classIds: z.array(z.string().min(1)).min(1),
+  classIds: z.array(z.string().min(1)).default([]),
+  classSectionIds: z.array(z.string().min(1)).default([]),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
   totalMarks: z.number().int().min(10).default(100),
+}).refine((data) => data.classIds.length > 0 || data.classSectionIds.length > 0, {
+  path: ['classIds'],
+  message: 'Select at least one class or Academic Engine section',
 })
+
+function canAccessCampus(sessionUser: { role: string; campusId?: string | null }, campusId: string) {
+  if (sessionUser.role === 'SUPER_ADMIN') return true
+  if (sessionUser.role === 'ADMIN') return !sessionUser.campusId || sessionUser.campusId === campusId
+  return sessionUser.campusId === campusId
+}
+
+function toSessionShift(code: string | null | undefined): SessionShift {
+  if (code === 'EVENING' || code === 'NIGHT') return code
+  return 'MORNING'
+}
+
+function buildLegacyClassName(section: {
+  className: string
+  sectionName: string
+  shift?: { name: string; code: string } | null
+}) {
+  const bits = [section.className, section.sectionName, section.shift?.name].filter(Boolean)
+  return bits.join(' - ')
+}
+
+async function resolveExamClassTargets(
+  tx: Prisma.TransactionClient,
+  data: z.infer<typeof createExamSchema>,
+  sessionUser: { id: string; role: string; campusId?: string | null },
+) {
+  const legacyClassIds = [...new Set(data.classIds)]
+  const sectionIds = [...new Set(data.classSectionIds)]
+
+  const legacyClasses = legacyClassIds.length > 0
+    ? await tx.class.findMany({
+        where: { id: { in: legacyClassIds }, isActive: true },
+        select: { id: true, campusId: true },
+      })
+    : []
+
+  if (legacyClasses.length !== legacyClassIds.length) {
+    return { error: errors.notFound('One or more classes not found') }
+  }
+
+  const deniedLegacyClass = legacyClasses.find((cls) => !canAccessCampus(sessionUser, cls.campusId))
+  if (deniedLegacyClass) return { error: errors.forbidden() }
+
+  const resolvedClassIds = new Set(legacyClasses.map((cls) => cls.id))
+
+  if (sectionIds.length > 0) {
+    const sections = await tx.classSection.findMany({
+      where: { id: { in: sectionIds }, isActive: true },
+      include: { shift: { select: { name: true, code: true } } },
+    })
+
+    if (sections.length !== sectionIds.length) {
+      return { error: errors.notFound('One or more Academic Engine class sections not found') }
+    }
+
+    for (const section of sections) {
+      if (!canAccessCampus(sessionUser, section.campusId)) {
+        return { error: errors.forbidden() }
+      }
+      if (!section.grade) {
+        return {
+          error: errors.validation({
+            errors: [{ path: ['classSectionIds'], message: `${section.className} ${section.sectionName} must have a grade before exam scheduling` }],
+          } as never),
+        }
+      }
+
+      const shift = toSessionShift(section.shift?.code)
+      const legacySection = section.sectionName?.trim() || null
+      const existing = await tx.class.findUnique({
+        where: {
+          grade_section_campusId_academicYear_shift: {
+            grade: section.grade,
+            section: legacySection ?? '',
+            campusId: section.campusId,
+            academicYear: data.academicYear,
+            shift,
+          },
+        },
+        select: { id: true },
+      })
+
+      if (existing) {
+        resolvedClassIds.add(existing.id)
+        continue
+      }
+
+      const created = await tx.class.create({
+        data: {
+          name: buildLegacyClassName(section),
+          grade: section.grade,
+          section: legacySection,
+          shift,
+          campusId: section.campusId,
+          batchId: section.batchId,
+          academicYear: data.academicYear,
+          capacity: section.capacity,
+        },
+        select: { id: true },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          userId: sessionUser.id,
+          action: 'CREATE',
+          entityType: 'Class',
+          entityId: created.id,
+          changes: {
+            source: 'AcademicEngineClassSectionExamBridge',
+            classSectionId: section.id,
+            academicYear: data.academicYear,
+          },
+        },
+      })
+
+      resolvedClassIds.add(created.id)
+    }
+  }
+
+  return { classIds: [...resolvedClassIds] }
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -40,8 +165,8 @@ export async function GET(request: NextRequest) {
   const where = {
     ...(classId && { classId }),
     ...(academicYear && { academicYear }),
-    ...(session.user.role === 'STUDENT' 
-      ? (scopedClassId ? { classId: scopedClassId } : { id: 'no-match' }) 
+    ...(session.user.role === 'STUDENT'
+      ? (scopedClassId ? { classId: scopedClassId } : { id: 'no-match' })
       : (scopedCampusId ? { class: { campusId: scopedCampusId } } : {})),
     isActive: true,
   }
@@ -71,30 +196,19 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data
 
-  const classes = await prisma.class.findMany({ 
-    where: { id: { in: data.classIds } }, 
-    select: { id: true, campusId: true } 
-  })
-  
-  if (classes.length !== data.classIds.length) return errors.notFound('One or more classes not found')
+  const result = await prisma.$transaction(async (tx) => {
+    const resolved = await resolveExamClassTargets(tx, data, session.user)
+    if ('error' in resolved) return { error: resolved.error }
 
-  if (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN') {
-    const invalidClass = classes.find(c => c.campusId !== session.user.campusId)
-    if (invalidClass) {
-      return errors.forbidden()
-    }
-  }
-
-  const createdExams = await prisma.$transaction(async (tx) => {
     const exams = []
-    for (const cls of classes) {
+    for (const classId of resolved.classIds) {
       const examData = {
         name: data.name,
         academicYear: data.academicYear,
         startDate: data.startDate,
         endDate: data.endDate,
         totalMarks: data.totalMarks,
-        classId: cls.id,
+        classId,
       }
       const newExam = await tx.exam.create({ data: examData })
       exams.push(newExam)
@@ -109,8 +223,10 @@ export async function POST(request: NextRequest) {
         },
       })
     }
-    return exams
+
+    return { exams }
   })
 
-  return createdResponse(createdExams, `${createdExams.length} exam(s) scheduled successfully`)
+  if ('error' in result) return result.error
+  return createdResponse(result.exams, `${result.exams.length} exam(s) scheduled successfully`)
 }

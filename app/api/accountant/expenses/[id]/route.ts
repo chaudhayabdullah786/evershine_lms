@@ -47,6 +47,7 @@ export async function GET(
       createdAt: true,
       updatedAt: true,
       accountant: { select: { firstName: true, lastName: true } },
+      recordedByUser: { select: { email: true } },
     },
   })
 

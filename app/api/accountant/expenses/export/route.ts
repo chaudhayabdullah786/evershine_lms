@@ -94,6 +94,9 @@ export async function GET(request: NextRequest) {
       accountant: {
         select: { firstName: true, lastName: true },
       },
+      recordedByUser: {
+        select: { email: true },
+      },
     },
   })
 

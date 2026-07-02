@@ -24,6 +24,18 @@ async function resolveCampusId(sessionUser: { id: string; role: string; campusId
   return sessionUser.campusId
 }
 
+async function resolveExpenseRecorder(userId: string) {
+  const accountant = await prisma.accountant.findUnique({
+    where: { userId },
+    select: { userId: true },
+  })
+
+  return {
+    recordedBy: accountant?.userId ?? null,
+    recordedByUserId: userId,
+  }
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
@@ -95,6 +107,9 @@ export async function GET(request: NextRequest) {
     accountant: {
       select: { firstName: true, lastName: true },
     },
+    recordedByUser: {
+      select: { email: true },
+    },
   }
 
   const [total, expenses] = await Promise.all([
@@ -142,6 +157,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supportedColumns = await getExpenseColumnSupport()
+  const recorder = await resolveExpenseRecorder(session.user.id)
 
   const expensePayload = {
     title: data.title,
@@ -152,8 +168,10 @@ export async function POST(request: NextRequest) {
     campusId: targetCampusId,
     receiptUrl: data.receiptUrl,
     notes: data.notes,
-    recordedBy: session.user.id,
+    recordedBy: recorder.recordedBy,
+    recordedByUserId: recorder.recordedByUserId,
     isApproved: true,
+    approvedBy: session.user.id,
     ...(supportedColumns.paymentSource && data.paymentSource ? { paymentSource: data.paymentSource } : {}),
     ...(supportedColumns.paymentReference && data.paymentReference ? { paymentReference: data.paymentReference } : {}),
   }

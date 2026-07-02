@@ -260,6 +260,7 @@ model User {
   retroactiveScoreEdits   RetroactiveScoreEditLog[]
   createdRolePermissions  RolePermission[]
   requestedRoleAssumptions RoleAssumption[]
+  recordedExpenses       Expense[] @relation("ExpenseRecordedByUser")
 
   @@index([email])
   @@index([role])
@@ -2022,9 +2023,10 @@ model Expense {
   date             DateTime        @db.Date
   campusId         String
   receiptUrl       String? // Cloudinary URL of scanned receipt
-  // recordedBy stores the Accountant's User ID (not Accountant.id)
-  // WHY User ID: AuditLog.userId is consistent; User lookup is direct.
-  recordedBy       String
+  // recordedBy stores the Accountant's User ID when a finance user records the expense.
+  // recordedByUserId stores the actual acting User ID for SuperAdmin/Admin records too.
+  recordedBy       String?
+  recordedByUserId String?
   // WHY paymentSource as String not enum: supports freeform labels like
   // "Petty Cash", "HBL Bank Transfer", "Cheque #1234" without schema migrations.
   paymentSource    String? // "Cash" | "Bank Transfer" | "Cheque" | "Petty Cash"
@@ -2040,13 +2042,15 @@ model Expense {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  campus     Campus     @relation(fields: [campusId], references: [id])
-  accountant Accountant @relation(fields: [recordedBy], references: [userId])
+  campus         Campus      @relation(fields: [campusId], references: [id])
+  accountant     Accountant? @relation(fields: [recordedBy], references: [userId])
+  recordedByUser User?       @relation("ExpenseRecordedByUser", fields: [recordedByUserId], references: [id])
 
   @@index([campusId])
   @@index([category])
   @@index([date]) // Primary query pattern: range filter by date for reports
   @@index([recordedBy])
+  @@index([recordedByUserId])
   @@index([isDeleted]) // Exclude soft-deleted in all list queries
   @@index([paymentSource]) // For payment-source-filtered expense reports
 }
