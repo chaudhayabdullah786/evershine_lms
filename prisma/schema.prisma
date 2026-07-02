@@ -2300,10 +2300,10 @@ model ProfitLossStatement {
   // profitPercentage: Account Manager specifies this for SuperAdmin allocation
   profitPercentage      Decimal  @db.Decimal(5, 2) // e.g. 20.00
   superAdminAllocation  Decimal  @db.Decimal(12, 2) // grossMargin * (profitPercentage/100)
-  // RULE: SuperAdmin draws only 15% of their allocation monthly
-  superAdminMonthlyDraw Decimal  @db.Decimal(12, 2) // superAdminAllocation * 0.15
-  // RULE: Remaining 5% of allocation goes to Reserve Fund automatically
-  reserveContribution   Decimal  @db.Decimal(12, 2) // superAdminAllocation * 0.05
+  // RULE: SuperAdmin draws 75% of their allocation monthly
+  superAdminMonthlyDraw Decimal  @db.Decimal(12, 2) // superAdminAllocation * 0.75
+  // RULE: Remaining 25% of allocation goes to Reserve Fund automatically
+  reserveContribution   Decimal  @db.Decimal(12, 2) // superAdminAllocation * 0.25
   remainingAmount       Decimal  @db.Decimal(12, 2) // grossMargin - superAdminAllocation
   generatedBy           String // Accountant User.id
   // WHY Json snapshot: prevents historical statements from changing if

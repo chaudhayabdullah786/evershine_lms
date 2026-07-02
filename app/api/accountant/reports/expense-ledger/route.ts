@@ -7,11 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 import { buildLedgerReport, LedgerEntry } from '@/lib/excel/ledger-report'
+import { getExpenseColumnSupport } from '@/lib/accounting/expense-columns'
 
 const querySchema = z.object({
   startDate: z.string().date().optional(),
@@ -61,23 +63,33 @@ export async function GET(req: NextRequest) {
 
     // ─── 1. Query General Operational Expenses ────────────────────────────────
 
-    const expenseWhere = {
+    const supportedExpenseColumns = await getExpenseColumnSupport()
+    const expenseWhere: Prisma.ExpenseWhereInput = {
       isDeleted: false,
       ...(targetCampusId ? { campusId: targetCampusId } : {}),
-      ...(paymentSource ? { paymentSource: { contains: paymentSource, mode: 'insensitive' } as any } : {}),
+      ...(paymentSource && supportedExpenseColumns.paymentSource ? { paymentSource: { contains: paymentSource } } : {}),
       ...(dateFilter ? { date: dateFilter } : {}),
     }
 
     const expenses = await prisma.expense.findMany({
       where: expenseWhere,
       orderBy: { date: 'asc' },
+      select: {
+        id: true,
+        date: true,
+        category: true,
+        title: true,
+        amount: true,
+        ...(supportedExpenseColumns.paymentSource ? { paymentSource: true } : {}),
+        ...(supportedExpenseColumns.paymentReference ? { paymentReference: true } : {}),
+      },
     })
 
     // ─── 2. Query Paid Salary Slips ───────────────────────────────────────────
 
-    const salaryWhere = {
+    const salaryWhere: Prisma.SalarySlipWhereInput = {
       isDeleted: false,
-      status: 'PAID' as const,
+      status: 'PAID',
       ...(targetCampusId
         ? {
             employee: {
@@ -89,7 +101,7 @@ export async function GET(req: NextRequest) {
             },
           }
         : {}),
-      ...(paymentSource ? { paymentSource: { contains: paymentSource, mode: 'insensitive' } as any } : {}),
+      ...(paymentSource ? { paymentSource: { contains: paymentSource } } : {}),
       ...(dateFilter ? { updatedAt: dateFilter } : {}),
     }
 

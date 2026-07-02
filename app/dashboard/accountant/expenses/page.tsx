@@ -368,6 +368,27 @@ export default function AccountantExpensesPage() {
         </div>
       </div>
 
+      <Card className="border-teal-100 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Expense ledger steps</CardTitle>
+          <CardDescription>Record expenses once, then reuse the same ledger for filtering, P&L, and Excel exports.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          {[
+            ['1', 'Choose campus', 'Global finance users select the campus; campus-scoped users are applied automatically.'],
+            ['2', 'Record expense', 'Enter title, category, amount, date, payment method/reference, and notes.'],
+            ['3', 'Review ledger', 'Filter by category and date range, then edit or soft-delete incorrect records.'],
+            ['4', 'Export and report', 'Download Excel or generate P&L after income, expenses, and payroll are complete.'],
+          ].map(([step, title, body]) => (
+            <div key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-black text-white">{step}</span>
+              <p className="mt-3 text-sm font-bold text-slate-900">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
         <Card>
           <CardHeader>

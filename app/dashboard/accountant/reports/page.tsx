@@ -570,6 +570,19 @@ export default function AccountantReportsPage() {
                 <p className="text-sm text-slate-500 max-w-2xl mt-3">
                   Expense collection is campus-aware: only approved operational expenses and paid salary slips for the chosen campus and date range are included in the snapshot.
                 </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['1', 'Confirm fee payments and payment proofs are posted.'],
+                    ['2', 'Record expenses and paid salary slips for the same period.'],
+                    ['3', 'Create the P&L snapshot with the approved SuperAdmin share percentage.'],
+                    ['4', 'Export the snapshot and review reserve fund balance from the dashboard or reserve ledger.'],
+                  ].map(([step, body]) => (
+                    <div key={step} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-xs font-black text-white">{step}</span>
+                      {body}
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                 <Button

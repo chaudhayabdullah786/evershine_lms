@@ -125,6 +125,18 @@ export async function GET(_request: NextRequest) {
       ? Math.round((todayAttendanceCount / totalStudentsForRate) * 100)
       : 0
 
+  const latestReserveFund = role === 'SUPER_ADMIN'
+    ? await prisma.reserveFundLedger.findFirst({
+        orderBy: { transactionDate: 'desc' },
+        select: {
+          cumulativeTotal: true,
+          contributionAmount: true,
+          periodLabel: true,
+          transactionDate: true,
+        },
+      })
+    : null
+
   return successResponse({
     students: {
       total: totalStudents,
@@ -136,6 +148,14 @@ export async function GET(_request: NextRequest) {
     finance: {
       totalCollected: Number(totalFeeCollected._sum.amount ?? 0),
       totalPending: Number(totalFeePending._sum.dueAmount ?? 0),
+      reserveFundBalance: Number(latestReserveFund?.cumulativeTotal ?? 0),
+      latestReserveContribution: latestReserveFund
+        ? {
+            amount: Number(latestReserveFund.contributionAmount ?? 0),
+            periodLabel: latestReserveFund.periodLabel,
+            transactionDate: latestReserveFund.transactionDate,
+          }
+        : null,
     },
     attendance: {
       todayPresent: todayAttendanceCount,

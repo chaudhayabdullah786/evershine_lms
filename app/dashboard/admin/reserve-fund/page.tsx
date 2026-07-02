@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchPaginatedApi, fetchApi } from '@/lib/api-client'
+import { fetchApi } from '@/lib/api-client'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { AccessDenied } from '@/components/AccessDenied'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,6 +54,12 @@ interface ReserveResponse {
     campusId: string
     year: string
   }
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 export default function ReserveFundPage() {
@@ -80,23 +86,12 @@ export default function ReserveFundPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['reserve-fund-ledger', campusId, year, page],
-    queryFn: () => fetchPaginatedApi<ReserveResponse>(`/api/superadmin/reserve-fund?${params}`),
+    queryFn: () => fetchApi<ReserveResponse>(`/api/superadmin/reserve-fund?${params}`),
     enabled: isSuperAdmin,
   })
 
-  // Since response returns paginated structure wrapper for the specific key,
-  // let's look at the structure returned by api: successResponse({ entries, currentBalance })
-  // Our api-client fetchPaginatedApi returns { data: T[], pagination } where T is custom.
-  // Wait, let's verify if the route returns standard paginatedResponse. Yes!
-  // It returns paginatedResponse({ entries, currentBalance, filteredBy }, { page, limit, total })
-  // So inside the api-client, json.data contains { entries, currentBalance, filteredBy }, which is returned as `data.data`
-  // Wait! Let's check how the route wraps it:
-  // paginatedResponse({ entries, currentBalance, filteredBy }, { page, limit, total })
-  // This means the return object contains `data` which has keys `entries` etc.
-  // Let's verify by casting the raw return or handling gracefully.
-  const rawData = data?.data as any
-  const entries: ReserveEntry[] = rawData?.entries ?? []
-  const balance = rawData?.currentBalance ?? 0
+  const entries: ReserveEntry[] = data?.entries ?? []
+  const balance = data?.currentBalance ?? 0
   const pagination = data?.pagination
 
   if (status === 'loading') return null

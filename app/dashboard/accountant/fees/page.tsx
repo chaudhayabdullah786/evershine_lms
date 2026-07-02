@@ -94,6 +94,27 @@ export default function AccountantFeesPage() {
         <h1 className="text-2xl font-black text-slate-900">Fee Collection Hub</h1>
         <p className="text-sm text-slate-500">Issue invoices, track defaulters, and export payment reports.</p>
       </div>
+      <Card className="border-teal-100 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Fee collection steps</CardTitle>
+          <CardDescription>Complete the flow in order so challans, proof review, and exports stay aligned.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          {[
+            ['1', 'Search student', 'Find the active student by name, registration number, roll number, or B-Form/CNIC.'],
+            ['2', 'Issue challan', 'Select month, academic year, due date, and fee line items, then generate the invoice.'],
+            ['3', 'Verify proof', 'Review uploaded payment proof and approve full or partial received amount.'],
+            ['4', 'Export reports', 'Download defaulters and paid-fee lists for finance records.'],
+          ].map(([step, title, body]) => (
+            <div key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-black text-white">{step}</span>
+              <p className="mt-3 text-sm font-bold text-slate-900">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="invoice" className="space-y-4">
         <TabsList>
           <TabsTrigger value="invoice" className="gap-2"><CreditCard className="h-4 w-4" />Issue Invoice</TabsTrigger>
@@ -139,7 +160,7 @@ function IssueInvoiceTab() {
 
   const { data: sData, isFetching } = useQuery({
     queryKey: ['fee-student-search', query],
-    queryFn: () => fetchPaginatedApi<StudentResult>(`/api/students?query=${encodeURIComponent(query)}&limit=8`),
+    queryFn: () => fetchPaginatedApi<StudentResult>(`/api/students?search=${encodeURIComponent(query)}&limit=8`),
     enabled: query.length >= 2,
     staleTime: 10_000,
   })
@@ -187,6 +208,11 @@ function IssueInvoiceTab() {
                 value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             {isFetching && <p className="text-xs text-slate-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Searching…</p>}
+            {query.length >= 2 && !isFetching && results.length === 0 && !student && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                No active student found. Search by name, registration number, roll number, or B-Form/CNIC.
+              </p>
+            )}
             {results.length > 0 && !student && (
               <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y">
                 {results.map(s => (

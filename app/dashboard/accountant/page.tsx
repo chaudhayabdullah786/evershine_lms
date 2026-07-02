@@ -109,6 +109,27 @@ export default function AccountantDashboardPage() {
         </div>
       </div>
 
+      <Card className="border-teal-100 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Finance workflow</CardTitle>
+          <CardDescription>Use this order to keep income, expense, payroll, and reserve records consistent.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          {[
+            ['1', 'Issue and verify fees', 'Create student invoices, review payment proofs, then export paid and defaulter lists.'],
+            ['2', 'Record costs', 'Add campus expenses with payment method/reference and keep salary slips marked paid when released.'],
+            ['3', 'Generate P&L', 'Choose the period and campus, then create the audited P&L snapshot from posted transactions.'],
+            ['4', 'Review reserve', 'SuperAdmin reviews cumulative reserve balance and allocation history from the reserve ledger.'],
+          ].map(([step, title, body]) => (
+            <div key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-black text-white">{step}</span>
+              <p className="mt-3 text-sm font-bold text-slate-900">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -217,7 +238,7 @@ export default function AccountantDashboardPage() {
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-4">
           <Button asChild variant="outline" className="h-auto justify-start gap-3 border-teal-200 bg-white p-4 text-left hover:bg-teal-50">
-            <Link href="/dashboard/fees">
+            <Link href="/dashboard/accountant/fees">
               <CreditCard className="h-4 w-4 text-teal-600" />
               <span>
                 <span className="block font-semibold text-slate-900">Fee collection</span>

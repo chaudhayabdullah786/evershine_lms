@@ -10,14 +10,19 @@ import { batchRequiresGenderSeparation, campusIsGenderCompatible, inferCampusGen
 
 const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4, outputLen: 32 }
 
+const optionalTrimmedString = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().optional()
+)
+
 const approveSchema = z.object({
-  campusId: z.string(),
-  batchId: z.string(),
-  classId: z.string().optional(),
-  classSectionId: z.string().optional(),
-  section: z.string().optional(),
-  houseId: z.string().optional(),
-  rollNumber: z.string().min(1, 'Roll number is required'),
+  campusId: z.string().trim().min(1, 'Campus is required'),
+  batchId: z.string().trim().min(1, 'Batch is required'),
+  classId: optionalTrimmedString,
+  classSectionId: optionalTrimmedString,
+  section: optionalTrimmedString,
+  houseId: optionalTrimmedString,
+  rollNumber: z.string().trim().min(1, 'Roll number is required'),
   admissionFee: z.number().min(0).default(0),
   courseFee: z.number().min(0).default(0),
   totalAcademicFee: z.number().min(0).default(0),
@@ -354,7 +359,20 @@ export async function POST(
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: 'Validation failed' }, { status: 400 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: error.errors[0]?.message ?? 'Validation failed',
+            details: error.errors.map((issue) => ({
+              field: issue.path.join('.'),
+              message: issue.message,
+            })),
+          },
+        },
+        { status: 400 }
+      )
     }
     console.error('[ADMISSIONS_APPROVE]', error)
     return NextResponse.json({ success: false, error: 'Failed to approve admission' }, { status: 500 })

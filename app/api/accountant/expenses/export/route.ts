@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { errors } from '@/lib/api-response'
 import { expenseExportSchema } from '@/lib/validation/expense'
 import { buildExpenseReport } from '@/lib/excel/expense-report'
+import { getExpenseColumnSupport } from '@/lib/accounting/expense-columns'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
   }
 
+  const supportedColumns = await getExpenseColumnSupport()
   const expenses = await prisma.expense.findMany({
     where,
     orderBy: { date: 'desc' },
@@ -81,8 +83,8 @@ export async function GET(request: NextRequest) {
       campus: { select: { name: true } },
       receiptUrl: true,
       notes: true,
-      paymentSource: true,
-      paymentReference: true,
+      ...(supportedColumns.paymentSource ? { paymentSource: true } : {}),
+      ...(supportedColumns.paymentReference ? { paymentReference: true } : {}),
       recordedBy: true,
       isApproved: true,
       approvedBy: true,
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
     },
   })
 
-  const workbook = await buildExpenseReport(expenses, { start: startDate, end: endDate, category })
+  const workbook = await buildExpenseReport(expenses as unknown as Parameters<typeof buildExpenseReport>[0], { start: startDate, end: endDate, category })
 
   // Use a modern approach for streaming the ExcelJS workbook into a Web Response.
   // ExcelJS writes a Buffer-like payload; convert it to a pure ArrayBuffer for NextResponse compatibility.
