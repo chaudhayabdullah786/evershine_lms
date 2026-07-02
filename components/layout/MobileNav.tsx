@@ -47,7 +47,7 @@ const ROLE_NAV_MAP: Record<string, NavItem[]> = {
   TEACHER: [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/teacher/students', label: 'Students', icon: Users },
-    { href: '/dashboard/teacher/attendance', label: 'Attendance', icon: ClipboardCheck },
+    { href: '/dashboard/teacher/attendance', label: 'Students', icon: ClipboardCheck },
     { href: '/dashboard/timetable', label: 'Timetable', icon: CalendarClock },
     { href: '/dashboard/settings', label: 'Profile', icon: Settings },
   ],

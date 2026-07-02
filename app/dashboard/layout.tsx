@@ -109,7 +109,7 @@ const NAV_ITEMS: NavItem[] = [
 // Teacher-exclusive nav — only shown when role === 'TEACHER'
 const TEACHER_NAV_ITEMS: NavItem[] = [
   { name: 'My Students',        href: '/dashboard/teacher/students',          icon: Users },
-  { name: 'Attendance & QR',    href: '/dashboard/teacher/attendance',        icon: ClipboardCheck },
+  { name: 'Student Attendance', href: '/dashboard/teacher/attendance',        icon: ClipboardCheck },
   { name: 'My Announcements',   href: '/dashboard/teacher/announcements',     icon: Megaphone },
   { name: 'Tasks & Marks',      href: '/dashboard/teacher/tasks',             icon: ClipboardList },
   { name: 'Daily Scores',       href: '/dashboard/teacher/daily-scores',      icon: Target },

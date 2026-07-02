@@ -214,7 +214,7 @@ export function AuthLayout({ children, pageType }: AuthLayoutProps) {
           <span aria-hidden>·</span>
           <a href="mailto:info@evershaheen.edu.pk" className="hover:text-blue-700 transition-colors">Support</a>
           <span aria-hidden>·</span>
-          <span>Madina Town, Faisalabad</span>
+          <span>Madina Town, Gujranwala</span>
         </motion.div>
 
         {/* ── COPYRIGHT ── */}

@@ -131,6 +131,9 @@ export const markTeacherAttendanceSchema = z.object({
   // WHY: ON_LEAVE is intentionally excluded — the Prisma schema AttendanceStatus enum
   // only defines PRESENT, ABSENT, LATE, EXCUSED. Use EXCUSED for planned leave.
   status: z.enum(['PRESENT', 'ABSENT', 'LATE', 'EXCUSED']),
+  checkInTime: z.string().datetime().optional(),
+  penaltyAmount: z.number().min(0).optional(),
+  isPenaltyApplied: z.boolean().optional(),
   remarks: z.string().trim().optional(),
 })
 
