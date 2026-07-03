@@ -288,5 +288,8 @@ export const ADMIN_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN']
 /** Roles that can mark attendance */
 export const ATTENDANCE_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEACHER']
 
+/** Roles that can mark teacher HR attendance */
+export const TEACHER_HR_ATTENDANCE_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN']
+
 /** Roles that can manage financial records */
 export const FINANCE_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']
