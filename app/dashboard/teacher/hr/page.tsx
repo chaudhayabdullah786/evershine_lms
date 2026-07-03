@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { notify } from '@/lib/notify'
-import { Wallet, FileText, Send, Calendar, Clock, CheckCircle, XCircle, UserCheck, Loader2, AlertTriangle, ShieldCheck, ShieldAlert, Timer } from 'lucide-react'
+import { Wallet, FileText, Send, Calendar, Clock, CheckCircle, XCircle, UserCheck, Loader2, AlertTriangle, ShieldCheck, ShieldAlert, Timer, Info } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import type { SessionShift } from '@/lib/validation/shift'
@@ -31,7 +31,7 @@ type CheckInData = {
 }
 type HrTab = 'checkin' | 'salary' | 'applications'
 const HR_TABS: Array<readonly [HrTab, typeof UserCheck, string]> = [
-  ['checkin', UserCheck, 'Attendance'],
+  ['checkin', UserCheck, 'My Attendance Record'],
   ['salary', Wallet, 'Salary Slips'],
   ['applications', FileText, 'My Applications'],
 ]
@@ -172,6 +172,16 @@ export default function TeacherHRPage() {
           ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'checkin' && (
         <div className="space-y-5">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-indigo-850 dark:text-indigo-900 flex items-start gap-3 shadow-sm">
+            <Info className="w-5 h-5 mt-0.5 text-indigo-600 flex-shrink-0" />
+            <div>
+              <p className="font-bold text-indigo-905">Official HR Attendance Log</p>
+              <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
+                Your attendance and check-in times are officially managed by the campus administration. Discrepancies, leaves, or corrections must be processed through your campus administrator or by submitting an application.
+              </p>
+            </div>
+          </div>
+
           {isLoadingCheckIn ? (
             <div className="flex items-center gap-2 text-gray-500 py-16 justify-center"><Loader2 className="w-5 h-5 animate-spin" /> Loading attendance data…</div>
           ) : (

@@ -86,6 +86,7 @@ const NAV_ITEMS: NavItem[] = [
   // Staff Salaries global page: admin/accountant only. Teachers use HR Portal.
   { name: 'Staff Salaries',  href: '/dashboard/salaries',     icon: Banknote,        roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
   { name: 'Attendance', href: '/dashboard/attendance/sections', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { name: 'Staff Attendance', href: '/dashboard/teachers/attendance', icon: UserCheck, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Class Attendance (Legacy)', href: '/dashboard/attendance/legacy', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'ADMIN'], legacy: true },
   { name: 'Exams',           href: '/dashboard/exams',        icon: BookOpen,        roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
   { name: 'Results',         href: '/dashboard/results',      icon: BarChart2,       roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
