@@ -58,22 +58,20 @@ export async function GET(request: NextRequest) {
   const scopedCampusId =
     session.user.role !== 'SUPER_ADMIN' ? (session.user.campusId ?? undefined) : campusId
 
-  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
-
   const where = {
     ...(scopedCampusId && { campusId: scopedCampusId }),
     ...(batchId && { batchId }),
     ...(isActive !== undefined && { isActive }),
-    ...(searchTerms.length > 0 && {
-      AND: searchTerms.map((word) => ({
-        OR: [
-          { firstName: { contains: word, mode: 'insensitive' as const } },
-          { lastName: { contains: word, mode: 'insensitive' as const } },
-          { employeeId: { contains: word, mode: 'insensitive' as const } },
-          { specialization: { contains: word, mode: 'insensitive' as const } },
-          { cnic: { contains: word, mode: 'insensitive' as const } },
-        ],
-      })),
+    ...(search && {
+      // WHY no mode: 'insensitive' — MySQL collation handles case-insensitive
+      // LIKE natively. mode: 'insensitive' is PostgreSQL-only and throws a
+      // Prisma runtime error on MySQL.
+      OR: [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { employeeId: { contains: search } },
+        { specialization: { contains: search } },
+      ],
     }),
   }
 

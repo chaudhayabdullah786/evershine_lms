@@ -93,11 +93,13 @@ export async function GET(request: NextRequest) {
     where.status = status
   }
   if (q) {
+    // WHY no mode: 'insensitive' — MySQL utf8mb4_unicode_ci collation handles
+    // case-insensitive LIKE natively. mode: 'insensitive' is PostgreSQL-only.
     where.OR = [
-      { name: { contains: q, mode: 'insensitive' } },
-      { email: { contains: q, mode: 'insensitive' } },
+      { name: { contains: q } },
+      { email: { contains: q } },
       { phone: { contains: q } },
-      { message: { contains: q, mode: 'insensitive' } },
+      { message: { contains: q } },
     ]
   }
 
