@@ -11,6 +11,13 @@ import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import type { Prisma, Role, SessionShift } from '@prisma/client'
 import { z } from 'zod'
 
+// WHY: Extract a numeric grade from className strings like "Class 9", "Class 10th",
+// "Class 9th Parwaz" — covers all naming conventions used in this institution.
+function inferGradeFromClassName(className: string): number | null {
+  const match = className.match(/\b(\d+)(?:st|nd|rd|th)?\b/)
+  return match ? parseInt(match[1], 10) : null
+}
+
 const createExamSchema = z.object({
   name: z.string().min(2),
   classIds: z.array(z.string().min(1)).default([]),
@@ -83,11 +90,24 @@ async function resolveExamClassTargets(
         return { error: errors.forbidden() }
       }
       if (!section.grade) {
-        return {
-          error: errors.validation({
-            errors: [{ path: ['classSectionIds'], message: `${section.className} ${section.sectionName} must have a grade before exam scheduling` }],
-          } as never),
+        // WHY: Sections created in the Academic Engine without an explicit numeric grade
+        // are still schedulable — attempt to infer the grade from the className
+        // (e.g. "Class 10th Parwaz" → 10). Only reject if inference also fails.
+        const inferred = inferGradeFromClassName(section.className)
+        if (!inferred) {
+          return {
+            error: errors.validation({
+              errors: [{
+                path: ['classSectionIds'],
+                message: `${section.className} ${section.sectionName} has no numeric grade. Set a grade in Academic Engine before scheduling exams.`,
+              }],
+            } as never),
+          }
         }
+        // Mutate in-memory only — no DB write. The auto-bridge Class record below
+        // will carry the inferred grade; the ClassSection record itself is not modified
+        // here to avoid unintended side effects on other academic workflows.
+        ;(section as { grade: number | null }).grade = inferred
       }
 
       const shift = toSessionShift(section.shift?.code)
