@@ -24,114 +24,16 @@ import {
   markTeacherAttendanceSchema,
   teacherAttendanceQuerySchema,
 } from '@/lib/validation/teacher'
-import { ATTENDANCE_POLICY, SESSION_SHIFT_LABELS, SESSION_SHIFT_TIMES } from '@/lib/validation/shift'
-import { timeToMinutes } from '@/lib/academic/engine'
-import type { AttendanceStatus, Role, TeacherHrAttendanceStatus } from '@prisma/client'
+import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
+import { resolveAttendanceMark } from '@/lib/teacher-attendance'
+import type { Role } from '@prisma/client'
 
 interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-type TeacherAttendanceMark = {
-  status: AttendanceStatus
-  hrStatus: TeacherHrAttendanceStatus
-  checkInTime: Date | null
-  lateMinutes: number
-  penaltyAmount: number
-  isPenaltyApplied: boolean
-  gracePassUsed: boolean
-  priorLateCount: number
-}
-
 function dateKey(date: Date): string {
   return date.toISOString().slice(0, 10)
-}
-
-function minutesFromDate(date: Date): number {
-  return date.getHours() * 60 + date.getMinutes()
-}
-
-async function resolveAttendanceMark(input: {
-  teacher: { id: string; campusId: string; monthlySalary: unknown }
-  date: Date
-  shift: keyof typeof SESSION_SHIFT_TIMES
-  status: AttendanceStatus
-  checkInTime?: string
-  penaltyAmount?: number
-  isPenaltyApplied?: boolean
-}): Promise<TeacherAttendanceMark> {
-  const shiftRow = await prisma.shift.findUnique({ where: { code: input.shift } })
-  const fallbackWindow = SESSION_SHIFT_TIMES[input.shift]
-  const shiftStart = shiftRow?.startTime ?? fallbackWindow.start
-  const grace = shiftRow?.lateGraceMinutes ?? ATTENDANCE_POLICY.defaultGraceMinutes
-
-  const policy = await prisma.teacherPenaltyPolicy.findFirst({
-    where: { OR: [{ campusId: input.teacher.campusId }, { campusId: null }], isActive: true },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  let status = input.status
-  let hrStatus: TeacherHrAttendanceStatus
-  let checkInTime: Date | null = input.checkInTime ? new Date(input.checkInTime) : null
-  let lateMinutes = 0
-  let calculatedPenalty = 0
-  let gracePassUsed = false
-  let priorLateCount = 0
-
-  if (status === 'ABSENT') {
-    hrStatus = 'ABSENT'
-    calculatedPenalty = policy ? Number(policy.leavePenaltyAmount) : 0
-    checkInTime = null
-  } else if (status === 'EXCUSED') {
-    hrStatus = 'LEAVE'
-    checkInTime = null
-  } else {
-    if (checkInTime) {
-      const expectedStart = timeToMinutes(shiftStart)
-      lateMinutes = Math.max(0, minutesFromDate(checkInTime) - expectedStart - grace)
-    }
-
-    hrStatus = lateMinutes > 0 || status === 'LATE' ? 'LATE' : 'PRESENT'
-    status = hrStatus === 'LATE' ? 'LATE' : 'PRESENT'
-
-    if (hrStatus === 'LATE') {
-      const monthStart = new Date(input.date.getFullYear(), input.date.getMonth(), 1)
-      priorLateCount = await prisma.teacherAttendance.count({
-        where: {
-          teacherId: input.teacher.id,
-          hrStatus: 'LATE',
-          date: { gte: monthStart, lt: input.date },
-        },
-      })
-
-      gracePassUsed = priorLateCount < ATTENDANCE_POLICY.freeLatePasses
-      if (!gracePassUsed && policy) {
-        calculatedPenalty =
-          policy.penaltyType === 'FIXED'
-            ? policy.penaltyValue
-            : ((Number(input.teacher.monthlySalary) || 0) * policy.penaltyValue) / 100
-
-        const totalLateThisMonth = priorLateCount + 1
-        if (policy.repeatMultiplier && totalLateThisMonth >= policy.lateThreshold) {
-          calculatedPenalty *= policy.repeatMultiplier
-        }
-      }
-    }
-  }
-
-  let penaltyAmount = input.penaltyAmount ?? calculatedPenalty
-  if (input.isPenaltyApplied === false) penaltyAmount = 0
-
-  return {
-    status,
-    hrStatus,
-    checkInTime,
-    lateMinutes,
-    penaltyAmount,
-    isPenaltyApplied: input.isPenaltyApplied ?? penaltyAmount > 0,
-    gracePassUsed,
-    priorLateCount,
-  }
 }
 
 // ── GET /api/teachers/[id]/attendance ─────────────────────────────────────────

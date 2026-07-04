@@ -86,9 +86,34 @@ export function isAllowedPaymentProof(buffer: Buffer) {
   )
 }
 
+export function sanitizeCloudinaryError(error: unknown) {
+  const err = error as { message?: unknown; http_code?: unknown; name?: unknown; code?: unknown }
+  return {
+    message: typeof err?.message === 'string' ? err.message : 'Cloudinary request failed',
+    http_code: typeof err?.http_code === 'number' ? err.http_code : undefined,
+    name: typeof err?.name === 'string' ? err.name : undefined,
+    code: typeof err?.code === 'string' || typeof err?.code === 'number' ? String(err.code) : undefined,
+  }
+}
+
+export function getCloudinaryRuntimeDiagnostics() {
+  const baseFolder = getBaseUploadFolder()
+  return {
+    configured: Boolean(cloudName && apiKey && apiSecret),
+    cloudName: cloudName || null,
+    uploadFolder: baseFolder,
+    requiredVariables: {
+      CLOUDINARY_CLOUD_NAME: { present: Boolean(cloudName), length: cloudName?.length ?? 0 },
+      CLOUDINARY_API_KEY: { present: Boolean(apiKey), length: apiKey?.length ?? 0 },
+      CLOUDINARY_API_SECRET: { present: Boolean(apiSecret), length: apiSecret?.length ?? 0 },
+      CLOUDINARY_UPLOAD_FOLDER: { present: Boolean(process.env.CLOUDINARY_UPLOAD_FOLDER?.trim()), length: process.env.CLOUDINARY_UPLOAD_FOLDER?.trim().length ?? 0 },
+    },
+  }
+}
+
 async function uploadBufferToCloudinary(params: {
   buffer: Buffer
-  subfolder: 'students' | 'teachers' | 'fee-proofs'
+  subfolder: 'students' | 'teachers' | 'fee-proofs' | 'diagnostics'
   publicId: string
   resourceType: 'image' | 'auto'
   overwrite?: boolean
@@ -208,4 +233,40 @@ export async function uploadPaymentProofToCloudinary(buffer: Buffer, publicId: s
     resourceType: 'auto',
     overwrite: true,
   })
+}
+
+
+export async function runCloudinaryDiagnosticUpload() {
+  getRequiredCloudinaryConfig()
+
+  const png1x1 = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+    'base64'
+  )
+  const publicId = `diagnostic-${Date.now()}`
+  const folder = `${getBaseUploadFolder()}/diagnostics`
+
+  try {
+    const secureUrl = await uploadBufferToCloudinary({
+      buffer: png1x1,
+      subfolder: 'diagnostics',
+      publicId,
+      resourceType: 'image',
+      overwrite: true,
+    })
+
+    return {
+      ok: true as const,
+      folder,
+      publicId,
+      secureUrl,
+    }
+  } catch (error) {
+    return {
+      ok: false as const,
+      folder,
+      publicId,
+      error: sanitizeCloudinaryError(error),
+    }
+  }
 }

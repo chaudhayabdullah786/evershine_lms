@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
   const scopedCampusId =
     role === 'SUPER_ADMIN' ? campusId : (session.user.campusId ?? undefined)
 
-  const isNumericSearch = search ? /^\d+$/.test(search) : false;
+  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
 
   const where = {
     isActive: true,
@@ -111,19 +111,17 @@ export async function GET(request: NextRequest) {
         },
       },
     }),
-    ...(search && {
-      OR: isNumericSearch
-        ? [
-            { rollNumber: { contains: search } },
-            { registrationNumber: { contains: search, mode: 'insensitive' as const } },
-            { cnicBForm: { contains: search } },
-          ]
-        : [
-            { firstName: { contains: search, mode: 'insensitive' as const } },
-            { lastName: { contains: search, mode: 'insensitive' as const } },
-            { fatherName: { contains: search, mode: 'insensitive' as const } },
-            { registrationNumber: { contains: search, mode: 'insensitive' as const } },
-          ],
+    ...(searchTerms.length > 0 && {
+      AND: searchTerms.map((word) => ({
+        OR: [
+          { firstName: { contains: word, mode: 'insensitive' as const } },
+          { lastName: { contains: word, mode: 'insensitive' as const } },
+          { fatherName: { contains: word, mode: 'insensitive' as const } },
+          { registrationNumber: { contains: word, mode: 'insensitive' as const } },
+          { rollNumber: { contains: word, mode: 'insensitive' as const } },
+          { cnicBForm: { contains: word, mode: 'insensitive' as const } },
+        ],
+      })),
     }),
   }
 

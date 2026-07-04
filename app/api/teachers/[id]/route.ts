@@ -10,7 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errorResponse, errors, successResponse } from '@/lib/api-response'
 import { updateTeacherSchema } from '@/lib/validation/teacher'
-import { isProfileImageDataUrl, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
+import { isProfileImageDataUrl, sanitizeCloudinaryError, uploadProfileImageToCloudinary } from '@/lib/cloudinary'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -82,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (message.startsWith('Invalid image') || message.startsWith('Image too large')) {
         return errors.validation({ errors: [{ path: ['profilePicture'], message }] } as never)
       }
-      console.error('[TEACHER_PATCH_PROFILE_IMAGE_UPLOAD]', uploadErr)
+      console.error('[TEACHER_PATCH_PROFILE_IMAGE_UPLOAD]', sanitizeCloudinaryError(uploadErr))
       return errorResponse(
         'PROFILE_IMAGE_UPLOAD_FAILED',
         'Profile image upload failed. Please verify Cloudinary configuration and try again.',

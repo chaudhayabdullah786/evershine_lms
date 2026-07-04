@@ -110,13 +110,16 @@ export async function GET(request: NextRequest) {
   }
 
   // ── Build WHERE predicate ──────────────────────────────────────────────────
-  const searchOr = search ? [
-    { firstName: { contains: search, mode: 'insensitive' } },
-    { lastName:  { contains: search, mode: 'insensitive' } },
-    { registrationNumber: { contains: search, mode: 'insensitive' } },
-    { rollNumber: { contains: search, mode: 'insensitive' } },
-    { fatherName: { contains: search, mode: 'insensitive' } },
-  ] : null
+  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
+  const searchAnd = searchTerms.length > 0 ? searchTerms.map((word) => ({
+    OR: [
+      { firstName: { contains: word, mode: 'insensitive' as const } },
+      { lastName:  { contains: word, mode: 'insensitive' as const } },
+      { registrationNumber: { contains: word, mode: 'insensitive' as const } },
+      { rollNumber: { contains: word, mode: 'insensitive' as const } },
+      { fatherName: { contains: word, mode: 'insensitive' as const } },
+    ]
+  })) : null
 
   const classOr = [
     { classId: { in: effectiveClassIds } },
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
     ...(enrollmentStatus && { enrollmentStatus }),
     AND: [
       { OR: classOr },
-      ...(searchOr ? [{ OR: searchOr }] : [])
+      ...(searchAnd ? searchAnd : [])
     ]
   }
 

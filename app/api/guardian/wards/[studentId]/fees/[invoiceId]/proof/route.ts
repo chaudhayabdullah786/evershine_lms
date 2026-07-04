@@ -12,7 +12,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { assertGuardianOwnsStudent } from '@/lib/guardian/assert-ownership'
-import { isAllowedPaymentProof, uploadPaymentProofToCloudinary } from '@/lib/cloudinary'
+import { isAllowedPaymentProof, sanitizeCloudinaryError, uploadPaymentProofToCloudinary } from '@/lib/cloudinary'
 import { dispatchNotification } from '@/lib/notifications/in-app'
 
 // Maximum file size: 4MB (Vercel payload limit is 4.5MB)
@@ -80,7 +80,7 @@ export async function POST(
   try {
     proofUrl = await uploadPaymentProofToCloudinary(buffer, `${invoiceId}-${Date.now()}`)
   } catch (err) {
-    console.error('[PROOF_UPLOAD] Cloudinary error:', err)
+    console.error('[PROOF_UPLOAD] Cloudinary error:', sanitizeCloudinaryError(err))
     return errors.internal()
   }
 
