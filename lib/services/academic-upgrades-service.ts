@@ -152,6 +152,37 @@ export class AcademicUpgradesService {
   // FEATURE 3: Exam Date Sheets
   // ─────────────────────────────────────────────────────────────────────────────
   static async saveDateSheet(input: SaveDateSheetInput) {
+    // WHY: Pre-validate FK targets before entering the transaction.
+    // A missing classSectionId causes a raw P2003 FK constraint error from MySQL
+    // with no actionable message. We surface this as a clear domain error instead.
+    const sectionExists = await prisma.classSection.findUnique({
+      where: { id: input.classSectionId },
+      select: { id: true, className: true, sectionName: true },
+    })
+    if (!sectionExists) {
+      throw new Error(
+        `Class section not found (id: ${input.classSectionId}). ` +
+        `The section may have been deleted or not yet created in the Academic Engine.`
+      )
+    }
+
+    // Validate all SubjectOffering FKs in one batch query to avoid per-slot failures
+    if (input.slots.length > 0) {
+      const offeringIds = [...new Set(input.slots.map((s) => s.subjectOfferingId))]
+      const existingOfferings = await prisma.subjectOffering.findMany({
+        where: { id: { in: offeringIds } },
+        select: { id: true },
+      })
+      if (existingOfferings.length !== offeringIds.length) {
+        const foundIds = new Set(existingOfferings.map((o) => o.id))
+        const missing = offeringIds.filter((id) => !foundIds.has(id))
+        throw new Error(
+          `One or more subject offerings not found: ${missing.join(', ')}. ` +
+          `Ensure all subjects are assigned to this section before creating the date sheet.`
+        )
+      }
+    }
+
     return prisma.$transaction(async (tx) => {
       const dateSheet = await tx.examDateSheet.upsert({
         where: {

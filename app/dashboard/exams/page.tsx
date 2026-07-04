@@ -453,7 +453,9 @@ export default function ExamsPage() {
   const { data: classSectionsRaw } = useQuery<ClassSectionRecord[]>({
     queryKey: ['class-sections-for-exams'],
     queryFn: () => fetchApi<ClassSectionRecord[]>('/api/class-sections'),
-    enabled: createOpen,
+    // WHY: fetch whenever the dialog is open (create or edit) so engine sections
+    // are pre-warmed and do not appear blank on first open.
+    enabled: createOpen || !!editExam,
     staleTime: 5 * 60 * 1000,
   })
   const allClassSections = useMemo(() => classSectionsRaw ?? [], [classSectionsRaw])
@@ -483,9 +485,12 @@ export default function ExamsPage() {
 
     const sectionOptions: ExamClassOption[] = allClassSections
       .filter((section) => {
+        // WHY: Engine sections are filtered by campusId only, NOT by batchId from the
+        // list scope. The list scope batchId is for narrowing the exam LIST view —
+        // it should not gate which sections appear in the Schedule Exam create dialog.
+        // If batchId filtering were applied here, all engine sections would be hidden
+        // whenever no batch is selected in the list view (the default state for Super Admin).
         if (listScope.campusId && section.campusId !== listScope.campusId) return false
-        if (listScope.batchId && section.batchId !== listScope.batchId) return false
-        if (listScope.shift && section.shift?.code && section.shift.code !== listScope.shift) return false
         return true
       })
       .map((section) => ({
