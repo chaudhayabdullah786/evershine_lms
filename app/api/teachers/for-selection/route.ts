@@ -100,6 +100,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
+
   const teachers = await prisma.teacher.findMany({
     where: {
       isActive: true,
@@ -107,12 +109,14 @@ export async function GET(request: NextRequest) {
       ...(scopedCampusId && !teacherIds && { campusId: scopedCampusId }),
       ...(batchId && !teacherIds && { batchId }),
       ...(houseId && !teacherIds && { houseId }),
-      ...(search && {
-        OR: [
-          { firstName: { contains: search } },
-          { lastName: { contains: search } },
-          { employeeId: { contains: search } },
-        ],
+      ...(searchTerms.length > 0 && {
+        AND: searchTerms.map((word) => ({
+          OR: [
+            { firstName: { contains: word, mode: 'insensitive' as const } },
+            { lastName: { contains: word, mode: 'insensitive' as const } },
+            { employeeId: { contains: word, mode: 'insensitive' as const } },
+          ],
+        })),
       }),
     },
     take: limit,

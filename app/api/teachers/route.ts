@@ -58,17 +58,22 @@ export async function GET(request: NextRequest) {
   const scopedCampusId =
     session.user.role !== 'SUPER_ADMIN' ? (session.user.campusId ?? undefined) : campusId
 
+  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
+
   const where = {
     ...(scopedCampusId && { campusId: scopedCampusId }),
     ...(batchId && { batchId }),
     ...(isActive !== undefined && { isActive }),
-    ...(search && {
-      OR: [
-        { firstName: { contains: search, mode: 'insensitive' as const } },
-        { lastName: { contains: search, mode: 'insensitive' as const } },
-        { employeeId: { contains: search, mode: 'insensitive' as const } },
-        { specialization: { contains: search, mode: 'insensitive' as const } },
-      ],
+    ...(searchTerms.length > 0 && {
+      AND: searchTerms.map((word) => ({
+        OR: [
+          { firstName: { contains: word, mode: 'insensitive' as const } },
+          { lastName: { contains: word, mode: 'insensitive' as const } },
+          { employeeId: { contains: word, mode: 'insensitive' as const } },
+          { specialization: { contains: word, mode: 'insensitive' as const } },
+          { cnic: { contains: word, mode: 'insensitive' as const } },
+        ],
+      })),
     }),
   }
 

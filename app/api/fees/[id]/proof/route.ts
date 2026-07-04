@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errorResponse, errors, successResponse } from '@/lib/api-response'
-import { uploadPaymentProofToCloudinary } from '@/lib/cloudinary'
+import { sanitizeCloudinaryError, uploadPaymentProofToCloudinary } from '@/lib/cloudinary'
 import { z } from 'zod'
 
 const uploadProofSchema = z.object({
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (message.startsWith('Invalid payment proof') || message.startsWith('Payment proof too large')) {
         return errors.validation({ errors: [{ path: ['file'], message }] } as never)
       }
-      console.error('[FEE_PROOF_UPLOAD]', uploadErr)
+      console.error('[FEE_PROOF_UPLOAD]', sanitizeCloudinaryError(uploadErr))
       return errorResponse(
         'PAYMENT_PROOF_UPLOAD_FAILED',
         'Payment proof upload failed. Please verify Cloudinary configuration and try again.',
