@@ -36,8 +36,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (classSectionId && examSessionId) {
-      const slots = await AcademicUpgradesService.getDateSheetSlots(classSectionId, examSessionId)
-      return successResponse(slots)
+      // WHY: The UI (date-sheets/page.tsx) expects { title, slots } — a DateSheetResponse
+      // shape. The previous call to getDateSheetSlots returned only slots[] which caused
+      // a runtime crash when the page tried to access .title and .slots.map() on an array.
+      const sheet = await AcademicUpgradesService.getDateSheet(classSectionId, examSessionId)
+      // Return null explicitly so the UI can distinguish "no sheet" from an error.
+      return successResponse(sheet ?? null)
     }
 
     return errors.badRequest(

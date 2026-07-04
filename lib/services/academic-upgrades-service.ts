@@ -225,6 +225,35 @@ export class AcademicUpgradesService {
     })
   }
 
+  // WHY: Returns the full sheet object { title, slots } so the admin date-sheets page
+  // can display both the schedule title and the slot table. Returns null when no sheet
+  // exists, allowing the UI to show an empty state rather than crashing on .title access.
+  static async getDateSheet(classSectionId: string, examSessionId: string) {
+    const sheet = await prisma.examDateSheet.findUnique({
+      where: { classSectionId_examSessionId: { classSectionId, examSessionId } },
+      select: {
+        title: true,
+        isPublished: true,
+        version: true,
+        slots: {
+          select: {
+            id: true,
+            subjectOfferingId: true,
+            examDate: true,
+            startTime: true,
+            endTime: true,
+            roomNumber: true,
+            subjectOffering: {
+              select: { subject: { select: { name: true, code: true } } },
+            },
+          },
+          orderBy: { examDate: 'asc' },
+        },
+      },
+    })
+    return sheet ?? null
+  }
+
   static async getDateSheetSlots(classSectionId: string, examSessionId: string) {
     const sheet = await prisma.examDateSheet.findUnique({
       where: { classSectionId_examSessionId: { classSectionId, examSessionId } },
