@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
   const scopedCampusId =
     role === 'SUPER_ADMIN' ? campusId : (session.user.campusId ?? undefined)
 
-  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
+  const isNumericSearch = search ? /^\d+$/.test(search) : false;
 
   const where = {
     isActive: true,
@@ -111,17 +111,22 @@ export async function GET(request: NextRequest) {
         },
       },
     }),
-    ...(searchTerms.length > 0 && {
-      AND: searchTerms.map((word) => ({
-        OR: [
-          { firstName: { contains: word, mode: 'insensitive' as const } },
-          { lastName: { contains: word, mode: 'insensitive' as const } },
-          { fatherName: { contains: word, mode: 'insensitive' as const } },
-          { registrationNumber: { contains: word, mode: 'insensitive' as const } },
-          { rollNumber: { contains: word, mode: 'insensitive' as const } },
-          { cnicBForm: { contains: word, mode: 'insensitive' as const } },
-        ],
-      })),
+    ...(search && {
+      // WHY no mode: 'insensitive' — MySQL collation (utf8mb4_unicode_ci) handles
+      // case-insensitive LIKE natively. mode: 'insensitive' is PostgreSQL-only and
+      // throws a Prisma runtime error on MySQL, causing search to return nothing.
+      OR: isNumericSearch
+        ? [
+            { rollNumber: { contains: search } },
+            { registrationNumber: { contains: search } },
+            { cnicBForm: { contains: search } },
+          ]
+        : [
+            { firstName: { contains: search } },
+            { lastName: { contains: search } },
+            { fatherName: { contains: search } },
+            { registrationNumber: { contains: search } },
+          ],
     }),
   }
 

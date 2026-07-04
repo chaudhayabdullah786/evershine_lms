@@ -109,17 +109,16 @@ export async function GET(request: NextRequest) {
     return paginatedResponse([], { page: 1, limit, total: 0 })
   }
 
-  // ── Build WHERE predicate ──────────────────────────────────────────────────
-  const searchTerms = search ? search.trim().split(/\s+/).filter(Boolean) : [];
-  const searchAnd = searchTerms.length > 0 ? searchTerms.map((word) => ({
-    OR: [
-      { firstName: { contains: word, mode: 'insensitive' as const } },
-      { lastName:  { contains: word, mode: 'insensitive' as const } },
-      { registrationNumber: { contains: word, mode: 'insensitive' as const } },
-      { rollNumber: { contains: word, mode: 'insensitive' as const } },
-      { fatherName: { contains: word, mode: 'insensitive' as const } },
-    ]
-  })) : null
+  // WHY no mode: 'insensitive' — MySQL utf8mb4_unicode_ci collation handles
+  // case-insensitive LIKE natively. mode: 'insensitive' is PostgreSQL-only and
+  // throws a Prisma runtime error on MySQL.
+  const searchOr = search ? [
+    { firstName: { contains: search } },
+    { lastName:  { contains: search } },
+    { registrationNumber: { contains: search } },
+    { rollNumber: { contains: search } },
+    { fatherName: { contains: search } },
+  ] : null
 
   const classOr = [
     { classId: { in: effectiveClassIds } },
@@ -131,7 +130,7 @@ export async function GET(request: NextRequest) {
     ...(enrollmentStatus && { enrollmentStatus }),
     AND: [
       { OR: classOr },
-      ...(searchAnd ? searchAnd : [])
+      ...(searchOr ? [{ OR: searchOr }] : [])
     ]
   }
 

@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
   let where: any = {
     ...(status && { status }),
     ...(proofStatus && { proofStatus }),
-    ...(month && { month: { contains: month, mode: 'insensitive' as const } }),
+    // WHY no mode: 'insensitive' — MySQL utf8mb4_unicode_ci collation handles
+    // case-insensitive LIKE natively. mode: 'insensitive' is PostgreSQL-only.
+    ...(month && { month: { contains: month } }),
     ...(academicYear && { academicYear }),
   }
 

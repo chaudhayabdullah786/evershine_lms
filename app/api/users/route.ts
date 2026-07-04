@@ -35,66 +35,54 @@ export async function GET(request: NextRequest) {
   }
 
   if (query) {
-    const searchTerms = query.trim().split(/\s+/).filter(Boolean);
-    if (searchTerms.length > 0) {
-      where.AND = searchTerms.map((word) => ({
-        OR: [
-          { email: { contains: word, mode: 'insensitive' as const } },
-          {
-            student: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-                { fatherName: { contains: word, mode: 'insensitive' as const } },
-                { registrationNumber: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-          {
-            teacher: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-                { employeeId: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-          {
-            admin: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-          {
-            parent: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-          {
-            guardian: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-          {
-            accountant: {
-              OR: [
-                { firstName: { contains: word, mode: 'insensitive' as const } },
-                { lastName: { contains: word, mode: 'insensitive' as const } },
-                { employeeId: { contains: word, mode: 'insensitive' as const } },
-              ],
-            },
-          },
-        ],
-      }))
-    }
+    // WHY no mode: 'insensitive' on any contains clause below:
+    // MySQL utf8mb4_unicode_ci collation handles case-insensitive LIKE natively.
+    // mode: 'insensitive' is a PostgreSQL-only Prisma option and throws a runtime
+    // error on MySQL, causing all user searches to return empty results.
+    where.OR = [
+      { email: { contains: query } },
+      {
+        student: {
+          OR: [
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+            { fatherName: { contains: query } },
+          ],
+        },
+      },
+      {
+        teacher: {
+          OR: [
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+          ],
+        },
+      },
+      {
+        admin: {
+          OR: [
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+          ],
+        },
+      },
+      {
+        parent: {
+          OR: [
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+          ],
+        },
+      },
+      {
+        guardian: {
+          OR: [
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+          ],
+        },
+      },
+    ]
   }
 
   try {
