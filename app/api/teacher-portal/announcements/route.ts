@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
+import { findLegacyClassForSection } from '@/lib/teacher-access'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -98,38 +99,18 @@ export async function POST(request: NextRequest) {
   let legacyClassRecord: { id: string; name: string; section: string | null; batchId: string | null } | null = null
 
   if (classSection) {
-    // Try matching legacy Class by structural attributes
     const shiftCode = (classSection.shift?.code ?? classSection.shift?.name ?? '')
       .toUpperCase()
       .replace(/\s+/g, '')
-      // Normalize: strip trailing "SHIFT" if present (e.g. "MORNINGSHIFT" → "MORNING")
       .replace(/SHIFT$/, '')
 
-    legacyClassRecord = await prisma.class.findFirst({
-      where: {
-        grade: classSection.grade ?? 0,
-        section: classSection.sectionName,
-        campusId: classSection.campusId,
-        batchId: classSection.batchId,
-        ...(shiftCode ? { shift: shiftCode as any } : {}),
-        isActive: true,
-      },
-      select: { id: true, name: true, section: true, batchId: true },
+    legacyClassRecord = await findLegacyClassForSection({
+      grade: classSection.grade,
+      sectionName: classSection.sectionName,
+      campusId: classSection.campusId,
+      batchId: classSection.batchId,
+      shiftCode,
     })
-
-    // Fallback: try without shift filter (shift enum mismatch is the most common failure)
-    if (!legacyClassRecord) {
-      legacyClassRecord = await prisma.class.findFirst({
-        where: {
-          grade: classSection.grade ?? 0,
-          section: classSection.sectionName,
-          campusId: classSection.campusId,
-          batchId: classSection.batchId,
-          isActive: true,
-        },
-        select: { id: true, name: true, section: true, batchId: true },
-      })
-    }
   } else {
     // classId is a legacy Class ID directly
     legacyClassRecord = await prisma.class.findUnique({

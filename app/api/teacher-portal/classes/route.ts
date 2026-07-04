@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { sessionShiftSchema } from '@/lib/validation/shift'
+import { findLegacyClassForSection } from '@/lib/teacher-access'
 
 const normalizeShiftValue = (value?: string | null) => {
   const normalized = value?.trim().toUpperCase().replace(/\s+/g, '') ?? ''
@@ -232,17 +233,13 @@ export async function GET(req: NextRequest) {
     const key = createClassKey(cls.grade ?? 0, cls.sectionName ?? '', cls.campusId, cls.batchId, shiftCode)
 
     // Try to find the legacy class for this section (if it exists)
-    const legacyClass = await prisma.class.findFirst({
-      where: {
-        grade: cls.grade ?? 0,
-        section: cls.sectionName,
-        campusId: cls.campusId,
-        batchId: cls.batchId,
-        shift: shiftCode as any,
-        ...(activeYearName ? { academicYear: activeYearName } : {}),
-        isActive: true,
-      },
-      select: { id: true, name: true, section: true },
+    const legacyClass = await findLegacyClassForSection({
+      grade: cls.grade,
+      sectionName: cls.sectionName,
+      campusId: cls.campusId,
+      batchId: cls.batchId,
+      shiftCode,
+      academicYear: activeYearName,
     })
 
     if (classMap.has(key)) {
@@ -291,17 +288,13 @@ export async function GET(req: NextRequest) {
     const key = createClassKey(cls.grade ?? 0, cls.sectionName ?? '', cls.campusId, cls.batchId, shiftCode)
 
     // Try to find the legacy class for this section (if it exists)
-    const legacyClass = await prisma.class.findFirst({
-      where: {
-        grade: cls.grade ?? 0,
-        section: cls.sectionName,
-        campusId: cls.campusId,
-        batchId: cls.batchId,
-        shift: shiftCode as any,
-        ...(activeYearName ? { academicYear: activeYearName } : {}),
-        isActive: true,
-      },
-      select: { id: true, name: true, section: true },
+    const legacyClass = await findLegacyClassForSection({
+      grade: cls.grade,
+      sectionName: cls.sectionName,
+      campusId: cls.campusId,
+      batchId: cls.batchId,
+      shiftCode,
+      academicYear: activeYearName,
     })
 
     if (classMap.has(key)) {

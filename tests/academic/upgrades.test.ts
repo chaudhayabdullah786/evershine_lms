@@ -32,7 +32,8 @@ vi.mock('@/lib/prisma', () => {
     // WHY: submitDailyPerformance fetches maxDailyScore from tx.subjectOffering.findUnique
     // before inserting records. The mock must include this table or the transaction
     // callback throws 'Cannot read properties of undefined (reading findUnique)'.
-    subjectOffering:        { findUnique: vi.fn() },
+    subjectOffering:        { findUnique: vi.fn(), findMany: vi.fn() },
+    classSection:           { findUnique: vi.fn() },
     targetAssignment:       { upsert: vi.fn() },
   }
 
@@ -102,6 +103,8 @@ describe('Feature 4: updateStudentEnrollmentType', () => {
 describe('Feature 3: saveDateSheet', () => {
   it('upserts sheet header and replaces slots atomically', async () => {
     const mockSheet = { id: 'ds-1', classSectionId: 'cs-1', examSessionId: 'es-1' }
+    vi.mocked(prisma.classSection.findUnique).mockResolvedValue({ id: 'cs-1', className: 'Class 9', sectionName: 'A' } as any)
+    vi.mocked(prisma.subjectOffering.findMany).mockResolvedValue([{ id: 'so-1' }] as any)
     vi.mocked(prisma.examDateSheet.upsert).mockResolvedValue(mockSheet as any)
     vi.mocked(prisma.examDateSheetSlot.deleteMany).mockResolvedValue({ count: 2 } as any)
     vi.mocked(prisma.examDateSheetSlot.createMany).mockResolvedValue({ count: 1 } as any)

@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
-import { teacherCanAccessClassOrSubject } from '@/lib/teacher-access'
+import { teacherCanAccessClassOrSubject, findLegacyClassForSection, findOrCreateLegacySubject } from '@/lib/teacher-access'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         grade: true,
+        className: true,
         sectionName: true,
         campusId: true,
         batchId: true,
@@ -94,49 +96,60 @@ export async function POST(request: NextRequest) {
     })
 
     if (section) {
-      const shiftCode = (section.shift?.code ?? section.shift?.name ?? '').toUpperCase().replace(/\s+/g, '')
-      const mappedClass = await prisma.class.findFirst({
-        where: {
-          grade: section.grade ?? 0,
-          section: section.sectionName ?? '',
-          campusId: section.campusId,
-          batchId: section.batchId ?? null,
-          shift: shiftCode as never,
-          isActive: true,
-        },
-        select: { id: true },
+      const shiftCode = (section.shift?.code ?? section.shift?.name ?? '')
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .replace(/SHIFT$/, '')
+
+      const legacyClass = await findLegacyClassForSection({
+        grade: section.grade,
+        sectionName: section.sectionName,
+        campusId: section.campusId,
+        batchId: section.batchId,
+        shiftCode,
       })
 
-      resolvedClassId = mappedClass?.id ?? null
-    }
-  }
+      if (legacyClass) {
+        resolvedClassId = legacyClass.id
+      } else {
+        // Dynamically create/upsert the legacy Class record for this new engine ClassSection
+        const activeYear = await getActiveAcademicYear()
+        const academicYearName = activeYear?.name ?? '2024-2025'
 
-  // Resolve subject ID: try direct lookup first, then fallback to code-based lookup
-  let resolvedSubjectId: string = subjectId
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
-    select: { id: true },
-  })
-
-  if (subject) {
-    resolvedSubjectId = subject.id
-  } else {
-    // Subject not found by ID — try to find by code in the resolved class
-    const academicSubject = await prisma.academicSubject.findUnique({
-      where: { id: subjectId },
-      select: { code: true },
-    })
-
-    if (academicSubject?.code && resolvedClassId) {
-      const mapped = await prisma.subject.findFirst({
-        where: { classId: resolvedClassId, code: academicSubject.code, isActive: true },
-        select: { id: true },
-      })
-      if (mapped) {
-        resolvedSubjectId = mapped.id
+        const newLegacyClass = await prisma.class.upsert({
+          where: {
+            grade_section_campusId_academicYear_shift: {
+              grade: section.grade ?? 0,
+              section: section.sectionName ?? '',
+              campusId: section.campusId,
+              academicYear: academicYearName,
+              shift: shiftCode as any,
+            }
+          },
+          update: {},
+          create: {
+            name: `${section.className ?? `Class ${section.grade}`} - ${shiftCode} (${section.sectionName ?? 'A'})`,
+            grade: section.grade ?? 0,
+            section: section.sectionName ?? '',
+            campusId: section.campusId,
+            batchId: section.batchId,
+            academicYear: academicYearName,
+            shift: shiftCode as any,
+            isActive: true,
+          },
+          select: { id: true }
+        })
+        resolvedClassId = newLegacyClass.id
       }
     }
   }
+
+  // Resolve subject ID
+  const legacySubject = resolvedClassId
+    ? await findOrCreateLegacySubject(resolvedClassId, subjectId)
+    : null
+
+  const resolvedSubjectId = legacySubject?.id ?? null
 
   const teacher = await prisma.teacher.findUnique({
     where: { userId: session.user.id },
