@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/audit-logger'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { z, ZodError, ZodIssueCode } from 'zod'
 import type { Prisma, Role } from '@prisma/client'
+import { dispatchToRoleUsers } from '@/lib/notifications/dispatch'
 
 const createComplaintSchema = z.object({
   title: z.string().min(3).max(200),
@@ -97,6 +98,18 @@ export async function POST(request: NextRequest) {
 
     return created
   })
+
+  // Notify all admins — fire-and-forget, must not block the complaint creation response
+  const complainantName = session.user.name ?? session.user.email ?? 'A user'
+  const titlePreview = title.length > 80 ? title.slice(0, 80) + '…' : title
+  void dispatchToRoleUsers({
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    campusId: (session.user as { campusId?: string | null }).campusId ?? null,
+    title: '⚠️ New Complaint Filed',
+    message: `${complainantName} (${userRole}) filed a complaint: "${titlePreview}"`,
+    type: 'COMPLAINT_SUBMITTED',
+    relatedId: complaint.id,
+  }).catch((err) => console.error('[complaints.POST] admin notification failed:', err))
 
   return createdResponse(complaint, 'Complaint registered successfully')
 }

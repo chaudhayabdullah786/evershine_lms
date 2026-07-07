@@ -165,6 +165,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSidebarOpen(false)
   }, [pathname, setSidebarOpen])
 
+  // Aggregate unread notification counts per sidebar module.
+  // Polled every 30s alongside the notifications query list.
+  const { data: countsData } = useQuery({
+    queryKey: ['notification-counts'],
+    queryFn: () => fetchApi<{ total: number; modules: Record<string, number> }>('/api/notifications/counts'),
+    refetchInterval: 30000,
+    enabled: status === 'authenticated',
+  })
+
+  const getBadgeCount = (itemName: string) => {
+    if (!countsData?.modules) return 0
+    const keyMap: Record<string, string> = {
+      'Leaves': 'leaves',
+      'Student Leaves': 'leaves',
+      'Complaints': 'complaints',
+      'Academic Queries': 'queries',
+      'Admissions': 'admissions',
+      'Timetable': 'timetable',
+      'Fees': 'fees',
+      'Landing Leads': 'leads',
+      'Staff Directory': 'staff',
+      'Staff Salaries': 'salaries',
+      'Results': 'results',
+      'Exam Results': 'results',
+      'Attendance': 'attendance',
+      'Student Attendance': 'attendance',
+      'Staff Attendance': 'attendance',
+      'Class Attendance (Legacy)': 'attendance',
+      'My Children': 'my-children',
+    }
+    const key = keyMap[itemName]
+    return key ? (countsData.modules[key] ?? 0) : 0
+  }
+
   if (status === 'loading') {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
@@ -242,6 +276,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="space-y-0.5">
             {visibleNav.map((item) => {
               const active = isActive(item.href)
+              const badgeCount = getBadgeCount(item.name)
               return (
                 <Link
                   key={item.name}
@@ -256,7 +291,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <item.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-blue-600' : ''}`} />
                     {item.name}
                   </div>
-                  <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-blue-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                  <div className="flex items-center gap-2">
+                    {badgeCount > 0 && (
+                      <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-extrabold flex items-center justify-center px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                    <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-blue-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                  </div>
                 </Link>
               )
             })}
@@ -269,6 +311,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 {TEACHER_NAV_ITEMS.map((item) => {
                   const active = isActive(item.href)
+                  const badgeCount = getBadgeCount(item.name)
                   return (
                     <Link
                       key={item.name}
@@ -283,7 +326,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <item.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-emerald-600' : ''}`} />
                         {item.name}
                       </div>
-                      <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-emerald-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                      <div className="flex items-center gap-2">
+                        {badgeCount > 0 && (
+                          <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-extrabold flex items-center justify-center px-1">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                        <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-emerald-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                      </div>
                     </Link>
                   )
                 })}
@@ -403,12 +453,18 @@ function NotificationBell() {
 
   const markAllMutation = useMutation({
     mutationFn: () => fetchApi('/api/notifications', { method: 'PATCH' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notification-counts'] })
+    },
   })
 
   const markOneMutation = useMutation({
     mutationFn: (id: string) => fetchApi(`/api/notifications/${id}`, { method: 'PATCH' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notification-counts'] })
+    },
   })
 
   // Close on outside click
@@ -418,11 +474,69 @@ function NotificationBell() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const typeColor = (type: string) => {
-    if (type === 'LEAVE_APPROVED') return 'border-l-4 border-emerald-500'
-    if (type === 'LEAVE_REJECTED') return 'border-l-4 border-rose-500'
-    if (type === 'COMPLAINT_RESOLVED') return 'border-l-4 border-blue-500'
-    return 'border-l-4 border-slate-300'
+  const getNotifIcon = (type: string) => {
+    if (type === 'LEAVE_APPROVED' || type === 'ADMISSION_APPROVED' || type === 'COMPLAINT_RESOLVED') {
+      return (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 flex-shrink-0">
+          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+      )
+    }
+    if (type === 'LEAVE_REJECTED' || type === 'ADMISSION_DECLINED') {
+      return (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 flex-shrink-0">
+          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </span>
+      )
+    }
+    if (type === 'QUERY_RECEIVED' || type === 'QUERY_ANSWERED') {
+      return (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
+          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </span>
+      )
+    }
+    if (type === 'FEE_REMINDER' || type === 'FEE_STATUS_UPDATE') {
+      return (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 flex-shrink-0">
+          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </span>
+      )
+    }
+    return (
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 text-slate-600 flex-shrink-0">
+        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </span>
+    )
+  }
+
+  const formatTimeAgo = (dateStr: string) => {
+    try {
+      const now = new Date()
+      const past = new Date(dateStr)
+      const diffMs = now.getTime() - past.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      if (diffMins < 1) return 'Just now'
+      if (diffMins < 60) return `${diffMins}m ago`
+      const diffHours = Math.floor(diffMins / 60)
+      if (diffHours < 24) return `${diffHours}h ago`
+      const diffDays = Math.floor(diffHours / 24)
+      if (diffDays === 1) return 'Yesterday'
+      if (diffDays < 7) return `${diffDays}d ago`
+      return past.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    } catch {
+      return ''
+    }
   }
 
   return (
@@ -451,39 +565,72 @@ function NotificationBell() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-96 sm:w-[420px] bg-white border border-slate-200 rounded-2xl shadow-xl z-[9999] overflow-hidden"
           >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <span className="font-bold text-sm text-slate-800">Notifications</span>
-            {unreadCount > 0 && (
-              <button onClick={() => markAllMutation.mutate()} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
-            {notifications.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-400">
-                <Bell className="w-8 h-8 mx-auto mb-2 text-slate-200" />
-                No notifications
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-slate-800">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {unreadCount} new
+                  </span>
+                )}
               </div>
-            ) : notifications.map(n => (
-              <button
-                key={n.id}
-                onClick={() => { if (!n.isRead) markOneMutation.mutate(n.id) }}
-                className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors ${typeColor(n.type)} ${
-                  n.isRead ? 'opacity-60' : 'bg-indigo-50/20'
-                }`}
-              >
-                <p className={`text-xs font-semibold text-slate-800 ${!n.isRead ? 'font-bold' : ''}`}>{n.title}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.message}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => markAllMutation.mutate()}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400 mx-auto mb-3">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">All caught up!</p>
+                  <p className="text-xs text-slate-400 mt-1">You have no new notifications.</p>
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div
+                    key={n.id}
+                    className={`flex gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors border-l-[3px] ${
+                      n.isRead ? 'border-transparent opacity-75' : 'border-indigo-600 bg-indigo-50/10'
+                    }`}
+                  >
+                    {getNotifIcon(n.type)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-xs font-bold text-slate-800 leading-tight ${!n.isRead ? 'text-indigo-955' : ''}`}>
+                          {n.title}
+                        </p>
+                        <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                          {formatTimeAgo(n.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap break-words">
+                        {n.message}
+                      </p>
+                      {!n.isRead && (
+                        <button
+                          onClick={() => markOneMutation.mutate(n.id)}
+                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold mt-1.5 block transition-colors"
+                        >
+                          Mark as read
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   )
