@@ -17,6 +17,7 @@ import { auth } from '@/lib/auth'
 import { errors, paginatedResponse, createdResponse } from '@/lib/api-response'
 import { inquirySchema } from '@/lib/validation/staff-application'
 import { sendInquiryAckNotification, sendAdminInquiryAlert } from '@/lib/notifications'
+import { dispatchToRoleUsers } from '@/lib/notifications/dispatch'
 import { ZodError } from 'zod'
 import type { Role } from '@prisma/client'
 
@@ -56,6 +57,16 @@ export async function POST(request: NextRequest) {
         await sendInquiryAckNotification(validated.email, validated.name)
       }
       await sendAdminInquiryAlert(validated.name, validated.phone, validated.message)
+
+      // In-app: notify all admin users about the new lead
+      const preview = validated.message.length > 100 ? validated.message.slice(0, 100) + '…' : validated.message
+      void dispatchToRoleUsers({
+        roles: ['SUPER_ADMIN', 'ADMIN'],
+        title: '📥 New Landing Lead',
+        message: `${validated.name} (${validated.phone}) submitted an inquiry: "${preview}"`,
+        type: 'LEAD_SUBMITTED',
+        relatedId: inquiry.id,
+      })
     } catch (_notifErr) {
       console.warn('[INQUIRY_SUBMIT] notification send failed', _notifErr)
     }
