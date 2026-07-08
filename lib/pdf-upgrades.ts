@@ -508,15 +508,31 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
   setFillColor(pdf, 255, 255, 255, bw)
   pdf.rect(0, 0, 210, 297, 'F')
 
+  // ── Watermark (Center of Page) ──────────────────────────────────────────────
+  if (options.logoUrl) {
+    try {
+      if (typeof (pdf as any).GState === 'function') {
+        pdf.saveGraphicsState()
+        const gState = new (pdf as any).GState({ opacity: 0.04 })
+        pdf.setGState(gState)
+        const logoType = options.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+        pdf.addImage(options.logoUrl, logoType, 55, 90, 100, 100)
+        pdf.restoreGraphicsState()
+      }
+    } catch (e) {
+      console.warn('[Watermark] Failed to render PDF watermark:', e)
+    }
+  }
+
   // ── Top stripe ──────────────────────────────────────────────────────────────
   setFillColor(pdf, cNavy.r, cNavy.g, cNavy.b, bw)
   pdf.rect(0, 0, 210, 6, 'F')
 
   // ── Academy Logo (left) ──────────────────────────────────────────────────────
   const logoX = 14
-  const logoY = 10
-  const logoW = 16
-  const logoH = 16
+  const logoY = 9
+  const logoW = 18
+  const logoH = 18
 
   if (options.logoUrl) {
     try {
@@ -540,7 +556,7 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
   const photoW = 20
   const photoH = 24
   const photoX = 196 - photoW
-  const photoY = 10
+  const photoY = 9
 
   // Photo border frame
   setDrawColor(pdf, cNavy.r, cNavy.g, cNavy.b, bw)
@@ -623,7 +639,7 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
     }
   }
 
-  const printLabelVal = (rowY: number, label: string, val: string, isLeft: boolean, isValBold = false, isValTeal = false) => {
+  const printLabelVal = (rowY: number, label: string, val: string, isLeft: boolean, offset: number, isValBold = false, isValTeal = false) => {
     const xBase = isLeft ? startX : midX
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(7)
@@ -641,36 +657,36 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
     } else {
       setTextColor(pdf, 17, 24, 39, bw)
     }
-    pdf.text(val, xBase + 30, rowY + 4.5)
+    pdf.text(val, xBase + offset, rowY + 4.5)
   }
 
   // Row 1: Registration No & Roll No
   drawBorderedRow(y)
-  printLabelVal(y, 'REGISTRATION NO', options.registrationNumber, true, false, true)
-  printLabelVal(y, 'ROLL NO', options.rollNumber, false, true, true)
+  printLabelVal(y, 'REGISTRATION NO', options.registrationNumber, true, 32, false, true)
+  printLabelVal(y, 'ROLL NO', options.rollNumber, false, 22, true, true)
   y += rowH
 
   // Row 2: Student Name (full width)
   drawBorderedRow(y, false)
-  printLabelVal(y, 'STUDENT NAME', options.studentName.toUpperCase(), true, true, false)
+  printLabelVal(y, 'STUDENT NAME', options.studentName.toUpperCase(), true, 32, true, false)
   y += rowH
 
   // Row 3: Class/Section & Shift
   drawBorderedRow(y)
-  printLabelVal(y, 'CLASS / SECTION', `${options.className} — ${options.sectionName}`, true, true, false)
-  printLabelVal(y, 'SHIFT', options.shiftName, false, true, false)
+  printLabelVal(y, 'CLASS / SECTION', `${options.className} — ${options.sectionName}`, true, 32, true, false)
+  printLabelVal(y, 'SHIFT', options.shiftName, false, 22, true, false)
   y += rowH
 
   // Row 4: Father Name & Gender
   drawBorderedRow(y)
-  printLabelVal(y, 'FATHER NAME', options.fatherName, true, true, false)
-  printLabelVal(y, 'GENDER', options.gender, false, true, false)
+  printLabelVal(y, 'FATHER NAME', options.fatherName, true, 32, true, false)
+  printLabelVal(y, 'GENDER', options.gender, false, 22, true, false)
   y += rowH
 
   // Row 5: Campus & Batch/Program
   drawBorderedRow(y)
-  printLabelVal(y, 'CAMPUS', options.campus, true, true, false)
-  printLabelVal(y, 'BATCH / PROGRAM', options.batch, false, true, false)
+  printLabelVal(y, 'CAMPUS', options.campus, true, 32, true, false)
+  printLabelVal(y, 'BATCH / PROGRAM', options.batch, false, 35, true, false)
   y += rowH
 
   // ── Examination Schedule Header ──────────────────────────────────────────────
@@ -775,25 +791,27 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
   pdf.text('3.  Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.', 17, y + 19)
 
   // ── Signatures & Stamp Area ──────────────────────────────────────────────────
-  y += 27
-  const sigY = y + 10
+  y += 23 // Go to bottom of instructions box
+  y += 10 // Safe gap of 10mm so the stamp circular outline doesn't overlap the instructions box
+
+  const sigLineY = y + 18
 
   // Controller signature line
   setDrawColor(pdf, 107, 114, 128, bw)
   pdf.setLineWidth(0.3)
-  pdf.line(14, sigY, 54, sigY)
+  pdf.line(14, sigLineY, 54, sigLineY)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7.5)
   setTextColor(pdf, 55, 65, 81, bw)
-  pdf.text('Controller of Examinations', 34, sigY + 4, { align: 'center' })
+  pdf.text('Controller of Examinations', 34, sigLineY + 4, { align: 'center' })
 
   // Principal signature line
-  pdf.line(156, sigY, 196, sigY)
-  pdf.text('Principal Signature & Stamp', 176, sigY + 4, { align: 'center' })
+  pdf.line(156, sigLineY, 196, sigLineY)
+  pdf.text('Principal Signature & Stamp', 176, sigLineY + 4, { align: 'center' })
 
   // Official Seal Stamp in center
   const sealX = 105
-  const sealY = y + 2
+  const sealY = y + 10
   setDrawColor(pdf, cNavy.r, cNavy.g, cNavy.b, bw)
   pdf.setLineWidth(0.4)
   pdf.circle(sealX, sealY, 11, 'S')
@@ -811,7 +829,7 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(7)
   setTextColor(pdf, 55, 65, 81, bw)
-  pdf.text('Exam Office Stamp', sealX, sigY + 4, { align: 'center' })
+  pdf.text('Exam Office Stamp', sealX, sigLineY + 4, { align: 'center' })
 
   // ── Footer ───────────────────────────────────────────────────────────────────
   const footerY = 284

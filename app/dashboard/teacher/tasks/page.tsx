@@ -35,6 +35,13 @@ import { formatClassWithShift, type SessionShift } from '@/lib/validation/shift'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface SubjectRecord {
+  id: string
+  name: string
+  code: string
+  classId?: string
+}
+
 interface ClassRecord {
   id: string
   name: string
@@ -44,13 +51,7 @@ interface ClassRecord {
   shift?: SessionShift
   campus?: { name: string; code?: string; city?: string }
   batch?: { name: string; code?: string; academicLevel?: string }
-}
-
-interface SubjectRecord {
-  id: string
-  name: string
-  code: string
-  classId: string
+  subjects?: SubjectRecord[]
 }
 
 interface Task {
@@ -132,19 +133,14 @@ function CreateTaskDialog({
     maxMarks:    '100',
   })
 
-  // Fetch subjects for selected class
-  const { data: subjectsRaw } = useQuery({
-    queryKey: ['subjects-for-class', form.classId],
-    queryFn:  () => fetchApi<SubjectRecord[]>(`/api/classes/${form.classId}/subjects`),
-    enabled:  !!form.classId,
-  })
-  const subjects = subjectsRaw ?? []
+  const selectedClass = useMemo(
+    () => classes.find((c) => c.id === form.classId) ?? null,
+    [classes, form.classId]
+  )
+  const subjects = selectedClass?.subjects ?? []
 
   const mutation = useMutation({
     mutationFn: () => {
-      // WHY match by c.id: The Select value is c.id (set in the dropdown).
-      // c.id may be a legacy Class ID or a ClassSection ID depending on assignment source.
-      const selectedClass = classes.find((c) => c.id === form.classId)
       return fetchApi('/api/teacher-portal/tasks', {
         method: 'POST',
         body: JSON.stringify({
@@ -166,15 +162,30 @@ function CreateTaskDialog({
     onError: (err: ApiError) => notify.error(err.message || 'Failed to create task'),
   })
 
+  const closeDialog = () => {
+    if (!mutation.isPending) onClose()
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.classId || !form.subjectId) { notify.error('Select a class and subject'); return }
+    if (mutation.isPending) return
+    if (!selectedClass) { notify.error('Select a class'); return }
+    if (!form.subjectId || !subjects.some((subject) => subject.id === form.subjectId)) {
+      notify.error('Select a subject assigned to you for this class')
+      return
+    }
+    if (!form.title.trim()) { notify.error('Enter a task title'); return }
+    const maxMarks = Number.parseInt(form.maxMarks, 10)
+    if (!Number.isFinite(maxMarks) || maxMarks < 1) { notify.error('Max marks must be at least 1'); return }
     mutation.mutate()
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(o) => !o && closeDialog()}>
+      <DialogContent
+        className="max-w-lg"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-indigo-600" />
@@ -215,17 +226,35 @@ function CreateTaskDialog({
                 <Select
                   value={form.subjectId}
                   onValueChange={(v) => setForm(p => ({ ...p, subjectId: v }))}
-                  disabled={!form.classId}
+                  disabled={!form.classId || subjects.length === 0}
                 >
-                  <SelectTrigger><SelectValue placeholder={form.classId ? 'Select subject' : '— pick class first —'} /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        !form.classId
+                          ? 'Select class first'
+                          : subjects.length === 0
+                            ? 'No assigned subjects'
+                            : 'Select subject'
+                      }
+                    />
+                  </SelectTrigger>
                   <SelectContent>
-                    {subjects.map(s => (
+                    {subjects.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">No subjects are assigned to you for this class.</div>
+                    ) : subjects.map(s => (
                       <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {form.classId && subjects.length === 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                No subject assignment was found for this class. Ask administration to assign the subject offering before creating tasks.
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Title *</Label>
@@ -282,8 +311,8 @@ function CreateTaskDialog({
           </div>
 
           <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending} className="gap-2">
+            <Button type="button" variant="outline" onClick={closeDialog} disabled={mutation.isPending}>Cancel</Button>
+            <Button type="submit" disabled={mutation.isPending || !form.classId || !form.subjectId || subjects.length === 0} className="gap-2">
               <Plus className="w-4 h-4" />
               {mutation.isPending ? 'Creating…' : 'Create Task'}
             </Button>
@@ -623,7 +652,7 @@ export default function TeacherTasksPage() {
   const limit = 20
 
   // Fetch classes for the create dialog filter
-  const { data: classesRaw, isLoading: classesLoading } = useQuery({
+  const { data: classesRaw } = useQuery({
     queryKey: ['teacher-classes'],
     queryFn:  () => fetchApi<ClassRecord[]>('/api/teacher-portal/classes'),
     enabled:  isTeacher,
