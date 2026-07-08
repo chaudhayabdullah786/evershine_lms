@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "app/api/admissions/[id]/approve/route.ts": {
-    "mtime": 1783537337.9268756,
-    "ast_hash": "188caed75119da748cfc44328b8bd5c3",
+    "mtime": 1783537930.952567,
+    "ast_hash": "ab4956e26a677af1c1539984e7fcee18",
     "semantic_hash": ""
   },
   "app/api/admissions/[id]/decline/route.ts": {
@@ -395,8 +395,8 @@
     "semantic_hash": ""
   },
   "app/api/complaints/route.ts": {
-    "mtime": 1783537337.9300551,
-    "ast_hash": "3e3976f590ddbb9f5fdebe8d98025177",
+    "mtime": 1783537930.9535673,
+    "ast_hash": "3f871ae9ffb974a9748c5a93dc9558b7",
     "semantic_hash": ""
   },
   "app/api/cron/birthday-check/route.ts": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "app/api/landing/inquiries/route.ts": {
-    "mtime": 1783537337.936343,
-    "ast_hash": "203fe0f6057ff4e8874ac6ecea37056d",
+    "mtime": 1783537930.9535673,
+    "ast_hash": "3da870a6c4f1f9029b3ef938f9e79089",
     "semantic_hash": ""
   },
   "app/api/leaves/[id]/route.ts": {
@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "app/api/leaves/route.ts": {
-    "mtime": 1783537337.9366677,
-    "ast_hash": "29ead67bcdbf130a22f2684b88c155dd",
+    "mtime": 1783537930.9545674,
+    "ast_hash": "30e58043dfbb1249ce2db8b1d4cb5074",
     "semantic_hash": ""
   },
   "app/api/logo-prep/route.ts": {
@@ -770,8 +770,8 @@
     "semantic_hash": ""
   },
   "app/api/queries/[id]/route.ts": {
-    "mtime": 1783537337.9379895,
-    "ast_hash": "af3aa30d788a3ac8f5b030f64a0836de",
+    "mtime": 1783537930.9545674,
+    "ast_hash": "51965ceca3d3085c3838ae5a307e6506",
     "semantic_hash": ""
   },
   "app/api/queries/activity/route.ts": {
@@ -780,8 +780,8 @@
     "semantic_hash": ""
   },
   "app/api/queries/route.ts": {
-    "mtime": 1783537337.9380558,
-    "ast_hash": "75dd3555f4e2d357c20f31f906e97127",
+    "mtime": 1783537930.9545674,
+    "ast_hash": "406f4ad501ddfab4017fcd4879d3cfa0",
     "semantic_hash": ""
   },
   "app/api/report-cards/route.ts": {
@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "app/api/staff-applications/apply/route.ts": {
-    "mtime": 1783537337.9395525,
-    "ast_hash": "3025880b857ca8f6c9e2c0f70156c389",
+    "mtime": 1783537930.9555674,
+    "ast_hash": "99d1fb37a16094064d42a1904f208313",
     "semantic_hash": ""
   },
   "app/api/staff-applications/export/route.ts": {
@@ -1100,8 +1100,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/declare/route.ts": {
-    "mtime": 1783537337.9444695,
-    "ast_hash": "3e07927c3adb97cbea511116a024e00f",
+    "mtime": 1783537930.9555674,
+    "ast_hash": "5f6db2024b8ea6fecb6d738613769362",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/performance-batch/route.ts": {
@@ -1115,8 +1115,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/route.ts": {
-    "mtime": 1783537337.9444695,
-    "ast_hash": "37a424000e75edfb128b99ff90e6bd57",
+    "mtime": 1783537930.9555674,
+    "ast_hash": "c1a5e01db55fbd0a4ef8cb9f279b0663",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/salary/route.ts": {
@@ -1465,8 +1465,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/layout.tsx": {
-    "mtime": 1783537337.955057,
-    "ast_hash": "5f09fb053202386f7449d5756d01cb07",
+    "mtime": 1783537930.9565675,
+    "ast_hash": "09394ce17e8162638ddacdb726059610",
     "semantic_hash": ""
   },
   "app/dashboard/leads/page.tsx": {
@@ -1530,8 +1530,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/students/[id]/edit/page.tsx": {
-    "mtime": 1783537337.9582474,
-    "ast_hash": "46b0e926adb7c595bc954a54385cf285",
+    "mtime": 1783537930.9575675,
+    "ast_hash": "9b75e1f721eaa5aa52ad5ce7fa054625",
     "semantic_hash": ""
   },
   "app/dashboard/students/[id]/page.tsx": {
@@ -1575,8 +1575,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grade-entry/page.tsx": {
-    "mtime": 1783537337.9600573,
-    "ast_hash": "58befe0510edabe2505a89bfff9e5054",
+    "mtime": 1783537930.9575675,
+    "ast_hash": "4a822517e0f41680d02777075433c9b3",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grading/page.tsx": {
@@ -1975,8 +1975,8 @@
     "semantic_hash": ""
   },
   "components/layout/MobileNav.tsx": {
-    "mtime": 1783537337.9685237,
-    "ast_hash": "3c11bc46d7afda9046e56b3802eabacd",
+    "mtime": 1783537930.9575675,
+    "ast_hash": "f94cd03addb717407da55d00e4f1ea4a",
     "semantic_hash": ""
   },
   "components/providers.tsx": {
@@ -2445,8 +2445,8 @@
     "semantic_hash": ""
   },
   "lib/notifications/dispatch.ts": {
-    "mtime": 1783537338.049064,
-    "ast_hash": "a756cd0ba7a1e03c6ce07845974f6764",
+    "mtime": 1783537930.981569,
+    "ast_hash": "bc6d7f9d535e4d80a2420dc1ae688d5b",
     "semantic_hash": ""
   },
   "lib/notifications/in-app.ts": {
@@ -3917,6 +3917,16 @@
   "tests/admin-cloudinary-diagnostics-route.test.ts": {
     "mtime": 1783537338.347535,
     "ast_hash": "fd2e39ddba521167c40dadc997e1b4b1",
+    "semantic_hash": ""
+  },
+  "tests/teacher-results-workflow.test.ts": {
+    "mtime": 1783537930.981569,
+    "ast_hash": "7e69de80f1410be8f30f0e246906ce10",
+    "semantic_hash": ""
+  },
+  "app/api/notifications/counts/route.ts": {
+    "mtime": 1783537930.9545674,
+    "ast_hash": "c34f2e44a4e74bab07493bce0d899330",
     "semantic_hash": ""
   },
   "tests/teacher-tasks-route.test.ts": {

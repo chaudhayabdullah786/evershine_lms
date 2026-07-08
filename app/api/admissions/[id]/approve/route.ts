@@ -383,6 +383,25 @@ export async function POST(
       await sendApprovalNotification(request.guardianEmail, `${result.firstName} ${result.lastName}`, result.registrationNumber)
     }
 
+    // In-app welcome notification — first thing the student sees on login.
+    // Placed outside the transaction: the student User is committed, so this
+    // cannot leave an orphaned notification if it fails.
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: result.userId,
+          title: '🎉 Welcome to Evershine Academy!',
+          message: `Your admission has been approved. Registration No: ${result.registrationNumber}. Log in with your email (${studentEmailToUse}) and CNIC (without hyphens) as your password. Update your password after first login.`,
+          type: 'ADMISSION_APPROVED',
+          relatedId: id,
+          isRead: false,
+        },
+      })
+    } catch (notifErr) {
+      // Non-fatal: student data is committed. Notification failure is logged only.
+      console.error('[ADMISSIONS_APPROVE] in-app notification failed:', notifErr)
+    }
+
     return NextResponse.json({
       success: true,
       data: result,

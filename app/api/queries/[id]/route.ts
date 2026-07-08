@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import type { NotificationType } from '@/lib/notifications/dispatch'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit-logger'
@@ -67,6 +68,20 @@ export async function PUT(
         response,
       },
       request,
+    })
+
+    // Notify the student that their query has been answered
+    const answererName = session.user.name ?? session.user.email ?? 'Your teacher'
+    const responsePreview = response.length > 160 ? response.slice(0, 160) + '…' : response
+    await tx.notification.create({
+      data: {
+        userId: studentQuery.studentId,
+        title: '💬 Academic Query Answered',
+        message: `${answererName} answered your query on "${studentQuery.subject}": "${responsePreview}"`,
+        type: 'QUERY_ANSWERED' as NotificationType,
+        relatedId: queryId,
+        isRead: false,
+      },
     })
 
     return updated

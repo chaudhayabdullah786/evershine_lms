@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, createdResponse } from '@/lib/api-response'
 import { staffApplicationSchema } from '@/lib/validation/staff-application'
 import { sendStaffPendingNotification, sendAdminStaffAlert } from '@/lib/notifications'
+import { dispatchToRoleUsers } from '@/lib/notifications/dispatch'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { ZodError } from 'zod'
@@ -134,10 +135,19 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // ── Notifications (non-fatal) ────────────────────────────────────────
+    // ── Notifications (non-fatal) ─────────────────────────────────────────
     try {
       await sendStaffPendingNotification(validated.email, validated.fullName, validated.applicantType)
       await sendAdminStaffAlert(validated.fullName, validated.applicantType, application.id)
+
+      // In-app: alert all admin users about the new staff applicant
+      void dispatchToRoleUsers({
+        roles: ['SUPER_ADMIN', 'ADMIN'],
+        title: '👤 New Staff Application',
+        message: `${validated.fullName} applied for a ${validated.applicantType.toLowerCase().replace('_', ' ')} position (${validated.specialization}).`,
+        type: 'STAFF_APP_SUBMITTED',
+        relatedId: application.id,
+      })
     } catch (_notifErr) {
       console.warn('[STAFF_APPLY] notification send failed', _notifErr)
     }

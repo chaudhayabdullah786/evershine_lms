@@ -40,6 +40,12 @@ import {
   Inbox,
   LineChart,
   Target,
+  Check,
+  MessageSquare,
+  Info,
+  AlertCircle,
+  Archive,
+  CheckCheck,
 } from 'lucide-react'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { ArcLineBrand } from '@/components/ArcLineBrand'
@@ -165,6 +171,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSidebarOpen(false)
   }, [pathname, setSidebarOpen])
 
+  // Aggregate unread notification counts per sidebar module.
+  // Polled every 30s alongside the notifications query list.
+  const { data: countsData } = useQuery({
+    queryKey: ['notification-counts'],
+    queryFn: () => fetchApi<{ total: number; modules: Record<string, number> }>('/api/notifications/counts'),
+    refetchInterval: 30000,
+    enabled: status === 'authenticated',
+  })
+
+  const getBadgeCount = (itemName: string) => {
+    if (!countsData?.modules) return 0
+    const keyMap: Record<string, string> = {
+      'Leaves': 'leaves',
+      'Student Leaves': 'leaves',
+      'Complaints': 'complaints',
+      'Academic Queries': 'queries',
+      'Admissions': 'admissions',
+      'Timetable': 'timetable',
+      'Fees': 'fees',
+      'Landing Leads': 'leads',
+      'Staff Directory': 'staff',
+      'Staff Salaries': 'salaries',
+      'Results': 'results',
+      'Exam Results': 'results',
+      'Attendance': 'attendance',
+      'Student Attendance': 'attendance',
+      'Staff Attendance': 'attendance',
+      'Class Attendance (Legacy)': 'attendance',
+      'My Children': 'my-children',
+    }
+    const key = keyMap[itemName]
+    return key ? (countsData.modules[key] ?? 0) : 0
+  }
+
   if (status === 'loading') {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
@@ -242,6 +282,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="space-y-0.5">
             {visibleNav.map((item) => {
               const active = isActive(item.href)
+              const badgeCount = getBadgeCount(item.name)
               return (
                 <Link
                   key={item.name}
@@ -256,7 +297,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <item.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-blue-600' : ''}`} />
                     {item.name}
                   </div>
-                  <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-blue-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                  <div className="flex items-center gap-2">
+                    {badgeCount > 0 && (
+                      <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-extrabold flex items-center justify-center px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                    <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-blue-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                  </div>
                 </Link>
               )
             })}
@@ -269,6 +317,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
                 {TEACHER_NAV_ITEMS.map((item) => {
                   const active = isActive(item.href)
+                  const badgeCount = getBadgeCount(item.name)
                   return (
                     <Link
                       key={item.name}
@@ -283,7 +332,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <item.icon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-emerald-600' : ''}`} />
                         {item.name}
                       </div>
-                      <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-emerald-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                      <div className="flex items-center gap-2">
+                        {badgeCount > 0 && (
+                          <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-extrabold flex items-center justify-center px-1">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                        <ChevronRight className={`w-3.5 h-3.5 transition-all duration-200 ${active ? 'opacity-70 text-emerald-500' : 'opacity-0 group-hover:opacity-40'}`} />
+                      </div>
                     </Link>
                   )
                 })}
@@ -324,7 +380,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top header */}
-        <header className="h-16 border-b border-gray-200/80 bg-white/95 backdrop-blur-sm flex items-center px-4 md:px-6 gap-4 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]">
+        <header className="relative z-50 h-16 border-b border-gray-200/80 bg-white/95 backdrop-blur-sm flex items-center px-4 md:px-6 gap-4 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]">
           <button
             className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
             onClick={() => setSidebarOpen(true)}
@@ -390,6 +446,7 @@ interface Notif { id: string; title: string; message: string; type: string; isRe
 function NotificationBell() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'inbox' | 'archive'>('inbox')
   const ref = useRef<HTMLDivElement>(null)
 
   const { data } = useQuery({
@@ -399,16 +456,26 @@ function NotificationBell() {
   })
 
   const notifications = data?.data ?? []
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadNotifications = notifications.filter(n => !n.isRead)
+  const readNotifications = notifications.filter(n => n.isRead)
+  const unreadCount = unreadNotifications.length
+
+  const displayedNotifications = activeTab === 'inbox' ? unreadNotifications : readNotifications
 
   const markAllMutation = useMutation({
     mutationFn: () => fetchApi('/api/notifications', { method: 'PATCH' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notification-counts'] })
+    },
   })
 
   const markOneMutation = useMutation({
     mutationFn: (id: string) => fetchApi(`/api/notifications/${id}`, { method: 'PATCH' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notification-counts'] })
+    },
   })
 
   // Close on outside click
@@ -418,11 +485,104 @@ function NotificationBell() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const typeColor = (type: string) => {
-    if (type === 'LEAVE_APPROVED') return 'border-l-4 border-emerald-500'
-    if (type === 'LEAVE_REJECTED') return 'border-l-4 border-rose-500'
-    if (type === 'COMPLAINT_RESOLVED') return 'border-l-4 border-blue-500'
-    return 'border-l-4 border-slate-300'
+  const getCategoryBadge = (type: string) => {
+    const map: Record<string, { label: string; className: string }> = {
+      RESULT_PUBLISHED: { label: 'Academics', className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+      ATTENDANCE_ALERT: { label: 'Attendance', className: 'bg-rose-50 text-rose-700 border-rose-100' },
+      TIMETABLE_CHANGE: { label: 'Timetable', className: 'bg-purple-50 text-purple-700 border-purple-100' },
+      LEAVE_APPROVED:   { label: 'Leaves', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+      LEAVE_REJECTED:   { label: 'Leaves', className: 'bg-rose-50 text-rose-700 border-rose-100' },
+      ADMISSION_APPROVED: { label: 'Admissions', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+      ADMISSION_DECLINED: { label: 'Admissions', className: 'bg-rose-50 text-rose-700 border-rose-100' },
+      QUERY_RECEIVED:   { label: 'Academic Query', className: 'bg-blue-50 text-blue-700 border-blue-100' },
+      QUERY_ANSWERED:   { label: 'Academic Query', className: 'bg-blue-50 text-blue-700 border-blue-100' },
+      FEE_REMINDER:     { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      FEE_STATUS_UPDATE: { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      COMPLAINT_RESOLVED: { label: 'Complaints', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+    }
+    const config = map[type] ?? { label: 'General', className: 'bg-slate-50 text-slate-700 border-slate-100' }
+    return (
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${config.className}`}>
+        {config.label}
+      </span>
+    )
+  }
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'LEAVE_APPROVED':
+      case 'ADMISSION_APPROVED':
+      case 'COMPLAINT_RESOLVED':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 flex-shrink-0">
+            <Check className="h-4.5 w-4.5" strokeWidth={3} />
+          </span>
+        )
+      case 'LEAVE_REJECTED':
+      case 'ADMISSION_DECLINED':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 flex-shrink-0">
+            <X className="h-4.5 w-4.5" strokeWidth={3} />
+          </span>
+        )
+      case 'QUERY_RECEIVED':
+      case 'QUERY_ANSWERED':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
+            <MessageSquare className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+      case 'FEE_REMINDER':
+      case 'FEE_STATUS_UPDATE':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 flex-shrink-0">
+            <AlertCircle className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+      case 'RESULT_PUBLISHED':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0">
+            <GraduationCap className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+      case 'ATTENDANCE_ALERT':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 flex-shrink-0">
+            <AlertOctagon className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+      case 'TIMETABLE_CHANGE':
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-50 text-purple-600 flex-shrink-0">
+            <CalendarClock className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+      default:
+        return (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 text-slate-600 flex-shrink-0">
+            <Info className="h-4.5 w-4.5" strokeWidth={2} />
+          </span>
+        )
+    }
+  }
+
+  const formatTimeAgo = (dateStr: string) => {
+    try {
+      const now = new Date()
+      const past = new Date(dateStr)
+      const diffMs = now.getTime() - past.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      if (diffMins < 1) return 'Just now'
+      if (diffMins < 60) return `${diffMins}m ago`
+      const diffHours = Math.floor(diffMins / 60)
+      if (diffHours < 24) return `${diffHours}h ago`
+      const diffDays = Math.floor(diffHours / 24)
+      if (diffDays === 1) return 'Yesterday'
+      if (diffDays < 7) return `${diffDays}d ago`
+      return past.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    } catch {
+      return ''
+    }
   }
 
   return (
@@ -451,39 +611,130 @@ function NotificationBell() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-96 sm:w-[440px] bg-white border border-slate-200 rounded-2xl shadow-xl z-[9999] overflow-hidden"
           >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <span className="font-bold text-sm text-slate-800">Notifications</span>
-            {unreadCount > 0 && (
-              <button onClick={() => markAllMutation.mutate()} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
-            {notifications.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-400">
-                <Bell className="w-8 h-8 mx-auto mb-2 text-slate-200" />
-                No notifications
+            <div className="flex flex-col border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+                <span className="font-bold text-sm text-slate-800">Notifications</span>
+                {unreadNotifications.length > 0 && (
+                  <button
+                    onClick={() => markAllMutation.mutate()}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 transition-colors hover:underline"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    Mark all read
+                  </button>
+                )}
               </div>
-            ) : notifications.map(n => (
-              <button
-                key={n.id}
-                onClick={() => { if (!n.isRead) markOneMutation.mutate(n.id) }}
-                className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors ${typeColor(n.type)} ${
-                  n.isRead ? 'opacity-60' : 'bg-indigo-50/20'
-                }`}
-              >
-                <p className={`text-xs font-semibold text-slate-800 ${!n.isRead ? 'font-bold' : ''}`}>{n.title}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.message}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
+
+              <div className="flex gap-4 px-4 border-t border-slate-100/50 pt-1">
+                <button
+                  onClick={() => setActiveTab('inbox')}
+                  className={`py-2 text-xs font-semibold border-b-2 transition-all relative ${
+                    activeTab === 'inbox'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Inbox className="w-3.5 h-3.5" />
+                    Inbox
+                    {unreadNotifications.length > 0 && (
+                      <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                        {unreadNotifications.length}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('archive')}
+                  className={`py-2 text-xs font-semibold border-b-2 transition-all relative ${
+                    activeTab === 'archive'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Archive className="w-3.5 h-3.5" />
+                    Archive
+                    {readNotifications.length > 0 && (
+                      <span className="bg-slate-200 text-slate-600 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                        {readNotifications.length}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+              {displayedNotifications.length === 0 ? (
+                <div className="py-12 text-center px-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400 mx-auto mb-3">
+                    {activeTab === 'inbox' ? <Inbox className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">
+                    {activeTab === 'inbox' ? 'Your inbox is clear' : 'No archived alerts'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {activeTab === 'inbox'
+                      ? 'You are all caught up. New messages will appear here.'
+                      : 'Read notifications will be archived here.'}
+                  </p>
+                </div>
+              ) : (
+                <AnimatePresence initial={false}>
+                  {displayedNotifications.map(n => (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      key={n.id}
+                      className={`flex gap-3 px-4 py-3.5 transition-colors border-l-[3px] ${
+                        n.isRead
+                          ? 'border-transparent bg-white hover:bg-slate-50/50'
+                          : 'border-indigo-600 bg-indigo-50/10 hover:bg-indigo-50/20'
+                      }`}
+                    >
+                      {getNotifIcon(n.type)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {getCategoryBadge(n.type)}
+                              {!n.isRead && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 flex-shrink-0 animate-pulse" />
+                              )}
+                            </div>
+                            <p className={`text-[13px] leading-snug break-words mt-0.5 ${!n.isRead ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
+                              {n.title}
+                            </p>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap flex-shrink-0 mt-0.5">
+                            {formatTimeAgo(n.createdAt)}
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1.5 leading-relaxed whitespace-pre-wrap break-words ${!n.isRead ? 'text-slate-700 font-normal' : 'text-slate-500 font-normal'}`}>
+                          {n.message}
+                        </p>
+                        {!n.isRead && (
+                          <button
+                            onClick={() => markOneMutation.mutate(n.id)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold mt-2.5 inline-flex items-center gap-1 transition-colors hover:underline"
+                          >
+                            Mark as read
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   )

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { NotificationType } from '@/lib/notifications/dispatch'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit-logger'
@@ -129,6 +130,20 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
       },
       request,
+    })
+
+    // Notify the designated teacher about the new query
+    const studentName = session.user.name ?? session.user.email ?? 'A student'
+    const preview = queryText.length > 120 ? queryText.slice(0, 120) + '…' : queryText
+    await tx.notification.create({
+      data: {
+        userId: teacherId,
+        title: '❓ New Academic Query',
+        message: `${studentName} submitted a query on "${subject}": "${preview}"`,
+        type: 'QUERY_RECEIVED' as NotificationType,
+        relatedId: createdQuery.id,
+        isRead: false,
+      },
     })
 
     return createdQuery

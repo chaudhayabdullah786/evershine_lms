@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { fetchApi } from '@/lib/api-client'
 import {
   BookOpen,
   CalendarClock,
@@ -84,6 +86,23 @@ const defaultNav: NavItem[] = [
 export function MobileNav({ pathname, role }: { pathname: string; role: string }) {
   const navItems = ROLE_NAV_MAP[role] ?? defaultNav
 
+  const { data: countsData } = useQuery({
+    queryKey: ['notification-counts'],
+    queryFn: () => fetchApi<{ total: number; modules: Record<string, number> }>('/api/notifications/counts'),
+    refetchInterval: 30000,
+  })
+
+  const getBadgeCount = (itemLabel: string) => {
+    if (!countsData?.modules) return 0
+    const keyMap: Record<string, string> = {
+      'Fees': 'fees',
+      'Timetable': 'timetable',
+      'Expenses': 'fees',
+    }
+    const key = keyMap[itemLabel]
+    return key ? (countsData.modules[key] ?? 0) : 0
+  }
+
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
@@ -95,6 +114,7 @@ export function MobileNav({ pathname, role }: { pathname: string; role: string }
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
+          const badgeCount = getBadgeCount(item.label)
           return (
             <Link
               key={item.href}
@@ -104,7 +124,14 @@ export function MobileNav({ pathname, role }: { pathname: string; role: string }
               }`}
               aria-current={active ? 'page' : undefined}
             >
-              <Icon className={`h-5 w-5 ${active ? 'text-primary-600' : 'text-slate-500'}`} />
+              <div className="relative">
+                <Icon className={`h-5 w-5 ${active ? 'text-primary-600' : 'text-slate-500'}`} />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-extrabold min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </div>
               <span>{item.label}</span>
             </Link>
           )

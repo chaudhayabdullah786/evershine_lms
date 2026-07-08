@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/audit-logger'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { z, ZodError, ZodIssueCode } from 'zod'
 import type { Role, Prisma } from '@prisma/client'
+import { dispatchToRoleUsers } from '@/lib/notifications/dispatch'
 
 const createLeaveSchema = z.object({
   leaveType: z.enum(['CASUAL', 'SICK', 'MATERNITY', 'EMERGENCY', 'OTHER']),
@@ -127,6 +128,21 @@ export async function POST(request: NextRequest) {
 
     return newLeave
   })
+
+  // Fire-and-forget: admin broadcast must never block the leave creation response.
+  // dispatchToRoleUsers scopes ADMIN notifications to the applicant's campus;
+  // SUPER_ADMIN users receive all alerts regardless of campus.
+  const applicantName = session.user.name ?? session.user.email ?? 'A user'
+  const startFmt = start.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })
+  const endFmt = end.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })
+  void dispatchToRoleUsers({
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    campusId: (session.user as { campusId?: string | null }).campusId ?? null,
+    title: '📋 New Leave Request',
+    message: `${applicantName} (${userRole}) submitted a ${leaveType.toLowerCase()} leave request from ${startFmt} to ${endFmt}: "${reason.slice(0, 100)}${reason.length > 100 ? '…' : ''}"`,
+    type: 'LEAVE_SUBMITTED',
+    relatedId: leave.id,
+  }).catch((err) => console.error('[leaves.POST] admin notification failed:', err))
 
   return createdResponse(leave, 'Leave application submitted successfully. Awaiting admin review.')
 }

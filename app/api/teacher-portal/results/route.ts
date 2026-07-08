@@ -21,10 +21,26 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 const subjectResultSchema = z.object({
   subjectOfferingId: z.string().min(1),
   totalMarks: z.number().int().positive(),
-  obtainedMarks: z.number().min(0).nullable(), // null = Input Decide Later
+  obtainedMarks: z.number().min(0).nullable(),
   isAbsent: z.boolean().default(false),
   isNotApplicable: z.boolean().default(false),
   remarks: z.string().max(500).optional(),
+}).superRefine((value, ctx) => {
+  if (value.isAbsent && value.isNotApplicable) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['isNotApplicable'],
+      message: 'A subject cannot be marked both Absent and N/A.',
+    })
+  }
+
+  if (value.obtainedMarks !== null && value.obtainedMarks > value.totalMarks) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['obtainedMarks'],
+      message: 'Obtained marks cannot exceed total marks.',
+    })
+  }
 })
 
 const createResultSchema = z.object({
@@ -124,15 +140,38 @@ export async function POST(req: NextRequest) {
     }
 
     const { studentId, classSectionId, examSessionId, teacherRemarks, subjectResults } = parsed.data
+    const normalizedSubjectResults = subjectResults.map((subjectResult) => ({
+      ...subjectResult,
+      obtainedMarks: subjectResult.isAbsent || subjectResult.isNotApplicable ? null : subjectResult.obtainedMarks,
+    }))
 
-    // Guard: Teacher may only post results for sections they teach
-    const offering = await prisma.subjectOffering.findFirst({
-      where: { classSectionId, teacherId: teacher.id },
+    const enrollment = await prisma.studentEnrollment.findFirst({
+      where: {
+        studentId,
+        classSectionId,
+        status: 'ACTIVE',
+      },
+      select: { id: true },
     })
-    if (!offering) return errors.forbidden('Not assigned to this section')
+    if (!enrollment) {
+      return errors.badRequest('Selected student is not actively enrolled in this class section.')
+    }
+
+    const offeringIds = [...new Set(normalizedSubjectResults.map((sr) => sr.subjectOfferingId))]
+    const assignedOfferings = await prisma.subjectOffering.findMany({
+      where: {
+        id: { in: offeringIds },
+        classSectionId,
+        teacherId: teacher.id,
+      },
+      select: { id: true },
+    })
+    if (assignedOfferings.length !== offeringIds.length) {
+      return errors.forbidden('One or more selected subjects are not assigned to you for this section.')
+    }
 
     // Compute aggregates from provided subject results
-    const validResults = subjectResults.filter(
+    const validResults = normalizedSubjectResults.filter(
       (sr) => !sr.isAbsent && !sr.isNotApplicable && sr.obtainedMarks !== null
     )
     const totalObtained = validResults.reduce((sum, sr) => sum + (sr.obtainedMarks ?? 0), 0)
@@ -175,7 +214,7 @@ export async function POST(req: NextRequest) {
       })
 
       // Upsert each SubjectResult
-      for (const sr of subjectResults) {
+      for (const sr of normalizedSubjectResults) {
         const percentage =
           !sr.isAbsent && !sr.isNotApplicable && sr.obtainedMarks !== null && sr.totalMarks > 0
             ? Math.round((sr.obtainedMarks / sr.totalMarks) * 100 * 100) / 100

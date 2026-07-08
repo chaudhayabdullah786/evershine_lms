@@ -29,12 +29,19 @@ interface StudentEditSource {
   postalCode?: string
   phoneNumber: string
   emergencyContact: string
+  // WHY: student.email is the contact/profile email. student.user.email is
+  // the actual authentication credential used for login. These are DISTINCT
+  // fields. The credential reset section must operate on user.email only.
   email?: string
   rollNumber?: string
   section?: string
   academicYear: string
   profilePicture?: string
   userId: string
+  user?: {
+    email: string
+    isActive: boolean
+  }
 }
 
 export default function EditStudentPage() {
@@ -78,7 +85,15 @@ export default function EditStudentPage() {
         section: student.section || '',
         academicYear: student.academicYear,
       })
-      setResetEmail(student.email || '')
+      // WHY use student.user?.email (not student.email):
+      // student.email is the contact/profile field (e.g. abdulrauf@gmail.com).
+      // student.user.email is the actual auth credential stored in the User table.
+      // When a student is admitted without an email, the system auto-generates a
+      // synthetic login email (e.g. ESA.2026.0085@students.evershineacademy.edu.pk).
+      // Pre-populating with the contact email caused the newEmail gate to send
+      // undefined (contact email === contact email), leaving the synthetic auth
+      // email in place — which is why the student could not log in after reset.
+      setResetEmail(student.user?.email || student.email || '')
     }
   }, [student])
 
@@ -164,19 +179,35 @@ export default function EditStudentPage() {
       notify.error('Email address cannot be empty')
       return
     }
+    if (!resetEmail.includes('@')) {
+      notify.error('Please enter a valid email address')
+      return
+    }
+    if (!resetPassword) {
+      notify.error('A new password is required when resetting credentials')
+      return
+    }
     if (!confirm('Are you sure you want to update login credentials for this student?')) return
 
     setIsResetting(true)
     try {
+      // WHY compare against student.user?.email (not student.email):
+      // The gate decides whether to send newEmail to the API. We must compare
+      // the admin's input against the CURRENT auth credential (user.email), not
+      // the contact email field. Comparing against student.email would suppress
+      // the newEmail payload even when the auth email is different (e.g. when
+      // the student has a synthetic auto-generated login email but a real contact
+      // email), leaving the auth credential unchanged after the reset.
+      const currentAuthEmail = student.user?.email || student.email || ''
       await fetchApi('/api/users/reset-credentials', {
         method: 'POST',
         body: JSON.stringify({
           userId: student.userId,
-          newEmail: resetEmail !== student.email ? resetEmail : undefined,
+          newEmail: resetEmail !== currentAuthEmail ? resetEmail : undefined,
           newPassword: resetPassword || undefined,
         })
       })
-      notify.success('Credentials updated successfully!')
+      notify.success('Credentials updated successfully! The student can now log in with the new credentials.')
       setResetPassword('')
       queryClient.invalidateQueries({ queryKey: ['student', id] })
     } catch (err: any) {
@@ -395,6 +426,25 @@ export default function EditStudentPage() {
             <CardDescription className="text-xs text-rose-700/80">Change or reset this student's active dashboard login credentials (email & password).</CardDescription>
           </div>
         </CardHeader>
+        {/* WHY: Show the current auth email explicitly so admins don't confuse
+            student.email (contact/profile field) with User.email (login credential).
+            Synthetic login emails (e.g. ESA.2026.0085@students...) are not visible
+            anywhere else in the UI, causing admins to unknowingly type a new email
+            that matches the contact email, which suppresses the auth email update. */}
+        {student.user?.email && (
+          <div className="mx-6 mt-4 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 flex items-start gap-2">
+            <span className="text-amber-600 mt-0.5 flex-shrink-0">ℹ️</span>
+            <p className="text-xs text-amber-800">
+              <span className="font-bold">Current login email:</span>{' '}
+              <code className="font-mono bg-amber-100 px-1 rounded">{student.user.email}</code>
+              {student.user.email !== student.email && student.email && (
+                <span className="block mt-0.5 text-amber-700">
+                  (Contact email on profile: <span className="font-mono">{student.email}</span> — these are different fields)
+                </span>
+              )}
+            </p>
+          </div>
+        )}
         <CardContent className="pt-6">
           <form onSubmit={handleCredentialsReset} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div className="space-y-1">
