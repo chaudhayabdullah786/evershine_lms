@@ -3,18 +3,17 @@
 /**
  * /dashboard/exams/roll-number-slip
  *
- * Student-only page for viewing and downloading their official Roll Number Slip
- * (exam admit card) for a selected exam session (academic year).
+ * Professional Roll Number Slip (admit card) for students.
+ * HTML preview and generated PDF are pixel-for-pixel consistent.
  *
- * Architecture:
- *  - Fetches slip data from /api/student-portal/roll-number-slip
- *  - Renders a live A4-proportioned HTML preview matching the PDF output
- *  - On "Download PDF", converts any Cloudinary photo URLs to base64 and
- *    calls generateRollNumberSlipPDF() from lib/pdf-upgrades.ts
- *  - STUDENT role only — shows AccessDenied for all other roles
+ * Design:
+ *  - Google Fonts: Noto Serif (document) + Noto Sans (UI)
+ *  - Real academy logo (bglogo.png) in both HTML preview and PDF
+ *  - A4 proportioned preview card
+ *  - STUDENT role only
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
@@ -25,7 +24,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Download, FileText, RefreshCw, AlertCircle, GraduationCap } from 'lucide-react'
+import { Download, FileText, RefreshCw, AlertCircle, GraduationCap, Printer } from 'lucide-react'
 import type { RollNumberSlipPDFOptions, SlipExamSlot } from '@/lib/pdf-upgrades'
 
 // ─── API response types ───────────────────────────────────────────────────────
@@ -62,7 +61,7 @@ interface SlipResponse {
 
 interface ExamSession { id: string; name: string; term: string }
 
-// ─── Utility: fetch a URL and convert to base64 data URL ─────────────────────
+// ─── Utility: URL → base64 data URL ─────────────────────────────────────────
 async function urlToBase64(url: string): Promise<string | undefined> {
   try {
     const res = await fetch(url)
@@ -78,61 +77,67 @@ async function urlToBase64(url: string): Promise<string | undefined> {
   }
 }
 
-// ─── Utility: format ISO date for display ────────────────────────────────────
-function formatDisplayDate(iso: string): string {
+function fmtDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('en-PK', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
     })
-  } catch {
-    return iso
-  }
+  } catch { return iso }
 }
+
+function fmtDay(iso: string) {
+  try { return new Date(iso).toLocaleDateString('en-PK', { weekday: 'long' }) }
+  catch { return '' }
+}
+
+// ─── Design tokens (shared between HTML preview and PDF) ─────────────────────
+const NAVY  = '#1e3a8a'
+const TEAL  = '#0d9488'
+const BLUE  = '#3b82f6'
+const AMBER = '#fbbf24'
+const AMBER_BG = '#fffbeb'
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function RollNumberSlipPage() {
   const { data: session, status } = useSession()
   const role = session?.user?.role
+
   const [selectedSessionId, setSelectedSessionId] = useState<string>('__latest__')
   const [isGenerating, setIsGenerating]           = useState(false)
+  const [logoBase64, setLogoBase64]               = useState<string | undefined>()
 
-  // ── Exam sessions (academic years) ────────────────────────────────────────
+  // Pre-load logo as base64 for PDF embedding
+  useEffect(() => {
+    urlToBase64('/bglogo.png').then(setLogoBase64)
+  }, [])
+
+  // ── Exam sessions ─────────────────────────────────────────────────────────
   const { data: examSessions = [] } = useQuery<ExamSession[]>({
     queryKey: ['exam-sessions'],
     queryFn:  () => fetchApi<ExamSession[]>('/api/exam-sessions'),
     enabled:  status === 'authenticated',
   })
 
-  // ── Roll number slip data ─────────────────────────────────────────────────
-  const slipQueryKey = ['roll-number-slip', selectedSessionId]
-  const {
-    data:       slip,
-    isFetching: isFetchingSlip,
-    error:      slipError,
-  } = useQuery<SlipResponse | null>({
-    queryKey: slipQueryKey,
-    queryFn: () => {
-      const params = selectedSessionId !== '__latest__'
-        ? `?examSessionId=${selectedSessionId}`
-        : ''
-      return fetchApi<SlipResponse | null>(`/api/student-portal/roll-number-slip${params}`)
-    },
-    enabled: status === 'authenticated' && role === 'STUDENT',
-  })
+  // ── Slip data ─────────────────────────────────────────────────────────────
+  const { data: slip, isFetching: isFetchingSlip, error: slipError } =
+    useQuery<SlipResponse | null>({
+      queryKey: ['roll-number-slip', selectedSessionId],
+      queryFn: () => {
+        const qs = selectedSessionId !== '__latest__'
+          ? `?examSessionId=${selectedSessionId}` : ''
+        return fetchApi<SlipResponse | null>(`/api/student-portal/roll-number-slip${qs}`)
+      },
+      enabled: status === 'authenticated' && role === 'STUDENT',
+    })
 
-  // ── PDF download ──────────────────────────────────────────────────────────
+  // ── PDF download ─────────────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
-    if (!slip || !slip.dateSheet) return
+    if (!slip?.dateSheet) return
     setIsGenerating(true)
-
     try {
-      // Dynamically import so jsPDF is never bundled server-side
       const { generateRollNumberSlipPDF } = await import('@/lib/pdf-upgrades')
 
-      // Convert Cloudinary photo to base64 for embedding in PDF
+      // Convert student photo to base64 if available
       let photoBase64: string | undefined
       if (slip.student.profilePicture) {
         photoBase64 = await urlToBase64(slip.student.profilePicture)
@@ -153,545 +158,465 @@ export default function RollNumberSlipPage() {
         examSessionName:    slip.examSession.name,
         slots:              slip.dateSheet.slots,
         photoUrl:           photoBase64,
+        logoUrl:            logoBase64,
         colorMode:          'color',
       }
 
       const pdf = generateRollNumberSlipPDF(options)
-      const filename = `roll-number-slip-${slip.student.rollNumber}-${Date.now()}.pdf`
-      pdf.save(filename)
+      pdf.save(`roll-number-slip-${slip.student.rollNumber}-${Date.now()}.pdf`)
       notify.success('Roll Number Slip downloaded successfully')
     } catch (err) {
-      console.error('[RollNumberSlip] PDF generation failed:', err)
+      console.error('[RollNumberSlip]', err)
       notify.error('Failed to generate PDF. Please try again.')
     } finally {
       setIsGenerating(false)
     }
-  }, [slip])
+  }, [slip, logoBase64])
 
   // ── Guards ────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
-  if (!session?.user) {
-    return <AccessDenied title="Roll Number Slip" message="Please sign in to view your slip." />
-  }
-  if (role !== 'STUDENT') {
-    return (
-      <AccessDenied
-        title="Roll Number Slip"
-        message="This page is only accessible to registered students."
-      />
-    )
-  }
+  if (!session?.user) return <AccessDenied title="Roll Number Slip" message="Please sign in to view your slip." />
+  if (role !== 'STUDENT') return <AccessDenied title="Roll Number Slip" message="This page is only accessible to registered students." />
 
   const hasSlip = slip && slip.dateSheet !== null
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-      {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            <FileText className="w-6 h-6 text-indigo-600" />
-            Roll Number Slip
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Download your official exam admit card for any examination session.
-          </p>
+    <>
+      {/* Google Fonts — Noto Serif + Noto Sans */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Sans:wght@400;500;600;700&display=swap"
+      />
+
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5" style={{ fontFamily: '"Noto Sans", sans-serif' }}>
+
+        {/* ── Page Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+              <FileText className="w-6 h-6 text-indigo-700" />
+              Roll Number Slip
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Download your official exam admit card for any examination session.
+            </p>
+          </div>
+          {hasSlip && (
+            <div className="flex gap-2">
+              <Button
+                id="download-slip-btn"
+                onClick={handleDownload}
+                disabled={isGenerating}
+                className="gap-2 bg-indigo-700 hover:bg-indigo-800 text-white shadow"
+              >
+                {isGenerating ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" />Generating…</>
+                ) : (
+                  <><Download className="w-4 h-4" />Download PDF</>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.print()}
+                className="gap-2"
+              >
+                <Printer className="w-4 h-4" />Print
+              </Button>
+            </div>
+          )}
         </div>
-        {hasSlip && (
-          <Button
-            id="download-slip-btn"
-            onClick={handleDownload}
-            disabled={isGenerating}
-            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Generating PDF…
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                Download PDF
-              </>
-            )}
-          </Button>
+
+        {/* ── Session Selector ── */}
+        <Card className="border border-slate-200 shadow-sm">
+          <CardContent className="pt-5">
+            <div className="max-w-xs">
+              <Label htmlFor="exam-session-select" className="text-sm font-semibold text-slate-700">
+                Select Exam Session
+              </Label>
+              <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                <SelectTrigger id="exam-session-select" className="mt-2">
+                  <SelectValue placeholder="Latest published sheet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__latest__">Latest Published Sheet</SelectItem>
+                  {examSessions.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Loading ── */}
+        {isFetchingSlip && (
+          <div className="flex items-center justify-center py-16">
+            <div className="flex flex-col items-center gap-3 text-slate-400">
+              <RefreshCw className="w-8 h-8 animate-spin" />
+              <p className="text-sm font-medium">Fetching your slip…</p>
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* ── Session Selector ── */}
-      <Card className="border border-slate-200 shadow-sm">
-        <CardContent className="pt-5">
-          <div className="max-w-xs">
-            <Label htmlFor="exam-session-select" className="text-sm font-semibold text-slate-700">
-              Select Exam Session
-            </Label>
-            <Select
-              value={selectedSessionId}
-              onValueChange={setSelectedSessionId}
-            >
-              <SelectTrigger id="exam-session-select" className="mt-2">
-                <SelectValue placeholder="Latest published sheet" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__latest__">Latest Published Sheet</SelectItem>
-                {examSessions.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* ── Error ── */}
+        {!isFetchingSlip && slipError && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p className="text-sm font-medium">Failed to load slip data. Please refresh.</p>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* ── Loading ── */}
-      {isFetchingSlip && (
-        <div className="flex items-center justify-center py-16">
-          <div className="flex flex-col items-center gap-3 text-slate-400">
-            <RefreshCw className="w-8 h-8 animate-spin" />
-            <p className="text-sm font-medium">Fetching your slip…</p>
+        {/* ── No enrollment ── */}
+        {!isFetchingSlip && slip === null && (
+          <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
+            <GraduationCap className="w-12 h-12 opacity-50" />
+            <p className="text-base font-semibold text-slate-600">No active enrollment found</p>
+            <p className="text-sm text-center max-w-sm">
+              You have not been assigned to a class section. Please contact administration.
+            </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Error ── */}
-      {!isFetchingSlip && slipError && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">Failed to load slip data. Please refresh the page.</p>
-        </div>
-      )}
+        {/* ── No date sheet ── */}
+        {!isFetchingSlip && slip && !slip.dateSheet && (
+          <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
+            <FileText className="w-12 h-12 opacity-50" />
+            <p className="text-base font-semibold text-slate-600">No date sheet published yet</p>
+            <p className="text-sm text-center max-w-sm">
+              The examination schedule for <strong>{slip.section.className} — {slip.section.sectionName}</strong> has not been published. Check back later.
+            </p>
+          </div>
+        )}
 
-      {/* ── No enrollment ── */}
-      {!isFetchingSlip && slip === null && (
-        <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
-          <GraduationCap className="w-12 h-12 opacity-50" />
-          <p className="text-base font-semibold text-slate-600">No active enrollment found</p>
-          <p className="text-sm text-center max-w-sm">
-            You have not been assigned to a class section yet.
-            Please contact the administration office.
-          </p>
-        </div>
-      )}
-
-      {/* ── No date sheet ── */}
-      {!isFetchingSlip && slip && !slip.dateSheet && (
-        <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
-          <FileText className="w-12 h-12 opacity-50" />
-          <p className="text-base font-semibold text-slate-600">No date sheet published yet</p>
-          <p className="text-sm text-center max-w-sm">
-            The examination schedule for <strong>{slip.section.className} — {slip.section.sectionName}</strong>{' '}
-            has not been published for this session. Check back later.
-          </p>
-        </div>
-      )}
-
-      {/* ── A4 Preview ── */}
-      {!isFetchingSlip && hasSlip && (
-        <div className="flex justify-center">
-          {/* Outer container: A4 shadow frame */}
-          <div
-            id="roll-number-slip-preview"
-            className="bg-white rounded shadow-2xl border border-slate-200 overflow-hidden"
-            style={{
-              width: '210mm',
-              minHeight: '297mm',
-              maxWidth: '100%',
-              fontFamily: 'Helvetica, Arial, sans-serif',
-            }}
-          >
-            {/* ── Top Navy Stripe ── */}
-            <div style={{ background: '#1e3a8a', height: 6 }} />
-
-            {/* ── Header Row ── */}
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        {/* A4 PREVIEW — mirrors the PDF layout exactly                        */}
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        {!isFetchingSlip && hasSlip && (
+          <div className="flex justify-center print:justify-start">
             <div
+              id="roll-number-slip-preview"
+              className="bg-white shadow-2xl border border-slate-200 print:shadow-none print:border-none"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 14px 6px',
-                borderBottom: '1.5px solid #1e3a8a',
-                gap: 12,
+                width: '210mm',
+                maxWidth: '100%',
+                minHeight: '297mm',
+                fontFamily: '"Noto Serif", Georgia, "Times New Roman", serif',
+                color: '#111827',
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              {/* Logo placeholder */}
-              <div
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: '50%',
-                  background: '#f1f5f9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  border: '1.5px solid #1e3a8a',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#1e3a8a',
-                }}
-              >
-                ESA
-              </div>
+              {/* ── TOP STRIPE ── */}
+              <div style={{ background: NAVY, height: 6 }} />
 
-              {/* Academy title */}
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#1e3a8a', letterSpacing: 1 }}>
-                  EVERSHINE ACADEMY
+              {/* ── HEADER: Logo | Academy Info | Photo ── */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '10px 14px 8px',
+                gap: 12,
+                borderBottom: `2px solid ${NAVY}`,
+              }}>
+                {/* Academy Logo */}
+                <div style={{ flexShrink: 0, width: 62, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/bglogo.png"
+                    alt="Evershine Academy"
+                    style={{ width: 58, height: 58, objectFit: 'contain' }}
+                  />
                 </div>
-                <div style={{ fontSize: 10, color: '#0d9488', fontStyle: 'italic', marginTop: 2 }}>
-                  PAKISTAN EDUCATION SYSTEM
-                </div>
-                <div
-                  style={{
-                    marginTop: 4,
+
+                {/* Academy Name + Info */}
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: NAVY,
+                    letterSpacing: 2.5,
+                    fontFamily: '"Noto Serif", Georgia, serif',
+                    lineHeight: 1.1,
+                  }}>
+                    EVERSHINE ACADEMY
+                  </div>
+                  <div style={{ fontSize: 8.5, color: TEAL, fontStyle: 'italic', marginTop: 2 }}>
+                    "We Make your Children More Valueable"
+                  </div>
+                  <div style={{ fontSize: 7.5, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>
+                    Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony
+                  </div>
+                  <div style={{ fontSize: 7, color: '#6b7280' }}>
+                    Boys: 0328-4010522 &nbsp;|&nbsp; Girls: 0324-8985526
+                  </div>
+                  {/* Admit Card Badge */}
+                  <div style={{
+                    marginTop: 5,
                     display: 'inline-block',
-                    background: '#1e3a8a',
+                    background: NAVY,
                     color: '#fff',
-                    padding: '2px 16px',
-                    borderRadius: 4,
+                    padding: '3px 22px',
+                    borderRadius: 3,
                     fontSize: 9,
                     fontWeight: 700,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  ROLL NUMBER SLIP / ADMIT CARD
+                    letterSpacing: 1,
+                    fontFamily: '"Noto Sans", sans-serif',
+                  }}>
+                    ROLL NUMBER SLIP / ADMIT CARD
+                  </div>
                 </div>
-              </div>
 
-              {/* Student Photo */}
-              <div
-                style={{
-                  width: 70,
-                  height: 80,
-                  border: '2px solid #1e3a8a',
+                {/* Student Passport Photo */}
+                <div style={{
                   flexShrink: 0,
+                  width: 72,
+                  height: 84,
+                  border: `2px solid ${NAVY}`,
                   overflow: 'hidden',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   background: '#f8fafc',
-                }}
-              >
-                {slip.student.profilePicture ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={slip.student.profilePicture}
-                    alt="Student photo"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 9, color: '#9ca3af', textAlign: 'center' }}>PHOTO</span>
-                )}
-              </div>
-            </div>
-
-            {/* ── Student Information Table ── */}
-            <div style={{ padding: '0 14px' }}>
-              {/* Section header */}
-              <div
-                style={{
-                  background: '#1e3a8a',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: 10,
-                  textAlign: 'center',
-                  padding: '5px 0',
-                  letterSpacing: 0.5,
-                  marginTop: 10,
-                }}
-              >
-                STUDENT INFORMATION
-              </div>
-
-              {/* Table */}
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: 10,
-                }}
-              >
-                <tbody>
-                  <InfoRow
-                    left={{ label: 'REGISTRATION NO:', value: slip.student.registrationNumber, teal: true }}
-                    right={{ label: 'ROLL NO:', value: slip.student.rollNumber, teal: true, bold: true }}
-                  />
-                  <InfoRow
-                    left={{ label: 'STUDENT NAME:', value: slip.student.name.toUpperCase(), bold: true }}
-                    colSpan
-                  />
-                  <InfoRow
-                    left={{ label: 'CLASS / SECTION:', value: `${slip.section.className} — ${slip.section.sectionName}`, bold: true }}
-                    right={{ label: 'SHIFT:', value: slip.section.shiftName, bold: true }}
-                  />
-                  <InfoRow
-                    left={{ label: 'FATHER NAME:', value: slip.student.fatherName, bold: true }}
-                    right={{ label: 'GENDER:', value: slip.student.gender, bold: true }}
-                  />
-                  <InfoRow
-                    left={{ label: 'CAMPUS:', value: slip.student.campus, bold: true }}
-                    right={{ label: 'BATCH / PROGRAM:', value: slip.student.batch, bold: true }}
-                  />
-                </tbody>
-              </table>
-
-              {/* ── Exam Schedule ── */}
-              <div
-                style={{
-                  background: '#1e3a8a',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: 10,
-                  textAlign: 'center',
-                  padding: '5px 0',
-                  letterSpacing: 0.5,
-                  marginTop: 14,
-                }}
-              >
-                EXAMINATION SCHEDULE —{' '}
-                {(slip.examSession.name ?? slip.dateSheet.title).toUpperCase()}
-              </div>
-
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: 9.5,
-                  marginTop: 0,
-                }}
-              >
-                <thead>
-                  <tr style={{ background: '#3b82f6', color: '#fff' }}>
-                    <Th w="5%">S.No</Th>
-                    <Th w="18%">Date</Th>
-                    <Th w="8%">Day</Th>
-                    <Th w="33%">Subject Name</Th>
-                    <Th w="13%">Start Time</Th>
-                    <Th w="13%">End Time</Th>
-                    <Th w="10%">Room</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slip.dateSheet.slots.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        style={{
-                          textAlign: 'center',
-                          padding: '14px 8px',
-                          color: '#6b7280',
-                          fontStyle: 'italic',
-                          border: '1px solid #e2e8f0',
-                        }}
-                      >
-                        No exam slots scheduled for this session.
-                      </td>
-                    </tr>
+                }}>
+                  {slip.student.profilePicture ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={slip.student.profilePicture}
+                      alt="Passport photo"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                   ) : (
-                    slip.dateSheet.slots.map((slot, idx) => (
-                      <tr
-                        key={slot.subjectCode + idx}
-                        style={{
-                          background: idx % 2 === 0 ? '#ffffff' : '#eff6ff',
-                        }}
-                      >
-                        <Td center>{idx + 1}</Td>
-                        <Td>{formatDisplayDate(String(slot.examDate))}</Td>
-                        <Td>{new Date(slot.examDate).toLocaleDateString('en-PK', { weekday: 'short' })}</Td>
-                        <Td bold navy>{slot.subjectName}</Td>
-                        <Td center>{slot.startTime}</Td>
-                        <Td center>{slot.endTime}</Td>
-                        <Td center>{slot.roomNumber ?? '—'}</Td>
-                      </tr>
-                    ))
+                    <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>PHOTO</span>
                   )}
-                </tbody>
-              </table>
+                </div>
+              </div>
 
-              {/* ── Instructions ── */}
-              <div
-                style={{
+              {/* ── STUDENT INFO TABLE ── */}
+              <div style={{ padding: '0 14px' }}>
+                <SectionHeader title="STUDENT INFORMATION" />
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9.5 }}>
+                  <tbody>
+                    <TR
+                      left={{ label: 'REGISTRATION NO.', value: slip.student.registrationNumber, teal: true }}
+                      right={{ label: 'ROLL NO.', value: slip.student.rollNumber, teal: true, bold: true, large: true }}
+                    />
+                    <TR
+                      left={{ label: 'STUDENT NAME', value: slip.student.name.toUpperCase(), bold: true }}
+                      full
+                    />
+                    <TR
+                      left={{ label: 'CLASS / SECTION', value: `${slip.section.className} — ${slip.section.sectionName}`, bold: true }}
+                      right={{ label: 'SHIFT', value: slip.section.shiftName, bold: true }}
+                    />
+                    <TR
+                      left={{ label: 'FATHER NAME', value: slip.student.fatherName, bold: true }}
+                      right={{ label: 'GENDER', value: slip.student.gender, bold: true }}
+                    />
+                    <TR
+                      left={{ label: 'CAMPUS', value: slip.student.campus, bold: true }}
+                      right={{ label: 'BATCH / PROGRAM', value: slip.student.batch, bold: true }}
+                    />
+                  </tbody>
+                </table>
+
+                {/* ── EXAM SCHEDULE ── */}
+                <SectionHeader
+                  title={`EXAMINATION SCHEDULE — ${(slip.examSession.name ?? slip.dateSheet.title).toUpperCase()}`}
+                  mt={14}
+                />
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                  <thead>
+                    <tr style={{ background: BLUE, color: '#fff', fontFamily: '"Noto Sans", sans-serif' }}>
+                      {['S.No','Date','Day','Subject Name','Start Time','End Time','Room'].map((h) => (
+                        <th key={h} style={{ border: `1px solid ${NAVY}`, padding: '5px 4px', textAlign: 'center', fontWeight: 600, letterSpacing: 0.2 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slip.dateSheet.slots.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '14px 8px', color: '#6b7280', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>
+                          No exam slots scheduled.
+                        </td>
+                      </tr>
+                    ) : (
+                      slip.dateSheet.slots.map((slot, idx) => (
+                        <tr key={slot.subjectCode + idx} style={{ background: idx % 2 === 0 ? '#fff' : '#eff6ff' }}>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>{idx + 1}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', whiteSpace: 'nowrap', fontFamily: '"Noto Sans", sans-serif' }}>{fmtDate(String(slot.examDate))}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>{fmtDay(String(slot.examDate)).slice(0,3)}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 6px', fontWeight: 600, color: NAVY, fontFamily: '"Noto Serif", Georgia, serif' }}>{slot.subjectName}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>{slot.startTime}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>{slot.endTime}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'center', fontFamily: '"Noto Sans", sans-serif' }}>{slot.roomNumber ?? '—'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+
+                {/* ── INSTRUCTIONS ── */}
+                <div style={{
                   marginTop: 14,
-                  background: '#fffbeb',
-                  border: '1px solid #fbbf24',
+                  background: AMBER_BG,
+                  border: `1px solid ${AMBER}`,
                   borderRadius: 4,
                   padding: '8px 12px',
                   fontSize: 8.5,
-                }}
-              >
-                <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
-                  IMPORTANT INSTRUCTIONS:
+                  fontFamily: '"Noto Sans", sans-serif',
+                }}>
+                  <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 5 }}>IMPORTANT INSTRUCTIONS:</div>
+                  <ol style={{ margin: 0, paddingLeft: 18, color: '#5c2d0a', lineHeight: 1.8 }}>
+                    <li>Students must bring this printed Roll Number Slip and their official ID Card to the examination hall.</li>
+                    <li>Arrive at least 15 minutes before start time. Entry will NOT be permitted after the exam begins.</li>
+                    <li>Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.</li>
+                  </ol>
                 </div>
-                <ol style={{ margin: 0, paddingLeft: 16, color: '#5c2d0a', lineHeight: 1.7 }}>
-                  <li>Students must bring this printed Roll Number Slip and their official ID Card to the examination hall.</li>
-                  <li>Arrive at least 15 minutes before the start time. Entry will not be permitted after the exam begins.</li>
-                  <li>Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.</li>
-                </ol>
-              </div>
 
-              {/* ── Signature Area ── */}
-              <div
-                style={{
+                {/* ── SIGNATURES ── */}
+                <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
+                  alignItems: 'flex-end',
                   marginTop: 32,
                   paddingBottom: 8,
-                }}
-              >
-                <SignatureLine label="Controller of Examinations" />
-                <SignatureLine label="Principal Signature & Stamp" center />
-                <SignatureLine label="Received by Student" right />
+                  fontFamily: '"Noto Sans", sans-serif',
+                }}>
+                  <SigLine label="Controller of Examinations" />
+
+                  {/* Academy Official Seal */}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      width: 80,
+                      height: 80,
+                      border: `2px solid ${NAVY}`,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto',
+                    }}>
+                      <div style={{ fontSize: 6.5, fontWeight: 700, color: NAVY, textAlign: 'center', lineHeight: 1.4, fontFamily: '"Noto Serif", Georgia, serif' }}>
+                        EVERSHINE<br />ACADEMY<br />
+                        <span style={{ fontSize: 5.5, color: TEAL }}>OFFICIAL SEAL</span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 7, color: '#374151', marginTop: 4, fontWeight: 600 }}>Exam Office Stamp</div>
+                  </div>
+
+                  <SigLine label="Principal Signature & Stamp" right />
+                </div>
+
+                {/* ── SLIP INFO BADGES ── */}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', margin: '10px 0 14px', fontFamily: '"Noto Sans", sans-serif' }}>
+                  <Badge variant="secondary" className="text-xs font-mono">Roll No: {slip.student.rollNumber}</Badge>
+                  {slip.dateSheet.version > 1 && (
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">Version {slip.dateSheet.version}</Badge>
+                  )}
+                  <Badge variant="outline" className="text-xs text-slate-500">{slip.examSession.name ?? slip.dateSheet.title}</Badge>
+                </div>
               </div>
 
-              {/* ── Slip Info Badges ── */}
-              <div className="flex flex-wrap gap-2 mt-4 mb-6 justify-center">
-                <Badge variant="secondary" className="text-xs font-mono">
-                  Roll No: {slip.student.rollNumber}
-                </Badge>
-                {slip.dateSheet.version > 1 && (
-                  <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                    Version {slip.dateSheet.version}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="text-xs text-slate-500">
-                  {slip.examSession.name ?? slip.dateSheet.title}
-                </Badge>
-              </div>
-            </div>
-
-            {/* ── Footer Stripe ── */}
-            <div
-              style={{
+              {/* ── FOOTER ── */}
+              <div style={{
                 background: '#f8fafc',
                 borderTop: '1px solid #e2e8f0',
                 padding: '6px 14px',
-                fontSize: 8,
                 textAlign: 'center',
+                fontSize: 7.5,
                 color: '#9ca3af',
-              }}
-            >
-              This slip is generated by EverShine Academy LMS. For corrections or re-issuance, contact the Examination Office.
+                fontFamily: '"Noto Sans", sans-serif',
+              }}>
+                This slip is generated by EverShine Academy LMS. For corrections or re-issuance, contact the Examination Office.
+              </div>
+              <div style={{ background: NAVY, height: 5 }} />
             </div>
-            <div style={{ background: '#1e3a8a', height: 5 }} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── Shared sub-components (HTML preview) ───────────────────────────────────
+
+function SectionHeader({ title, mt = 10 }: { title: string; mt?: number }) {
+  return (
+    <div style={{
+      background: NAVY,
+      color: '#fff',
+      fontWeight: 700,
+      fontSize: 9.5,
+      textAlign: 'center',
+      padding: '5px 6px',
+      letterSpacing: 0.6,
+      marginTop: mt,
+      fontFamily: '"Noto Sans", sans-serif',
+    }}>
+      {title}
     </div>
   )
 }
 
-// ─── Small sub-components for the HTML preview ───────────────────────────────
-
-interface InfoRowProps {
-  left:     { label: string; value: string; teal?: boolean; bold?: boolean }
-  right?:   { label: string; value: string; teal?: boolean; bold?: boolean }
-  colSpan?: boolean
+interface CellData {
+  label: string
+  value: string
+  teal?: boolean
+  bold?: boolean
+  large?: boolean
 }
 
-function InfoRow({ left, right, colSpan }: InfoRowProps) {
-  const cellStyle: React.CSSProperties = {
-    border: '1px solid #1e3a8a',
-    padding: '4px 6px',
+function TR({ left, right, full }: { left: CellData; right?: CellData; full?: boolean }) {
+  const cell: React.CSSProperties = {
+    border: `1px solid ${NAVY}`,
+    padding: '5px 7px',
     verticalAlign: 'middle',
+    width: full ? '100%' : '50%',
   }
-  const labelStyle: React.CSSProperties = {
+  const lbl: React.CSSProperties = {
+    fontSize: 7.5,
     fontWeight: 700,
-    fontSize: 8.5,
     color: '#374151',
-    whiteSpace: 'nowrap',
+    fontFamily: '"Noto Sans", sans-serif',
+    display: 'block',
+    marginBottom: 1,
   }
-  const getValueStyle = (opts: { teal?: boolean; bold?: boolean }): React.CSSProperties => ({
-    fontWeight: opts.bold ? 700 : 400,
-    fontSize: 9.5,
-    color: opts.teal ? '#0d9488' : '#111827',
-    marginLeft: 4,
+  const val = (d: CellData): React.CSSProperties => ({
+    fontSize: d.large ? 11 : 9.5,
+    fontWeight: d.bold ? 700 : 400,
+    color: d.teal ? TEAL : '#111827',
+    fontFamily: d.bold ? '"Noto Serif", Georgia, serif' : '"Noto Sans", sans-serif',
   })
 
   return (
     <tr>
-      <td style={colSpan ? { ...cellStyle, width: '100%' } : { ...cellStyle, width: '50%' }} colSpan={colSpan ? 2 : 1}>
-        <span style={labelStyle}>{left.label}</span>
-        <span style={getValueStyle({ teal: left.teal, bold: left.bold })}>{left.value}</span>
+      <td style={cell} colSpan={full ? 2 : 1}>
+        <span style={lbl}>{left.label}</span>
+        <span style={val(left)}>{left.value}</span>
       </td>
-      {!colSpan && right && (
-        <td style={{ ...cellStyle, width: '50%' }}>
-          <span style={labelStyle}>{right.label}</span>
-          <span style={getValueStyle({ teal: right.teal, bold: right.bold })}>{right.value}</span>
+      {!full && right && (
+        <td style={cell}>
+          <span style={lbl}>{right.label}</span>
+          <span style={val(right)}>{right.value}</span>
         </td>
       )}
     </tr>
   )
 }
 
-function Th({ children, w }: { children: React.ReactNode; w?: string }) {
+function SigLine({ label, right }: { label: string; right?: boolean }) {
   return (
-    <th
-      style={{
-        border: '1px solid #1e3a8a',
-        padding: '5px 4px',
-        textAlign: 'center',
-        fontWeight: 700,
-        letterSpacing: 0.2,
-        width: w,
-      }}
-    >
-      {children}
-    </th>
-  )
-}
-
-function Td({
-  children,
-  center,
-  bold,
-  navy,
-}: {
-  children: React.ReactNode
-  center?: boolean
-  bold?: boolean
-  navy?: boolean
-}) {
-  return (
-    <td
-      style={{
-        border: '1px solid #cbd5e1',
-        padding: '5px 4px',
-        textAlign: center ? 'center' : 'left',
-        fontWeight: bold ? 700 : 400,
-        color: navy ? '#1e3a8a' : '#111827',
-      }}
-    >
-      {children}
-    </td>
-  )
-}
-
-function SignatureLine({
-  label,
-  center,
-  right: isRight,
-}: {
-  label: string
-  center?: boolean
-  right?: boolean
-}) {
-  return (
-    <div
-      style={{
-        textAlign: center ? 'center' : isRight ? 'right' : 'left',
-        minWidth: 100,
-      }}
-    >
-      <div
-        style={{
-          borderTop: '1px solid #6b7280',
-          width: 120,
-          marginBottom: 4,
-          ...(center ? { margin: '0 auto 4px' } : {}),
-          ...(isRight ? { marginLeft: 'auto' } : {}),
-        }}
-      />
-      <div style={{ fontSize: 8, color: '#374151', fontWeight: 600 }}>{label}</div>
+    <div style={{ textAlign: right ? 'right' : 'left', minWidth: 130 }}>
+      <div style={{
+        borderTop: '1px solid #6b7280',
+        width: 130,
+        marginBottom: 5,
+        ...(right ? { marginLeft: 'auto' } : {}),
+      }} />
+      <div style={{ fontSize: 7.5, color: '#374151', fontWeight: 600 }}>{label}</div>
     </div>
   )
 }
