@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchApi } from '@/lib/api-client'
+import { ApiError, fetchApi } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,17 @@ import {
 // classes across Morning/Evening/Night shifts.
 const SHIFT_ICONS: Record<string, string> = { MORNING: '🌅', EVENING: '🌆', NIGHT: '🌙' }
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function formatApiFormError(error: Error, fallback: string): string {
+  if (error instanceof ApiError && error.fieldErrors.length > 0) {
+    const details = error.fieldErrors
+      .map((fieldError) => fieldError.message)
+      .filter(Boolean)
+      .join(' ')
+    if (details) return details
+  }
+  return error.message || fallback
+}
 
 type DeliveryMode = 'PHYSICAL' | 'ONLINE' | 'HYBRID'
 type CurriculumMode = 'FIXED' | 'ELECTIVE'
@@ -165,6 +176,7 @@ export default function AcademicEnginePage() {
     startTime: '09:00',
     endTime: '09:45',
   })
+  const [slotError, setSlotError] = useState<string | null>(null)
 
   const [roomForm, setRoomForm] = useState({ campusId: '', name: '', capacity: 40 })
   const [roomCampusFilter, setRoomCampusFilter] = useState('all')
@@ -468,10 +480,15 @@ export default function AcademicEnginePage() {
         }),
       }),
     onSuccess: () => {
+      setSlotError(null)
       notify.success('Timetable slot added')
       qc.invalidateQueries({ queryKey: ['timetable-slots'] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => {
+      const message = formatApiFormError(e, 'Unable to save timetable slot.')
+      setSlotError(message)
+      notify.error(message)
+    },
   })
 
   const publishTimetable = useMutation({
@@ -483,8 +500,15 @@ export default function AcademicEnginePage() {
           classSectionId: slotFilterSection || undefined,
         }),
       }),
-    onSuccess: () => notify.success('Timetable published for section'),
-    onError: (e: Error) => notify.error(e.message),
+    onSuccess: () => {
+      setSlotError(null)
+      notify.success('Timetable published for section')
+    },
+    onError: (e: Error) => {
+      const message = formatApiFormError(e, 'Unable to publish timetable.')
+      setSlotError(message)
+      notify.error(message)
+    },
   })
 
   const { data: gradingSchemes } = useQuery({
@@ -1276,6 +1300,11 @@ export default function AcademicEnginePage() {
                   <CardDescription>Conflict validation runs on save. Day 1=Mon … 7=Sun.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {slotError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                      {slotError}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Select value={ttCampus} onValueChange={setTtCampus}>
                       <SelectTrigger className="h-8 text-xs bg-slate-50"><SelectValue placeholder="Filter Campus" /></SelectTrigger>
@@ -1348,6 +1377,9 @@ export default function AcademicEnginePage() {
                     <div><Label>Start time</Label><Input placeholder="09:00" value={slotForm.startTime} onChange={(e) => setSlotForm({ ...slotForm, startTime: e.target.value })} /></div>
                     <div><Label>End time</Label><Input placeholder="09:45" value={slotForm.endTime} onChange={(e) => setSlotForm({ ...slotForm, endTime: e.target.value })} /></div>
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Use 24-hour time inside the selected section shift. Example: enter 15:00 for 3 PM.
+                  </p>
                   <div>
                     <Label>4. Room (optional)</Label>
                     <Select
@@ -1369,11 +1401,11 @@ export default function AcademicEnginePage() {
                     )}
                   </div>
                   <div className="flex gap-2 pt-1">
-                    <Button onClick={() => createSlot.mutate()} disabled={!slotForm.subjectOfferingId || !slotFilterSection || !slotForm.teacherId}>
-                      Add slot
+                    <Button onClick={() => createSlot.mutate()} disabled={!slotForm.subjectOfferingId || !slotFilterSection || !slotForm.teacherId || createSlot.isPending}>
+                      {createSlot.isPending ? 'Adding...' : 'Add slot'}
                     </Button>
-                    <Button variant="secondary" onClick={() => publishTimetable.mutate()} disabled={!slotFilterSection}>
-                      Publish timetable for section
+                    <Button variant="secondary" onClick={() => publishTimetable.mutate()} disabled={!slotFilterSection || publishTimetable.isPending}>
+                      {publishTimetable.isPending ? 'Publishing...' : 'Publish timetable for section'}
                     </Button>
                   </div>
                 </CardContent>

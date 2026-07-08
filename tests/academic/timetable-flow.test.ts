@@ -1,6 +1,8 @@
+import type { NextRequest } from 'next/server'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { guardLegacyClassMutation } from '@/lib/academic/legacy-guard'
 import { createTimetableSlotSchema, publishTimetableSchema } from '@/lib/validation/academic'
+import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -11,7 +13,7 @@ describe('timetable admin flow guards', () => {
     vi.stubEnv('LEGACY_API_ENABLED', 'false')
     vi.stubEnv('NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY', 'true')
 
-    const request = { headers: new Headers() } as any
+    const request = { headers: new Headers() } as unknown as NextRequest
 
     const result = guardLegacyClassMutation(request, 'timetable', 'ADMIN')
 
@@ -22,7 +24,7 @@ describe('timetable admin flow guards', () => {
     vi.stubEnv('LEGACY_API_ENABLED', 'false')
     vi.stubEnv('NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY', 'true')
 
-    const request = { headers: new Headers({ 'x-legacy-academic-client': '1' }) } as any
+    const request = { headers: new Headers({ 'x-legacy-academic-client': '1' }) } as unknown as NextRequest
 
     const result = guardLegacyClassMutation(request, 'timetable', 'ADMIN')
 
@@ -64,6 +66,40 @@ describe('timetable slot validation', () => {
       expect(parsed.data.endTime).toBe('09:45')
       expect(parsed.data.dayOfWeek).toBe(3)
     }
+  })
+
+  it('rejects slots where end time is not later than start time', () => {
+    const parsed = createTimetableSlotSchema.safeParse({
+      academicYearId: 'year-123',
+      classSectionId: 'section-456',
+      subjectOfferingId: 'offering-789',
+      teacherId: 'teacher-abc',
+      dayOfWeek: '3',
+      startTime: '15:00',
+      endTime: '09:45',
+    })
+
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(parsed.error.errors[0].message).toBe('End time must be later than start time.')
+    }
+  })
+
+  it('formats timetable conflicts as user-readable field errors', () => {
+    const conflicts = [
+      {
+        type: 'SHIFT' as const,
+        message: 'Enter a time within Evening Shift (15:00-18:00). Use 24-hour time, for example 15:00 for 3 PM.',
+      },
+    ]
+
+    expect(timetableConflictSummary(conflicts)).toContain('Shift timing issue')
+    expect(timetableConflictDetails(conflicts)).toEqual([
+      {
+        field: 'startTime',
+        message: 'Shift timing issue: Enter a time within Evening Shift (15:00-18:00). Use 24-hour time, for example 15:00 for 3 PM.',
+      },
+    ])
   })
 
   it('accepts non-cuid id formats for publish requests', () => {

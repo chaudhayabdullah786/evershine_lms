@@ -10,6 +10,25 @@ function normalizeTime(value: string): string {
   return `${String(Number(hours)).padStart(2, '0')}:${minutes}`
 }
 
+function minutesFromTime(value: string): number {
+  const [hours, minutes] = value.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+function validateTimeOrder(
+  data: { startTime?: string; endTime?: string },
+  ctx: z.RefinementCtx
+) {
+  if (!data.startTime || !data.endTime) return
+  if (minutesFromTime(data.startTime) >= minutesFromTime(data.endTime)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['endTime'],
+      message: 'End time must be later than start time.',
+    })
+  }
+}
+
 export const createAcademicYearSchema = z.object({
   name: z.string().min(4).max(20),
   startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
@@ -67,27 +86,31 @@ export const approveSubjectEnrollmentSchema = z.object({
   approve: z.boolean(),
 })
 
-export const createTimetableSlotSchema = z.object({
+const timetableTimeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,2}:\d{2}$/, 'Use 24-hour HH:mm time, for example 09:00 or 15:30.')
+  .transform((value) => normalizeTime(value))
+
+const timetableSlotBaseSchema = z.object({
   // Accept flexible ID formats (cuid or uuid) from frontend; DB layer still enforces integrity.
-  academicYearId: z.string().min(1),
-  classSectionId: z.string().min(1),
-  subjectOfferingId: z.string().min(1),
-  teacherId: z.string().min(1),
+  academicYearId: z.string().min(1, 'Academic year is required.'),
+  classSectionId: z.string().min(1, 'Class section is required.'),
+  subjectOfferingId: z.string().min(1, 'Subject offering is required.'),
+  teacherId: z.string().min(1, 'Teacher is required.'),
   roomId: z.string().min(1).optional().nullable(),
-  dayOfWeek: z.coerce.number().int().min(1).max(7),
-  startTime: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}:\d{2}$/)
-    .transform((value) => normalizeTime(value)),
-  endTime: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}:\d{2}$/)
-    .transform((value) => normalizeTime(value)),
+  dayOfWeek: z.coerce
+    .number()
+    .int('Day must be a whole number from 1 to 7.')
+    .min(1, 'Day must be between 1 (Monday) and 7 (Sunday).')
+    .max(7, 'Day must be between 1 (Monday) and 7 (Sunday).'),
+  startTime: timetableTimeSchema,
+  endTime: timetableTimeSchema,
 })
 
-export const updateTimetableSlotSchema = createTimetableSlotSchema.partial()
+export const createTimetableSlotSchema = timetableSlotBaseSchema.superRefine(validateTimeOrder)
+
+export const updateTimetableSlotSchema = timetableSlotBaseSchema.partial().superRefine(validateTimeOrder)
 
 export const publishTimetableSchema = z.object({
   academicYearId: z.string().min(1),

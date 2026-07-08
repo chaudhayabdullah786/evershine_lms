@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { errors, successResponse } from '@/lib/api-response'
+import { errors, successResponse, errorResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { updateTimetableSlotSchema } from '@/lib/validation/academic'
 import { validateTimetableSlot } from '@/lib/academic/engine'
+import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -54,9 +55,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       excludeSlotId: id
     })
     if (conflicts.length > 0) {
-      return errors.validation({
-        errors: conflicts.map((c, i) => ({ path: [String(i)], message: `[${c.type}] ${c.message}` })),
-      } as never)
+      return errorResponse(
+        'VALIDATION_ERROR',
+        timetableConflictSummary(conflicts),
+        400,
+        timetableConflictDetails(conflicts)
+      )
     }
   }
 
