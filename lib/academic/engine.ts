@@ -37,7 +37,7 @@ export async function getActiveAcademicYear() {
 }
 
 export type TimetableConflict = {
-  type: 'TEACHER' | 'ROOM' | 'SECTION' | 'SHIFT' | 'CAMPUS'
+  type: 'TEACHER' | 'ROOM' | 'SECTION' | 'SHIFT' | 'CAMPUS' | 'SUBJECT'
   message: string
   slotId?: string
 }
@@ -64,10 +64,28 @@ export async function validateTimetableSlot(params: {
     return conflicts
   }
 
+  const subjectOffering = await prisma.subjectOffering.findUnique({
+    where: { id: params.subjectOfferingId },
+    include: { subject: true },
+  })
+  if (!subjectOffering) {
+    conflicts.push({
+      type: 'SUBJECT',
+      message: 'Selected subject offering was not found. Create the offering first, then add the slot.',
+    })
+    return conflicts
+  }
+  if (subjectOffering.classSectionId !== params.classSectionId) {
+    conflicts.push({
+      type: 'SUBJECT',
+      message: `Selected subject (${subjectOffering.subject.name}) does not belong to this class section. Choose a subject offering from the selected section.`,
+    })
+  }
+
   if (!isWithinShiftWindow(params.startTime, params.endTime, section.shift.startTime, section.shift.endTime)) {
     conflicts.push({
       type: 'SHIFT',
-      message: `Slot must fall within ${section.shift.name} (${section.shift.startTime}–${section.shift.endTime})`,
+      message: `Enter a time within ${section.shift.name} (${section.shift.startTime}-${section.shift.endTime}). Use 24-hour time, for example 15:00 for 3 PM.`,
     })
   }
 
@@ -91,7 +109,7 @@ export async function validateTimetableSlot(params: {
     if (slot.teacherId === params.teacherId) {
       conflicts.push({
         type: 'TEACHER',
-        message: `Teacher already scheduled (${slot.startTime}–${slot.endTime})`,
+        message: `Teacher is already scheduled from ${slot.startTime}-${slot.endTime}. Choose a different teacher or time.`,
         slotId: slot.id,
       })
     }
@@ -99,7 +117,7 @@ export async function validateTimetableSlot(params: {
     if (params.roomId && slot.roomId === params.roomId) {
       conflicts.push({
         type: 'ROOM',
-        message: `Room already booked (${slot.startTime}–${slot.endTime})`,
+        message: `Room is already booked from ${slot.startTime}-${slot.endTime}. Choose another room or time.`,
         slotId: slot.id,
       })
     }
@@ -107,7 +125,7 @@ export async function validateTimetableSlot(params: {
     if (slot.classSectionId === params.classSectionId) {
       conflicts.push({
         type: 'SECTION',
-        message: `Section already has a class (${slot.startTime}–${slot.endTime})`,
+        message: `This section already has a class from ${slot.startTime}-${slot.endTime}. Choose another period.`,
         slotId: slot.id,
       })
     }
@@ -118,7 +136,7 @@ export async function validateTimetableSlot(params: {
     ) {
       conflicts.push({
         type: 'CAMPUS',
-        message: 'Teacher cannot be at two campuses simultaneously',
+        message: 'Teacher cannot be scheduled at two campuses during the same time window.',
         slotId: slot.id,
       })
     }

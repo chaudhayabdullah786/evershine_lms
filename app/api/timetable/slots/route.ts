@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { errors, successResponse, createdResponse } from '@/lib/api-response'
+import { errors, successResponse, createdResponse, errorResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createTimetableSlotSchema, publishTimetableSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
+import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
@@ -129,9 +130,12 @@ export async function PUT(request: NextRequest) {
 }
 
 function errorResponseConflicts(
-  conflicts: { type: string; message: string }[]
+  conflicts: Parameters<typeof timetableConflictDetails>[0]
 ) {
-  return errors.validation({
-    errors: conflicts.map((c, i) => ({ path: [String(i)], message: `[${c.type}] ${c.message}` })),
-  } as never)
+  return errorResponse(
+    'VALIDATION_ERROR',
+    timetableConflictSummary(conflicts),
+    400,
+    timetableConflictDetails(conflicts)
+  )
 }
