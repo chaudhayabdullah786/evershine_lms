@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
-import { fetchApi } from '@/lib/api-client'
+import { ApiError, fetchApi } from '@/lib/api-client'
 import { useSession } from 'next-auth/react'
 import { notify } from '@/lib/notify'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   GraduationCap, Save, Loader2, CheckCircle2, PlusCircle,
-  Trash2, Edit2, Award, BarChart3, Eye,
+  Trash2, Edit2, Award, BarChart3, Eye, AlertCircle,
 } from 'lucide-react'
 import { AccessDenied } from '@/components/AccessDenied'
 
@@ -59,6 +59,24 @@ function batchColor(batch: string) {
   return 'bg-rose-100 text-rose-800'
 }
 
+function formatApiError(error: unknown) {
+  if (error instanceof ApiError && error.hasFieldErrors) {
+    const details = error.fieldErrors
+      .map((fieldError) => fieldError.field ? `${fieldError.field}: ${fieldError.message}` : fieldError.message)
+      .join('; ')
+    return `${error.message}: ${details}`
+  }
+
+  return error instanceof Error ? error.message : 'The request could not be completed'
+}
+
+function getEntryStatus(entry: SubjectEntry) {
+  if (entry.isAbsent) return 'Absent'
+  if (entry.isNotApplicable) return 'N/A'
+  if (entry.obtainedMarks.trim() === '') return 'Pending'
+  return 'Marked'
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function TeacherResultEntryPage() {
@@ -73,7 +91,7 @@ export default function TeacherResultEntryPage() {
   const [newField, setNewField] = useState<CustomField>({ label: '', value: '' })
   const [editReason, setEditReason] = useState('')
   const [showDeclareDialog, setShowDeclareDialog] = useState(false)
-  const [selectedResultId, setSelectedResultId] = useState('')
+  const [selectedBatchOverride, setSelectedBatchOverride] = useState('')
   const searchParams = useSearchParams()
   const resultId = searchParams.get('resultId') ?? ''
 
@@ -121,7 +139,20 @@ export default function TeacherResultEntryPage() {
     studentId: string
     declarationStatus?: 'DECLARED' | string
     performanceBatch?: string
+    teacherRemarks?: string | null
     customFields?: CustomField[] | null
+    subjectResults?: ResultSubject[]
+  }
+
+  type ResultSubject = {
+    id: string
+    subjectOfferingId: string
+    totalMarks: number
+    obtainedMarks: number | null
+    isAbsent: boolean
+    isNotApplicable: boolean
+    remarks?: string | null
+    subjectOffering: { subject: { name: string } }
   }
 
   type ResultDetail = {
@@ -130,16 +161,7 @@ export default function TeacherResultEntryPage() {
     classSectionId: string
     examSessionId: string
     teacherRemarks?: string | null
-    subjectResults: Array<{
-      id: string
-      subjectOfferingId: string
-      totalMarks: number
-      obtainedMarks: number | null
-      isAbsent: boolean
-      isNotApplicable: boolean
-      remarks?: string | null
-      subjectOffering: { subject: { name: string } }
-    }>
+    subjectResults: ResultSubject[]
   }
 
   const { data: resultDetail, error: resultDetailError } = useQuery<ResultDetail | null>({
@@ -154,7 +176,6 @@ export default function TeacherResultEntryPage() {
     setExamSessionId(resultDetail.examSessionId)
     setStudentId(resultDetail.studentId)
     setTeacherRemarks(resultDetail.teacherRemarks ?? '')
-    setSelectedResultId(resultDetail.id)
     setSubjectEntries(resultDetail.subjectResults.map((sr) => ({
       subjectOfferingId: sr.subjectOfferingId,
       subjectName: sr.subjectOffering.subject.name,
@@ -180,6 +201,20 @@ export default function TeacherResultEntryPage() {
     enabled: !!(studentId && classSectionId && examSessionId),
   })
 
+  useEffect(() => {
+    if (resultId || !existingResult?.subjectResults?.length) return
+    setTeacherRemarks(existingResult.teacherRemarks ?? '')
+    setSubjectEntries(existingResult.subjectResults.map((sr) => ({
+      subjectOfferingId: sr.subjectOfferingId,
+      subjectName: sr.subjectOffering.subject.name,
+      totalMarks: sr.totalMarks,
+      obtainedMarks: sr.obtainedMarks === null ? '' : String(sr.obtainedMarks),
+      isAbsent: sr.isAbsent,
+      isNotApplicable: sr.isNotApplicable,
+      remarks: sr.remarks ?? '',
+    })))
+  }, [existingResult, resultId])
+
   // ── Mutations ────────────────────────────────────────────────────────────────
 
   const saveResult = useMutation({
@@ -194,7 +229,7 @@ export default function TeacherResultEntryPage() {
           subjectResults: subjectEntries.map((e) => ({
             subjectOfferingId: e.subjectOfferingId,
             totalMarks: e.totalMarks,
-            obtainedMarks: e.obtainedMarks === '' ? null : Number(e.obtainedMarks),
+            obtainedMarks: e.isAbsent || e.isNotApplicable || e.obtainedMarks === '' ? null : Number(e.obtainedMarks),
             isAbsent: e.isAbsent,
             isNotApplicable: e.isNotApplicable,
             remarks: e.remarks,
@@ -206,7 +241,7 @@ export default function TeacherResultEntryPage() {
       qc.invalidateQueries({ queryKey: ['existing-result'] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
   const declareResult = useMutation({
@@ -218,7 +253,7 @@ export default function TeacherResultEntryPage() {
       qc.invalidateQueries({ queryKey: ['existing-result'] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
   const addCustomField = useMutation({
@@ -233,7 +268,7 @@ export default function TeacherResultEntryPage() {
       qc.invalidateQueries({ queryKey: ['existing-result'] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
   const deleteCustomField = useMutation({
@@ -246,7 +281,7 @@ export default function TeacherResultEntryPage() {
       notify.success('Custom field removed')
       qc.invalidateQueries({ queryKey: ['existing-result'] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
   const overrideBatch = useMutation({
@@ -260,7 +295,7 @@ export default function TeacherResultEntryPage() {
       setEditReason('')
       qc.invalidateQueries({ queryKey: ['existing-result'] })
     },
-    onError: (e: Error) => notify.error(e.message),
+    onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
   // ── Guard ─────────────────────────────────────────────────────────────────────
@@ -270,13 +305,49 @@ export default function TeacherResultEntryPage() {
 
   const isEditing = !!resultId
   const isDeclared = existingResult?.declarationStatus === 'DECLARED'
-  const canDeclare = existingResult && !isDeclared
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   const updateEntry = (idx: number, field: keyof SubjectEntry, val: string | number | boolean) => {
-    setSubjectEntries((prev) => prev.map((e, i) => i === idx ? { ...e, [field]: val } : e))
+    setSubjectEntries((prev) => prev.map((e, i) => {
+      if (i !== idx) return e
+
+      const next = { ...e, [field]: val } as SubjectEntry
+      if (field === 'isAbsent' && val === true) {
+        next.isNotApplicable = false
+        next.obtainedMarks = ''
+      }
+      if (field === 'isNotApplicable' && val === true) {
+        next.isAbsent = false
+        next.obtainedMarks = ''
+      }
+      if (field === 'obtainedMarks' && String(val).trim() !== '') {
+        next.isAbsent = false
+        next.isNotApplicable = false
+      }
+      if (field === 'totalMarks') {
+        next.totalMarks = Math.max(1, Number(val) || 1)
+      }
+
+      return next
+    }))
   }
+
+  const invalidEntries = subjectEntries.filter((entry) => {
+    const obtained = entry.obtainedMarks.trim() === '' ? null : Number(entry.obtainedMarks)
+    return (
+      entry.totalMarks < 1 ||
+      entry.isAbsent && entry.isNotApplicable ||
+      obtained !== null && (!Number.isFinite(obtained) || obtained < 0 || obtained > entry.totalMarks)
+    )
+  })
+
+  const pendingEntries = subjectEntries.filter((entry) =>
+    !entry.isAbsent && !entry.isNotApplicable && entry.obtainedMarks.trim() === ''
+  )
+
+  const canSaveDraft = Boolean(studentId && classSectionId && examSessionId && subjectEntries.length) && invalidEntries.length === 0
+  const canDeclare = Boolean(existingResult && !isDeclared && invalidEntries.length === 0 && pendingEntries.length === 0)
 
   const computedPct = (() => {
     const valid = subjectEntries.filter((e) => !e.isAbsent && !e.isNotApplicable && e.obtainedMarks !== '')
@@ -375,7 +446,9 @@ export default function TeacherResultEntryPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">2. Enter Subject Marks</CardTitle>
-              <CardDescription>Leave blank for “Input Decide Later” (IDL). Check Absent or N/A as needed.</CardDescription>
+              <CardDescription>
+                Blank subjects stay pending and cannot be declared. Enter marks, or mark Absent/N/A before declaration.
+              </CardDescription>
             </div>
             {computedPct > 0 && (
               <div className="text-right">
@@ -388,13 +461,32 @@ export default function TeacherResultEntryPage() {
             )}
           </CardHeader>
           <CardContent className="space-y-3">
+            {sectionOfferings.length === 0 && !isEditing && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>No assigned subject offerings were found for this section. Ask administration to assign subjects to your teacher profile before entering results.</span>
+              </div>
+            )}
+            {invalidEntries.length > 0 && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 flex gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>Fix invalid rows before saving. Obtained marks must be between 0 and total marks, and Absent/N/A cannot both be selected.</span>
+              </div>
+            )}
+            {pendingEntries.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{pendingEntries.length} subject(s) are pending. Drafts can be saved, but students will not see this result until every subject is marked, Absent, or N/A.</span>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 px-1">
               <span className="col-span-3">Subject</span>
               <span className="col-span-2 text-center">Total</span>
               <span className="col-span-2 text-center">Obtained</span>
               <span className="col-span-1 text-center">Absent</span>
               <span className="col-span-1 text-center">N/A</span>
-              <span className="col-span-3">Remarks</span>
+              <span className="col-span-1 text-center">Status</span>
+              <span className="col-span-2">Remarks</span>
             </div>
             <Separator />
             {subjectEntries.map((entry, idx) => (
@@ -405,13 +497,13 @@ export default function TeacherResultEntryPage() {
                     type="number" min={1} className="h-8 text-center text-xs"
                     value={entry.totalMarks}
                     disabled={isDeclared}
-                    onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 100)}
+                    onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
                   />
                 </div>
                 <div className="col-span-2">
                   <Input
                     type="number" min={0} max={entry.totalMarks}
-                    placeholder="IDL" className="h-8 text-center text-xs"
+                    placeholder="Pending" className="h-8 text-center text-xs"
                     value={entry.obtainedMarks}
                     disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
                     onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
@@ -431,7 +523,19 @@ export default function TeacherResultEntryPage() {
                     onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-1 flex justify-center">
+                  <Badge
+                    variant="outline"
+                    className={
+                      getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                    }
+                  >
+                    {getEntryStatus(entry)}
+                  </Badge>
+                </div>
+                <div className="col-span-2">
                   <Input
                     placeholder="Optional remark" className="h-8 text-xs"
                     value={entry.remarks}
@@ -461,16 +565,20 @@ export default function TeacherResultEntryPage() {
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={() => saveResult.mutate()}
-                  disabled={saveResult.isPending}
+                  disabled={saveResult.isPending || !canSaveDraft}
                   className="gap-2"
                 >
                   {saveResult.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save Draft
                 </Button>
-                {canDeclare && (
+                {existingResult && !isDeclared && (
                   <AlertDialog open={showDeclareDialog} onOpenChange={setShowDeclareDialog}>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                      <Button
+                        variant="outline"
+                        disabled={!canDeclare}
+                        className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                      >
                         <CheckCircle2 className="w-4 h-4" />
                         Declare Result
                       </Button>
@@ -485,7 +593,18 @@ export default function TeacherResultEntryPage() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={() => declareResult.mutate(existingResult?.id)}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            if (!existingResult?.id) {
+                              notify.error('Save this result as a draft before declaring it.')
+                              return
+                            }
+                            if (!canDeclare) {
+                              notify.error('Complete all pending or invalid subjects before declaring this result.')
+                              return
+                            }
+                            declareResult.mutate(existingResult.id)
+                          }}
                           disabled={declareResult.isPending}
                           className="bg-emerald-600 hover:bg-emerald-700"
                         >
@@ -577,13 +696,13 @@ export default function TeacherResultEntryPage() {
                 <Badge
                   key={batch}
                   className={`cursor-pointer px-3 py-1.5 text-xs ${existingResult.performanceBatch === batch ? batchColor(batch) + ' ring-2 ring-offset-1 ring-indigo-400' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  onClick={() => !isDeclared && setSelectedResultId(batch)}
+                  onClick={() => !isDeclared && setSelectedBatchOverride(batch)}
                 >
                   {batch}
                 </Badge>
               ))}
             </div>
-            {!isDeclared && selectedResultId && (
+            {!isDeclared && selectedBatchOverride && (
               <div className="flex gap-2 items-center pt-1">
                 <Input
                   placeholder="Reason for override (required)"
@@ -594,7 +713,7 @@ export default function TeacherResultEntryPage() {
                 <Button
                   size="sm" className="h-9 px-3"
                   disabled={!editReason || overrideBatch.isPending}
-                  onClick={() => overrideBatch.mutate(selectedResultId)}
+                  onClick={() => overrideBatch.mutate(selectedBatchOverride)}
                 >
                   {overrideBatch.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit2 className="w-4 h-4" />}
                 </Button>
