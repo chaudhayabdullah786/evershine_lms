@@ -53,7 +53,14 @@ export async function POST(
       return errors.badRequest('Result is already declared')
     }
 
-    // Validate: no SubjectResults in Pending state (obtainedMarks null without isAbsent/isNA)
+    const subjectResultCount = await prisma.subjectResult.count({
+      where: { termResultId: id },
+    })
+    if (subjectResultCount === 0) {
+      return errors.badRequest('Add at least one subject result before declaring this result.')
+    }
+
+    // Validate: no subject can remain pending when the result becomes visible to students.
     const pendingSubjects = await prisma.subjectResult.findMany({
       where: {
         termResultId: id,
@@ -61,11 +68,22 @@ export async function POST(
         isAbsent: false,
         isNotApplicable: false,
       },
+      include: {
+        subjectOffering: {
+          include: { subject: { select: { name: true, code: true } } },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
     })
 
     if (pendingSubjects.length > 0) {
+      const subjectNames = pendingSubjects
+        .map((subjectResult) => subjectResult.subjectOffering?.subject?.name ?? subjectResult.subjectOffering?.subject?.code ?? 'Unnamed subject')
+        .slice(0, 5)
+        .join(', ')
+      const extraCount = Math.max(0, pendingSubjects.length - 5)
       return errors.badRequest(
-        `${pendingSubjects.length} subject(s) still have pending marks. Declare or mark as "Input Decide Later" first.`
+        `Complete pending marks before declaring: ${subjectNames}${extraCount ? ` and ${extraCount} more` : ''}. Enter marks, or mark the subject Absent/N/A. The draft remains saved and hidden from students.`
       )
     }
 
