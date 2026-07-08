@@ -99,6 +99,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Announcements',   href: '/dashboard/announcements',icon: Megaphone,       roles: ['SUPER_ADMIN', 'ADMIN', 'GUARDIAN', 'PARENT', 'STUDENT'] },
   { name: 'Calendar',        href: '/dashboard/calendar',     icon: CalendarDays },
   { name: 'My Courses',      href: '/dashboard/enrollment',   icon: BookOpen,        roles: ['STUDENT'] },
+  { name: 'Roll No. Slip',   href: '/dashboard/exams/roll-number-slip', icon: FileText, roles: ['STUDENT'] },
   { name: 'Timetable',       href: '/dashboard/timetable',    icon: CalendarClock,   roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT'] },
   { name: 'Documents',       href: '/dashboard/documents',    icon: FileText,        roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Campuses',        href: '/dashboard/campuses',     icon: Building,        roles: ['SUPER_ADMIN', 'ADMIN'] },

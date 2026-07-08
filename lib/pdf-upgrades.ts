@@ -459,3 +459,363 @@ export function generateResultCardPDF(options: ResultCardPDFOptions): jsPDF {
 
   return pdf
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLL NUMBER SLIP / EXAM ADMIT CARD PDF Export
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SlipExamSlot {
+  subjectName: string
+  subjectCode: string
+  examDate: string   // ISO date string e.g. "2026-07-08T00:00:00.000Z"
+  startTime: string  // e.g. "09:00 AM"
+  endTime: string    // e.g. "11:00 AM"
+  roomNumber: string | null
+}
+
+export interface RollNumberSlipPDFOptions {
+  // Student identity
+  studentName: string
+  fatherName: string
+  registrationNumber: string
+  rollNumber: string
+  gender: string
+  // Section / class
+  className: string
+  sectionName: string
+  shiftName: string
+  campus: string
+  batch: string
+  // Exam context
+  dateSheetTitle: string
+  examSessionName: string | null
+  slots: SlipExamSlot[]
+  // Media
+  photoUrl?: string    // base64 data URL (PNG/JPEG) — converted in-browser before call
+  logoUrl?: string     // base64 data URL for academy logo
+  colorMode?: 'color' | 'bw'
+}
+
+export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): jsPDF {
+  const bw = options.colorMode === 'bw'
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  // ── Background ──────────────────────────────────────────────────────────────
+  setFillColor(pdf, 255, 255, 255, bw)
+  pdf.rect(0, 0, 210, 297, 'F')
+
+  // ── Top stripe ──────────────────────────────────────────────────────────────
+  setFillColor(pdf, 30, 58, 138, bw)  // Navy
+  pdf.rect(0, 0, 210, 4, 'F')
+
+  // ── Academy Logo (left) ──────────────────────────────────────────────────────
+  if (options.logoUrl) {
+    try {
+      const logoType = options.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+      pdf.addImage(options.logoUrl, logoType, 12, 7, 20, 20)
+    } catch {
+      setFillColor(pdf, 241, 245, 249, bw)
+      pdf.circle(22, 17, 9, 'F')
+    }
+  } else {
+    setFillColor(pdf, 241, 245, 249, bw)
+    pdf.circle(22, 17, 9, 'F')
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(5)
+    setTextColor(pdf, 30, 58, 138, bw)
+    pdf.text('ESA', 22, 18.5, { align: 'center' })
+  }
+
+  // ── Academy Name (center) ────────────────────────────────────────────────────
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(16)
+  setTextColor(pdf, 30, 58, 138, bw)
+  pdf.text('EVERSHINE ACADEMY', 105, 12, { align: 'center' })
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(7.5)
+  setTextColor(pdf, 13, 148, 136, bw)  // Teal
+  pdf.text('PAKISTAN EDUCATION SYSTEM', 105, 17, { align: 'center' })
+
+  // Document type badge
+  setFillColor(pdf, 30, 58, 138, bw)
+  pdf.roundedRect(75, 20, 60, 7, 1.5, 1.5, 'F')
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(8)
+  setTextColor(pdf, 255, 255, 255, bw)
+  pdf.text('ROLL NUMBER SLIP / ADMIT CARD', 105, 24.8, { align: 'center' })
+
+  // ── Student Passport Photo (top-right) ───────────────────────────────────────
+  // WHY: Matching the Evershine student profile card format shown by the user.
+  const photoX = 172
+  const photoY = 6
+  const photoW = 26
+  const photoH = 30
+
+  // Photo border frame
+  setDrawColor(pdf, 30, 58, 138, bw)
+  pdf.setLineWidth(0.6)
+  pdf.rect(photoX, photoY, photoW, photoH, 'S')
+
+  if (options.photoUrl) {
+    try {
+      const photoType = options.photoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+      pdf.addImage(options.photoUrl, photoType, photoX + 0.5, photoY + 0.5, photoW - 1, photoH - 1)
+    } catch {
+      // Photo load failure — draw placeholder
+      setFillColor(pdf, 248, 250, 252, bw)
+      pdf.rect(photoX + 0.5, photoY + 0.5, photoW - 1, photoH - 1, 'F')
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(6)
+      setTextColor(pdf, 156, 163, 175, bw)
+      pdf.text('PHOTO', photoX + photoW / 2, photoY + photoH / 2, { align: 'center' })
+    }
+  } else {
+    setFillColor(pdf, 248, 250, 252, bw)
+    pdf.rect(photoX + 0.5, photoY + 0.5, photoW - 1, photoH - 1, 'F')
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(6)
+    setTextColor(pdf, 156, 163, 175, bw)
+    pdf.text('PHOTO', photoX + photoW / 2, photoY + photoH / 2, { align: 'center' })
+  }
+
+  // Divider
+  setDrawColor(pdf, 30, 58, 138, bw)
+  pdf.setLineWidth(0.6)
+  pdf.line(12, 31, 198, 31)
+
+  // ── Section Header: Student Information ─────────────────────────────────────
+  let y = 34
+  setFillColor(pdf, 30, 58, 138, bw)
+  pdf.rect(12, y, 156, 7, 'F')
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(8.5)
+  setTextColor(pdf, 255, 255, 255, bw)
+  pdf.text('STUDENT INFORMATION', 90, y + 4.8, { align: 'center' })
+
+  // ── Student Info Table ───────────────────────────────────────────────────────
+  // Each row: full border, two columns split at ~x=90
+  y += 7
+  const tableLeft  = 12
+  const tableRight = 168  // leaves room for photo column
+  const colMid     = 90
+  const rowH       = 8
+
+  const labelStyle = () => {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(7.5)
+    setTextColor(pdf, 55, 65, 81, bw)
+  }
+  const valueStyle = () => {
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(8)
+    setTextColor(pdf, 13, 148, 136, bw)
+  }
+  const valueStyleDark = () => {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(8)
+    setTextColor(pdf, 17, 24, 39, bw)
+  }
+
+  // Helper: draw a row border
+  const drawRowBorder = (rowY: number, spanFull = false) => {
+    setDrawColor(pdf, 30, 58, 138, bw)
+    pdf.setLineWidth(0.3)
+    const rightEdge = spanFull ? tableRight + (198 - tableRight) : tableRight
+    pdf.rect(tableLeft, rowY, rightEdge - tableLeft, rowH, 'S')
+    if (!spanFull) {
+      // Vertical midline
+      pdf.line(colMid, rowY, colMid, rowY + rowH)
+    }
+  }
+
+  // Row 1: Registration No | Roll No
+  drawRowBorder(y)
+  labelStyle()
+  pdf.text('REGISTRATION NO:', tableLeft + 2, y + 5.2)
+  valueStyle()
+  pdf.text(options.registrationNumber, tableLeft + 32, y + 5.2)
+
+  labelStyle()
+  pdf.text('ROLL NO:', colMid + 2, y + 5.2)
+  valueStyle()
+  pdf.text(options.rollNumber, colMid + 18, y + 5.2)
+  y += rowH
+
+  // Row 2: Student Name (full width)
+  setDrawColor(pdf, 30, 58, 138, bw)
+  pdf.setLineWidth(0.3)
+  pdf.rect(tableLeft, y, tableRight - tableLeft, rowH, 'S')
+  labelStyle()
+  pdf.text('STUDENT NAME:', tableLeft + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.studentName.toUpperCase(), tableLeft + 30, y + 5.2)
+  y += rowH
+
+  // Row 3: Class/Section | Shift
+  drawRowBorder(y)
+  labelStyle()
+  pdf.text('CLASS / SECTION:', tableLeft + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(`${options.className} — ${options.sectionName}`, tableLeft + 32, y + 5.2)
+
+  labelStyle()
+  pdf.text('SHIFT:', colMid + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.shiftName, colMid + 12, y + 5.2)
+  y += rowH
+
+  // Row 4: Father Name | Gender
+  drawRowBorder(y)
+  labelStyle()
+  pdf.text('FATHER NAME:', tableLeft + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.fatherName, tableLeft + 26, y + 5.2)
+
+  labelStyle()
+  pdf.text('GENDER:', colMid + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.gender, colMid + 16, y + 5.2)
+  y += rowH
+
+  // Row 5: Campus | Batch
+  drawRowBorder(y)
+  labelStyle()
+  pdf.text('CAMPUS:', tableLeft + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.campus, tableLeft + 17, y + 5.2)
+
+  labelStyle()
+  pdf.text('BATCH / PROGRAM:', colMid + 2, y + 5.2)
+  valueStyleDark()
+  pdf.text(options.batch, colMid + 30, y + 5.2)
+  y += rowH
+
+  // ── Section Header: Exam Schedule ────────────────────────────────────────────
+  y += 5
+  setFillColor(pdf, 30, 58, 138, bw)
+  pdf.rect(12, y, 186, 7, 'F')
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(8.5)
+  setTextColor(pdf, 255, 255, 255, bw)
+  pdf.text(`EXAMINATION SCHEDULE — ${(options.examSessionName ?? options.dateSheetTitle).toUpperCase()}`, 105, y + 4.8, { align: 'center' })
+
+  // ── Exam Schedule Table Header ───────────────────────────────────────────────
+  y += 7
+  setFillColor(pdf, 59, 130, 246, bw)  // Blue header row
+  pdf.rect(12, y, 186, 7, 'F')
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(7.5)
+  setTextColor(pdf, 255, 255, 255, bw)
+  pdf.text('S.No', 16, y + 4.8)
+  pdf.text('Date', 28, y + 4.8)
+  pdf.text('Day', 64, y + 4.8)
+  pdf.text('Subject Name', 90, y + 4.8)
+  pdf.text('Start Time', 140, y + 4.8)
+  pdf.text('End Time', 163, y + 4.8)
+  pdf.text('Room', 185, y + 4.8)
+
+  // ── Exam Schedule Table Rows ─────────────────────────────────────────────────
+  y += 7
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(7.5)
+
+  if (options.slots.length === 0) {
+    setFillColor(pdf, 248, 250, 252, bw)
+    pdf.rect(12, y, 186, 10, 'F')
+    setDrawColor(pdf, 226, 232, 240, bw)
+    pdf.rect(12, y, 186, 10, 'S')
+    pdf.setFont('helvetica', 'italic')
+    setTextColor(pdf, 107, 114, 128, bw)
+    pdf.text('No exam slots have been scheduled for this session.', 105, y + 6.5, { align: 'center' })
+    y += 10
+  } else {
+    options.slots.forEach((slot, idx) => {
+      // Zebra striping
+      if (idx % 2 === 0) {
+        setFillColor(pdf, 255, 255, 255, bw)
+      } else {
+        setFillColor(pdf, 239, 246, 255, bw)
+      }
+      pdf.rect(12, y, 186, 8, 'F')
+      setDrawColor(pdf, 203, 213, 225, bw)
+      pdf.setLineWidth(0.25)
+      pdf.rect(12, y, 186, 8, 'S')
+
+      const dateObj   = new Date(slot.examDate)
+      const dayStr    = dateObj.toLocaleDateString('en-PK', { weekday: 'short' })
+      const dateStr   = dateObj.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })
+
+      setTextColor(pdf, 17, 24, 39, bw)
+      pdf.text((idx + 1).toString(), 16, y + 5.2)
+      pdf.text(dateStr, 28, y + 5.2)
+      pdf.text(dayStr, 64, y + 5.2)
+
+      // Subject name — bold
+      pdf.setFont('helvetica', 'bold')
+      setTextColor(pdf, 30, 58, 138, bw)
+      pdf.text(slot.subjectName, 90, y + 5.2)
+      pdf.setFont('helvetica', 'normal')
+
+      setTextColor(pdf, 17, 24, 39, bw)
+      pdf.text(slot.startTime, 140, y + 5.2)
+      pdf.text(slot.endTime, 163, y + 5.2)
+      pdf.text(slot.roomNumber || '—', 185, y + 5.2)
+
+      y += 8
+    })
+  }
+
+  // ── Important Instructions Box ───────────────────────────────────────────────
+  y += 6
+  if (y + 26 > 260) y = 220  // guard against overflow on long schedules
+  setFillColor(pdf, 255, 251, 235, bw)  // Amber-50
+  pdf.roundedRect(12, y, 186, 26, 2, 2, 'F')
+  setDrawColor(pdf, 251, 191, 36, bw)   // Amber-400
+  pdf.setLineWidth(0.4)
+  pdf.roundedRect(12, y, 186, 26, 2, 2, 'S')
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(7.5)
+  setTextColor(pdf, 146, 64, 14, bw)   // Amber-800
+  pdf.text('IMPORTANT INSTRUCTIONS:', 15, y + 5.5)
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(7)
+  setTextColor(pdf, 92, 45, 10, bw)
+  pdf.text('1.  Students must bring this printed Roll Number Slip and their official ID Card to the examination hall.', 15, y + 11)
+  pdf.text('2.  Arrive at least 15 minutes before the start time. Entry will not be permitted after the exam begins.', 15, y + 16.5)
+  pdf.text('3.  Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.', 15, y + 22)
+
+  // ── Signature Lines ──────────────────────────────────────────────────────────
+  drawSignatureLine(pdf, 'Controller of Examinations', 55, 270, bw)
+  drawSignatureLine(pdf, 'Principal Signature & Stamp', 155, 270, bw)
+
+  // ── Official Seal ────────────────────────────────────────────────────────────
+  setDrawColor(pdf, 30, 58, 138, bw)
+  pdf.setLineWidth(0.5)
+  pdf.circle(105, 268, 11, 'S')
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(5.5)
+  setTextColor(pdf, 30, 58, 138, bw)
+  pdf.text('EXAM OFFICE', 105, 266.5, { align: 'center' })
+  pdf.text('OFFICIAL SEAL', 105, 270, { align: 'center' })
+
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  setDrawColor(pdf, 30, 58, 138, bw)
+  pdf.setLineWidth(0.5)
+  pdf.line(12, 280, 198, 280)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(6.5)
+  setTextColor(pdf, 107, 114, 128, bw)
+  pdf.text(
+    'This slip is generated by EverShine Academy LMS. For corrections or re-issuance, contact the Examination Office.',
+    105, 285, { align: 'center' }
+  )
+
+  // Bottom navy stripe
+  setFillColor(pdf, 30, 58, 138, bw)
+  pdf.rect(0, 293, 210, 4, 'F')
+
+  return pdf
+}
