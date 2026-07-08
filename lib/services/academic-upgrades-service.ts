@@ -268,31 +268,70 @@ export class AcademicUpgradesService {
   }
 
   static async getStudentDateSheet(studentId: string, examSessionId?: string) {
+    // Include classSection data for Strategy 2 sibling lookup
     const enrollment = await prisma.studentEnrollment.findFirst({
       where: { studentId, status: 'ACTIVE' },
-      select: { classSectionId: true },
+      select: {
+        classSectionId: true,
+        classSection: { select: { className: true, campusId: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     })
     if (!enrollment) throw new Error('Student has no active enrollment.')
 
-    const sheet = await prisma.examDateSheet.findFirst({
-      where: {
-        classSectionId: enrollment.classSectionId,
-        isPublished:    true,
-        ...(examSessionId && { examSessionId }),
+    const sheetFilter = {
+      isPublished: true,
+      ...(examSessionId && { examSessionId }),
+    }
+    const sheetInclude = {
+      slots: {
+        include: { subjectOffering: { include: { subject: true } } },
+        orderBy: { examDate: 'asc' as const },
       },
-      include: {
-        slots: {
-          include: { subjectOffering: { include: { subject: true } } },
-          orderBy: { examDate: 'asc' },
-        },
-        overrides: { where: { studentId } },
-      },
+      overrides: { where: { studentId } },
+    }
+
+    // ── Strategy 1: Exact section match ──────────────────────────────────────
+    let sheet = await prisma.examDateSheet.findFirst({
+      where: { classSectionId: enrollment.classSectionId, ...sheetFilter },
+      include: sheetInclude,
+      orderBy: { updatedAt: 'desc' },
     })
+
+    // ── Strategy 2: Sibling section fallback ─────────────────────────────────
+    // WHY: Admins sometimes publish a date sheet for one section (e.g., "Class 10 — Jun")
+    // even when the student is enrolled in a sibling section (e.g., "Class 10 — A").
+    // Exam schedules are typically shared across sections of the same class, so we
+    // surface the nearest published sheet to avoid a false "no date sheet" empty state.
+    // TRADEOFF: If sections genuinely have different schedules, the sibling sheet is
+    // shown as-is. Admins should publish per-section when schedules differ.
+    if (!sheet) {
+      const siblingSectionIds = await prisma.classSection
+        .findMany({
+          where: {
+            campusId:  enrollment.classSection.campusId,
+            className: enrollment.classSection.className,
+            isActive:  true,
+            id:        { not: enrollment.classSectionId },
+          },
+          select: { id: true },
+        })
+        .then((rows) => rows.map((r) => r.id))
+
+      if (siblingSectionIds.length > 0) {
+        sheet = await prisma.examDateSheet.findFirst({
+          where: { classSectionId: { in: siblingSectionIds }, ...sheetFilter },
+          include: sheetInclude,
+          orderBy: { updatedAt: 'desc' },
+        })
+      }
+    }
+
     if (!sheet) return null
 
     // Merge base slots with any student-specific overrides
     const slots = sheet.slots.map((slot) => {
-      const override = sheet.overrides.find(
+      const override = sheet!.overrides.find(
         (o) => o.subjectOfferingId === slot.subjectOfferingId,
       )
       return override
