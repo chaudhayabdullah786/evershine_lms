@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
-import { teacherCanAccessClassOrSubject, findLegacyClassForSection, findOrCreateLegacySubject } from '@/lib/teacher-access'
+import { findLegacyClassForSection, findOrCreateLegacySubject } from '@/lib/teacher-access'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { z } from 'zod'
 
@@ -24,6 +24,70 @@ const querySchema = z.object({
   classId: z.string().optional(),
   subjectId: z.string().optional(),
 })
+
+async function teacherCanCreateTaskForSubject(params: {
+  teacherId: string
+  legacyClassId: string
+  classSectionId: string | null
+  subjectId: string
+}) {
+  if (params.classSectionId) {
+    const offering = await prisma.subjectOffering.findFirst({
+      where: {
+        teacherId: params.teacherId,
+        classSectionId: params.classSectionId,
+        subjectId: params.subjectId,
+      },
+      select: { id: true },
+    })
+    if (offering) return true
+  }
+
+  const directSubject = await prisma.subjectTeacher.findFirst({
+    where: {
+      teacherId: params.teacherId,
+      subjectId: params.subjectId,
+      subject: { classId: params.legacyClassId },
+    },
+    select: { id: true },
+  })
+  if (directSubject) return true
+
+  const academicSubject = await prisma.academicSubject.findUnique({
+    where: { id: params.subjectId },
+    select: { code: true },
+  })
+  if (academicSubject) {
+    const mappedLegacySubject = await prisma.subject.findFirst({
+      where: {
+        classId: params.legacyClassId,
+        code: academicSubject.code,
+      },
+      select: { id: true },
+    })
+
+    if (mappedLegacySubject) {
+      const mappedSubjectAssignment = await prisma.subjectTeacher.findFirst({
+        where: {
+          teacherId: params.teacherId,
+          subjectId: mappedLegacySubject.id,
+        },
+        select: { id: true },
+      })
+      if (mappedSubjectAssignment) return true
+    }
+  }
+
+  const classTeacher = await prisma.classTeacher.findFirst({
+    where: {
+      teacherId: params.teacherId,
+      classId: params.legacyClassId,
+    },
+    select: { id: true },
+  })
+
+  return Boolean(classTeacher)
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -77,8 +141,9 @@ export async function POST(request: NextRequest) {
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const { title, description, type, dueDate, maxMarks, classId, legacyClassId, subjectId } = parsed.data
+  const { title, description, type, dueDate, maxMarks, classId, classSectionId, legacyClassId, subjectId } = parsed.data
 
+  let resolvedClassSectionId = classSectionId ?? null
   let resolvedClassId = legacyClassId ?? (await prisma.class.findUnique({ where: { id: classId }, select: { id: true } }))?.id ?? null
 
   if (!resolvedClassId) {
@@ -96,6 +161,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (section) {
+      resolvedClassSectionId = section.id
       const shiftCode = (section.shift?.code ?? section.shift?.name ?? '')
         .toUpperCase()
         .replace(/\s+/g, '')
@@ -144,13 +210,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Resolve subject ID
-  const legacySubject = resolvedClassId
-    ? await findOrCreateLegacySubject(resolvedClassId, subjectId)
-    : null
-
-  const resolvedSubjectId = legacySubject?.id ?? null
-
   const teacher = await prisma.teacher.findUnique({
     where: { userId: session.user.id },
     select: { id: true }
@@ -161,10 +220,22 @@ export async function POST(request: NextRequest) {
     return errors.validation({ errors: [{ path: ['classId'], message: 'Class could not be resolved for this teacher assignment' }] } as never)
   }
 
-  const isAssigned = await teacherCanAccessClassOrSubject(teacher.id, resolvedClassId, resolvedSubjectId)
+  const isAssigned = await teacherCanCreateTaskForSubject({
+    teacherId: teacher.id,
+    legacyClassId: resolvedClassId,
+    classSectionId: resolvedClassSectionId,
+    subjectId,
+  })
 
   if (!isAssigned) {
     return errors.forbidden('You are not authorized to create tasks for this class/subject')
+  }
+
+  const legacySubject = await findOrCreateLegacySubject(resolvedClassId, subjectId)
+  const resolvedSubjectId = legacySubject?.id ?? null
+
+  if (!resolvedSubjectId) {
+    return errors.validation({ errors: [{ path: ['subjectId'], message: 'Subject could not be resolved for this teacher assignment' }] } as never)
   }
 
   const task = await prisma.classTask.create({
