@@ -30,6 +30,7 @@ interface DashboardData {
     totalCollected: number
     totalPending: number
     reserveFundBalance: number
+    metricSource?: string
     latestReserveContribution: {
       amount: number
       periodLabel: string
@@ -40,6 +41,7 @@ interface DashboardData {
     todayPresent: number
     todayTotal: number
     attendanceRate: number
+    metricSource?: string
   }
   upcomingExams: Array<{
     id: string
@@ -443,7 +445,7 @@ export default function DashboardPage() {
                 <StatCard
                   title="Fee Collected"
                   value={`Rs ${(data?.finance.totalCollected ?? 0).toLocaleString()}`}
-                  sub="All time payments received"
+                  sub="Verified payments received"
                   icon={TrendingUp}
                   color="text-green-600"
                   href="/dashboard/fees"
@@ -451,7 +453,7 @@ export default function DashboardPage() {
                 <StatCard
                   title="Fee Pending"
                   value={`Rs ${(data?.finance.totalPending ?? 0).toLocaleString()}`}
-                  sub={`${data?.students.feePending ?? 0} students with pending fees`}
+                  sub={`${data?.students.feePending ?? 0} student accounts with open invoices`}
                   icon={DollarSign}
                   color="text-yellow-600"
                   href="/dashboard/fees"
@@ -459,7 +461,7 @@ export default function DashboardPage() {
                 <StatCard
                   title="Overdue Fees"
                   value={data?.students.feeOverdue ?? 0}
-                  sub="Students with overdue payments"
+                  sub="Student accounts with overdue invoices"
                   icon={AlertCircle}
                   color="text-red-600"
                   href="/dashboard/fees"
