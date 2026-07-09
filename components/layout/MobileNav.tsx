@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
+import { getNotificationModuleForNavLabel, type NotificationCounts } from '@/lib/notifications/module-map'
 import {
   BookOpen,
   CalendarClock,
@@ -88,18 +89,13 @@ export function MobileNav({ pathname, role }: { pathname: string; role: string }
 
   const { data: countsData } = useQuery({
     queryKey: ['notification-counts'],
-    queryFn: () => fetchApi<{ total: number; modules: Record<string, number> }>('/api/notifications/counts'),
+    queryFn: () => fetchApi<NotificationCounts>('/api/notifications/counts'),
     refetchInterval: 30000,
   })
 
   const getBadgeCount = (itemLabel: string) => {
     if (!countsData?.modules) return 0
-    const keyMap: Record<string, string> = {
-      'Fees': 'fees',
-      'Timetable': 'timetable',
-      'Expenses': 'fees',
-    }
-    const key = keyMap[itemLabel]
+    const key = getNotificationModuleForNavLabel(itemLabel)
     return key ? (countsData.modules[key] ?? 0) : 0
   }
 
