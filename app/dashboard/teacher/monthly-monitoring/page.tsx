@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { fetchApi } from '@/lib/api-client'
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card, CardContent,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,12 +17,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { notify } from '@/lib/notify'
 import {
-  Loader2, Save, Trophy, Award, TrendingUp, Info, UserCheck, Calendar, Download, FileText, Image as ImageIcon, CheckCircle, Share2, FileSpreadsheet
+  Loader2, Save, Trophy, Award, TrendingUp, Info, UserCheck, FileText, Image as ImageIcon, CheckCircle, Share2, FileSpreadsheet
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { html2canvasSafe } from '@/lib/html2canvas-safe'
 import { jsPDF } from 'jspdf'
 import { downloadMonitoringExcel } from '@/lib/excel/monitoring-report'
+import { dailyGradeLabel } from '@/lib/academic/monitoring'
 
 interface AcademicYear {
   id: string
@@ -43,8 +44,12 @@ interface StudentRow {
   fatherName: string | null
   rollNumber: string
   subjectScores: Record<string, number>
+  subjectGrades?: Record<string, string>
   subjectRemarks?: Record<string, string[]>
+  dailyRemarks?: string
   remarks?: string
+  isStarOfDay?: boolean
+  isConcern?: boolean
   totalMarks: number
   obtainedMarks: number
   percentage: number
@@ -62,7 +67,7 @@ interface ReportData {
   month?: number
   year?: number
   date?: string
-  type: 'daily' | 'monthly'
+  type: 'daily' | 'monthly' | 'yearly'
   classSectionId: string
   subjects: Subject[]
   students: StudentRow[]
@@ -86,7 +91,7 @@ const MONTHS = [
 
 export default function MonthlyMonitoringPage() {
   const { data: session } = useSession()
-  const [reportType, setReportType] = useState<'daily' | 'monthly'>('monthly')
+  const [reportType, setReportType] = useState<'daily' | 'monthly' | 'yearly'>('monthly')
   const [selectedYearId, setSelectedYearId] = useState<string>('')
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   
@@ -121,17 +126,23 @@ export default function MonthlyMonitoringPage() {
   const monthNum = parseInt(selectedMonth) + 1
 
   // Fetch report data
-  const { data: report, isLoading, refetch } = useQuery<ReportData>({
+  const { data: report, isLoading } = useQuery<ReportData>({
     queryKey: ['monthly-monitoring-data', reportType, selectedSectionId, monthNum, yearNum, selectedDate, selectedYearId],
     queryFn: () => {
       const baseUrl = `/api/teacher-portal/monthly-monitoring?classSectionId=${selectedSectionId}&academicYearId=${selectedYearId}&type=${reportType}`
       const url = reportType === 'daily'
         ? `${baseUrl}&date=${selectedDate}`
-        : `${baseUrl}&month=${monthNum}&year=${yearNum}`
+        : reportType === 'yearly'
+          ? `${baseUrl}&year=${yearNum}`
+          : `${baseUrl}&month=${monthNum}&year=${yearNum}`
       return fetchApi<ReportData>(url)
     },
     enabled: !!selectedSectionId && !!selectedYearId && (
-      reportType === 'daily' ? !!selectedDate : (!isNaN(monthNum) && !isNaN(yearNum))
+      reportType === 'daily'
+        ? !!selectedDate
+        : reportType === 'yearly'
+          ? !isNaN(yearNum)
+          : (!isNaN(monthNum) && !isNaN(yearNum))
     ),
   })
 
@@ -340,9 +351,11 @@ export default function MonthlyMonitoringPage() {
         : 'report'
       const dateLabel = reportType === 'daily'
         ? selectedDate
-        : `${MONTHS[monthNum - 1]?.label ?? ''}_${yearNum}`
+        : reportType === 'yearly'
+          ? String(yearNum)
+          : `${MONTHS[monthNum - 1]?.label ?? ''}_${yearNum}`
       const filename = `Evershine_${reportType}_${sectionLabel}_${dateLabel}.png`
-      const caption = `📊 *EVERSHINE ACADEMY* — ${reportType === 'daily' ? 'Daily' : 'Monthly'} Performance Report\n🏫 ${sectionLabel}\n📅 ${dateLabel}`
+      const caption = `📊 *EVERSHINE ACADEMY* — ${reportType === 'daily' ? 'Daily' : reportType === 'yearly' ? 'Yearly' : 'Monthly'} Performance Report\n🏫 ${sectionLabel}\n📅 ${dateLabel}`
 
       // Convert canvas to Blob for Web Share API
       const blob: Blob = await new Promise((resolve) =>
@@ -409,7 +422,9 @@ export default function MonthlyMonitoringPage() {
     try {
       const dateLabel = reportType === 'daily'
         ? new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-        : `${MONTHS[monthNum - 1]?.label ?? ''} ${yearNum}`
+        : reportType === 'yearly'
+          ? String(yearNum)
+          : `${MONTHS[monthNum - 1]?.label ?? ''} ${yearNum}`
 
       await downloadMonitoringExcel({
         type: reportType,
@@ -436,6 +451,8 @@ export default function MonthlyMonitoringPage() {
   const quaidCount = students.filter((s) => s.performanceBatch === 'Quaid').length
   const iqbalCount = students.filter((s) => s.performanceBatch === 'Iqbal').length
   const improvementCount = students.filter((s) => s.performanceBatch === 'Improvement').length
+  const starCount = students.filter((s) => s.isStarOfDay).length
+  const concernCount = students.filter((s) => s.isConcern).length
 
   const getBatchBadgeColor = (batch: string) => {
     switch (batch) {
@@ -453,6 +470,12 @@ export default function MonthlyMonitoringPage() {
   }
 
   const selectedSection = sections.find((s) => s.id === selectedSectionId)
+  const reportLabel = reportType === 'daily' ? 'Daily' : reportType === 'yearly' ? 'Yearly' : 'Monthly'
+  const reportPeriodLabel = reportType === 'daily'
+    ? new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+    : reportType === 'yearly'
+      ? String(yearNum)
+      : `${MONTHS[monthNum - 1]?.label ?? ''} ${yearNum}`
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -464,13 +487,10 @@ export default function MonthlyMonitoringPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Daily / Monthly Toggle */}
+          {/* Daily / Monthly / Yearly Toggle */}
           <div className="bg-gray-100 p-1 rounded-lg flex border border-gray-200">
             <button
-              onClick={() => {
-                setReportType('monthly')
-                refetch()
-              }}
+              onClick={() => setReportType('monthly')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
                 reportType === 'monthly'
                   ? 'bg-white text-indigo-700 shadow-sm'
@@ -480,10 +500,7 @@ export default function MonthlyMonitoringPage() {
               Monthly Sheet
             </button>
             <button
-              onClick={() => {
-                setReportType('daily')
-                refetch()
-              }}
+              onClick={() => setReportType('daily')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
                 reportType === 'daily'
                   ? 'bg-white text-indigo-700 shadow-sm'
@@ -491,6 +508,16 @@ export default function MonthlyMonitoringPage() {
               }`}
             >
               Daily Sheet
+            </button>
+            <button
+              onClick={() => setReportType('yearly')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+                reportType === 'yearly'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Yearly Sheet
             </button>
           </div>
 
@@ -587,25 +614,36 @@ export default function MonthlyMonitoringPage() {
               </Select>
             </div>
 
-            {reportType === 'monthly' ? (
+            {reportType === 'daily' ? (
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-semibold text-gray-600">Daily Report Date</label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full border-gray-200"
+                />
+              </div>
+            ) : (
               <>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-600">Month</label>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="border-gray-200">
-                      <SelectValue placeholder="Select month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((m) => (
-                        <SelectItem key={m.value} value={(m.value - 1).toString()}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
+                {reportType === 'monthly' && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-gray-600">Month</label>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="border-gray-200">
+                        <SelectValue placeholder="Select month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MONTHS.map((m) => (
+                          <SelectItem key={m.value} value={(m.value - 1).toString()}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className={`space-y-2 ${reportType === 'yearly' ? 'md:col-span-2' : ''}`}>
                   <label className="text-xs font-semibold text-gray-600">Calendar Year</label>
                   <Select value={selectedYearValue} onValueChange={setSelectedYearValue}>
                     <SelectTrigger className="border-gray-200">
@@ -621,16 +659,6 @@ export default function MonthlyMonitoringPage() {
                   </Select>
                 </div>
               </>
-            ) : (
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-semibold text-gray-600">Daily Report Date</label>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full border-gray-200"
-                />
-              </div>
             )}
           </div>
         </CardContent>
@@ -649,52 +677,84 @@ export default function MonthlyMonitoringPage() {
         </div>
       ) : !report || students.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-sm text-gray-500">No student scores found for this period/date.</p>
+          <p className="text-sm text-gray-500">No monitoring records were found for this report period.</p>
         </Card>
       ) : (
         <div className="space-y-6">
           {/* Quick Overview Stats cards - Print Hidden */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden">
-            <Card className="bg-amber-50/40 border-amber-100">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-amber-800">Ever Shine Group</p>
-                  <p className="text-2xl font-bold text-amber-900 mt-1">{everShineCount}</p>
-                </div>
-                <Trophy className="w-7 h-7 text-amber-500" />
-              </CardContent>
-            </Card>
+          {reportType === 'daily' ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
+              <Card className="bg-slate-50/60 border-slate-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">Students Reviewed</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{students.length}</p>
+                  </div>
+                  <UserCheck className="w-7 h-7 text-slate-500" />
+                </CardContent>
+              </Card>
+              <Card className="bg-amber-50/50 border-amber-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800">Star of the Day</p>
+                    <p className="text-2xl font-bold text-amber-900 mt-1">{starCount}</p>
+                  </div>
+                  <Trophy className="w-7 h-7 text-amber-500" />
+                </CardContent>
+              </Card>
+              <Card className="bg-rose-50/50 border-rose-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-rose-800">Concern Follow-up</p>
+                    <p className="text-2xl font-bold text-rose-900 mt-1">{concernCount}</p>
+                  </div>
+                  <TrendingUp className="w-7 h-7 text-rose-500" />
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden">
+              <Card className="bg-amber-50/40 border-amber-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800">Ever Shine Group</p>
+                    <p className="text-2xl font-bold text-amber-900 mt-1">{everShineCount}</p>
+                  </div>
+                  <Trophy className="w-7 h-7 text-amber-500" />
+                </CardContent>
+              </Card>
 
-            <Card className="bg-blue-50/40 border-blue-100">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-blue-800">Quaid Group</p>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">{quaidCount}</p>
-                </div>
-                <Award className="w-7 h-7 text-blue-500" />
-              </CardContent>
-            </Card>
+              <Card className="bg-blue-50/40 border-blue-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-blue-800">Quaid Group</p>
+                    <p className="text-2xl font-bold text-blue-900 mt-1">{quaidCount}</p>
+                  </div>
+                  <Award className="w-7 h-7 text-blue-500" />
+                </CardContent>
+              </Card>
 
-            <Card className="bg-green-50/40 border-green-100">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-green-800">Iqbal Group</p>
-                  <p className="text-2xl font-bold text-green-900 mt-1">{iqbalCount}</p>
-                </div>
-                <UserCheck className="w-7 h-7 text-green-500" />
-              </CardContent>
-            </Card>
+              <Card className="bg-green-50/40 border-green-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-green-800">Iqbal Group</p>
+                    <p className="text-2xl font-bold text-green-900 mt-1">{iqbalCount}</p>
+                  </div>
+                  <UserCheck className="w-7 h-7 text-green-500" />
+                </CardContent>
+              </Card>
 
-            <Card className="bg-rose-50/40 border-rose-100">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-rose-800">Improvement Group</p>
-                  <p className="text-2xl font-bold text-rose-900 mt-1">{improvementCount}</p>
-                </div>
-                <TrendingUp className="w-7 h-7 text-rose-500" />
-              </CardContent>
-            </Card>
-          </div>
+              <Card className="bg-rose-50/40 border-rose-100">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-rose-800">Improvement Group</p>
+                    <p className="text-2xl font-bold text-rose-900 mt-1">{improvementCount}</p>
+                  </div>
+                  <TrendingUp className="w-7 h-7 text-rose-500" />
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* BRANDED EXPORT WRAPPER */}
           <div
@@ -720,7 +780,7 @@ export default function MonthlyMonitoringPage() {
                   <span className="text-2xl font-extrabold tracking-wider text-slate-900 font-serif">EVERSHINE ACADEMY</span>
                   <p className="text-[10px] text-indigo-600 italic tracking-wide">&quot;We Make your Children More Valueable&quot;</p>
                   <h2 className="text-lg font-bold text-indigo-800 mt-0.5 uppercase tracking-wide">
-                    {reportType === 'daily' ? 'Daily Academic monitoring sheet' : 'Monthly Academic monitoring sheet'}
+                    {`${reportLabel} Academic Monitoring Sheet`}
                   </h2>
                 </div>
               </div>
@@ -730,12 +790,8 @@ export default function MonthlyMonitoringPage() {
                   <span className="font-bold text-slate-900">{selectedSection?.className} - {selectedSection?.sectionName}</span>
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-500">Report Date:</span>{' '}
-                  <span className="font-bold text-slate-900">
-                    {reportType === 'daily'
-                      ? new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-                      : `${MONTHS[monthNum - 1].label} ${yearNum}`}
-                  </span>
+                  <span className="font-semibold text-slate-500">{reportType === 'daily' ? 'Report Date:' : 'Report Period:'}</span>{' '}
+                  <span className="font-bold text-slate-900">{reportPeriodLabel}</span>
                 </div>
                 <div>
                   <span className="font-semibold text-slate-500">Teacher:</span>{' '}
@@ -750,88 +806,149 @@ export default function MonthlyMonitoringPage() {
               </div>
             </div>
 
-            {/* Combined Subject Table */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
-              <Table className="min-w-full divide-y divide-slate-200">
-                <TableHeader className="bg-slate-50">
-                  <TableRow className="border-b border-slate-200">
-                    <TableHead className="w-[50px] text-center font-bold text-slate-800 border-r border-slate-200">S.No</TableHead>
-                    <TableHead className="w-[100px] font-bold text-slate-800 border-r border-slate-200">Roll No</TableHead>
-                    <TableHead className="font-bold text-slate-800 border-r border-slate-200">Student Name</TableHead>
-                    <TableHead className="font-bold text-slate-800 border-r border-slate-200">Father&apos;s Name</TableHead>
-                    {report.subjects.map((sub) => (
-                      <TableHead key={sub.id} className="text-center font-bold text-slate-800 border-r border-slate-200 min-w-[70px]">
-                        {sub.name}
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[70px]">Total</TableHead>
-                    <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[80px]">Obt. Marks</TableHead>
-                    <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[70px]">Obt. %</TableHead>
-                    <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[140px]">Group/Batch</TableHead>
-                    <TableHead className="font-bold text-slate-800 border-r border-slate-200 min-w-[180px]">Remarks</TableHead>
-                    <TableHead className="text-center font-bold text-slate-800 w-[60px]">Rank</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-200">
-                  {students.map((row) => (
-                    <TableRow key={row.studentId} className="hover:bg-slate-50/50 border-b border-slate-200">
-                      <TableCell className="text-center font-medium text-slate-900 border-r border-slate-150 bg-slate-50/20">{row.serial}</TableCell>
-                      <TableCell className="font-mono text-xs text-slate-950 font-bold border-r border-slate-150">{row.rollNumber}</TableCell>
-                      <TableCell className="font-bold text-slate-900 border-r border-slate-150">{row.name}</TableCell>
-                      <TableCell className="text-slate-600 border-r border-slate-150">{row.fatherName ?? '—'}</TableCell>
+            {/* Report Table */}
+            {reportType === 'daily' ? (
+              <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
+                <Table className="min-w-full divide-y divide-slate-200">
+                  <TableHeader className="bg-slate-50">
+                    <TableRow className="border-b border-slate-200">
+                      <TableHead className="w-[50px] text-center font-bold text-slate-800 border-r border-slate-200">S.No</TableHead>
+                      <TableHead className="w-[100px] font-bold text-slate-800 border-r border-slate-200">Roll No</TableHead>
+                      <TableHead className="font-bold text-slate-800 border-r border-slate-200">Student Name</TableHead>
                       {report.subjects.map((sub) => (
-                        <TableCell key={sub.id} className="text-center font-semibold text-slate-850 border-r border-slate-150">
-                          {row.subjectScores[sub.id] ?? 0}
-                        </TableCell>
+                        <TableHead key={sub.id} className="text-center font-bold text-slate-800 border-r border-slate-200 min-w-[110px]">
+                          {sub.name}
+                        </TableHead>
                       ))}
-                      <TableCell className="text-center font-mono text-slate-500 border-r border-slate-150">{row.totalMarks}</TableCell>
-                      <TableCell className="text-center font-bold text-indigo-900 border-r border-slate-150 bg-slate-50/10">{row.obtainedMarks}</TableCell>
-                      <TableCell className="text-center font-extrabold text-slate-950 border-r border-slate-150">{row.percentage}%</TableCell>
-                      <TableCell className="text-center border-r border-slate-150">
-                        <Badge variant="outline" className={`font-bold px-2.5 py-0.5 rounded-full ${getBatchBadgeColor(row.performanceBatch)}`}>
-                          {row.performanceBatch}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-700 border-r border-slate-150 whitespace-pre-wrap leading-snug">
-                        {row.remarks?.trim() || '—'}
-                      </TableCell>
-                      <TableCell className="text-center font-extrabold">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
-                          row.rank === 1 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                          row.rank === 2 ? 'bg-slate-200 text-slate-900 border border-slate-350' :
-                          row.rank === 3 ? 'bg-amber-50 text-amber-800 border border-amber-200' :
-                          'text-slate-600'
-                        }`}>
-                          {row.rank}
-                        </span>
-                      </TableCell>
+                      <TableHead className="font-bold text-slate-800 border-r border-slate-200 min-w-[220px]">Remarks</TableHead>
+                      <TableHead className="text-center font-bold text-slate-800 w-[140px]">Highlight</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-200">
+                    {students.map((row) => (
+                      <TableRow
+                        key={row.studentId}
+                        className={row.isStarOfDay ? 'bg-amber-50 border-b border-amber-200' : row.isConcern ? 'bg-rose-50 border-b border-rose-200' : 'hover:bg-slate-50/50 border-b border-slate-200'}
+                      >
+                        <TableCell className="text-center font-medium text-slate-900 border-r border-slate-150">{row.serial}</TableCell>
+                        <TableCell className="font-mono text-xs text-slate-950 font-bold border-r border-slate-150">{row.rollNumber}</TableCell>
+                        <TableCell className="font-bold text-slate-900 border-r border-slate-150">{row.name}</TableCell>
+                        {report.subjects.map((sub) => {
+                          const grade = row.subjectGrades?.[sub.id] ?? 'NORMAL'
+                          return (
+                            <TableCell key={sub.id} className="text-center border-r border-slate-150">
+                              <Badge variant="outline" className={grade === 'EXCELLENT'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : grade === 'GOOD'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : grade === 'POOR'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200'}>
+                                {dailyGradeLabel(grade)}
+                              </Badge>
+                            </TableCell>
+                          )
+                        })}
+                        <TableCell className="text-sm text-slate-700 border-r border-slate-150">
+                          {row.dailyRemarks || '—'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {row.isStarOfDay ? (
+                            <Badge className="bg-amber-100 text-amber-900 border border-amber-300">Star of the Day</Badge>
+                          ) : row.isConcern ? (
+                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300">Needs Follow-up</Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
+                <Table className="min-w-full divide-y divide-slate-200">
+                  <TableHeader className="bg-slate-50">
+                    <TableRow className="border-b border-slate-200">
+                      <TableHead className="w-[50px] text-center font-bold text-slate-800 border-r border-slate-200">S.No</TableHead>
+                      <TableHead className="w-[100px] font-bold text-slate-800 border-r border-slate-200">Roll No</TableHead>
+                      <TableHead className="font-bold text-slate-800 border-r border-slate-200">Student Name</TableHead>
+                      <TableHead className="font-bold text-slate-800 border-r border-slate-200">Father&apos;s Name</TableHead>
+                      {report.subjects.map((sub) => (
+                        <TableHead key={sub.id} className="text-center font-bold text-slate-800 border-r border-slate-200 min-w-[70px]">
+                          {sub.name}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[70px]">Total</TableHead>
+                      <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[80px]">Obt. Marks</TableHead>
+                      <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[70px]">Obt. %</TableHead>
+                      <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[140px]">Group/Batch</TableHead>
+                      <TableHead className="font-bold text-slate-800 border-r border-slate-200 min-w-[220px]">Remarks</TableHead>
+                      <TableHead className="text-center font-bold text-slate-800 w-[60px]">Rank</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-200">
+                    {students.map((row) => (
+                      <TableRow key={row.studentId} className="hover:bg-slate-50/50 border-b border-slate-200">
+                        <TableCell className="text-center font-medium text-slate-900 border-r border-slate-150 bg-slate-50/20">{row.serial}</TableCell>
+                        <TableCell className="font-mono text-xs text-slate-950 font-bold border-r border-slate-150">{row.rollNumber}</TableCell>
+                        <TableCell className="font-bold text-slate-900 border-r border-slate-150">{row.name}</TableCell>
+                        <TableCell className="text-slate-600 border-r border-slate-150">{row.fatherName ?? '—'}</TableCell>
+                        {report.subjects.map((sub) => (
+                          <TableCell key={sub.id} className="text-center font-semibold text-slate-850 border-r border-slate-150">
+                            {row.subjectScores[sub.id] ?? 0}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center font-mono text-slate-500 border-r border-slate-150">{row.totalMarks}</TableCell>
+                        <TableCell className="text-center font-bold text-indigo-900 border-r border-slate-150 bg-slate-50/10">{row.obtainedMarks}</TableCell>
+                        <TableCell className="text-center font-extrabold text-slate-950 border-r border-slate-150">{row.percentage}%</TableCell>
+                        <TableCell className="text-center border-r border-slate-150">
+                          <Badge variant="outline" className={`font-bold px-2.5 py-0.5 rounded-full ${getBatchBadgeColor(row.performanceBatch)}`}>
+                            {row.performanceBatch}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-700 border-r border-slate-150">
+                          {row.remarks || '—'}
+                        </TableCell>
+                        <TableCell className="text-center font-extrabold">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
+                            row.rank === 1 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                            row.rank === 2 ? 'bg-slate-200 text-slate-900 border border-slate-350' :
+                            row.rank === 3 ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+                            'text-slate-600'
+                          }`}>
+                            {row.rank}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {/* Academic Scale Guidelines & Signatures block */}
             <div className="mt-8 pt-6 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Performance scale definition */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Performance Classification Scale</span>
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">{reportType === 'daily' ? 'Daily Performance Labels' : 'Performance Classification Scale'}</span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    <span className="font-semibold text-slate-700">Ever Shine: 90% – 100%</span>
+                    <span className="font-semibold text-slate-700">{reportType === 'daily' ? 'Excellent: exceptional daily performance' : 'Ever Shine: 90% – 100%'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <span className="font-semibold text-slate-700">Quaid: 75% – 89%</span>
+                    <span className="font-semibold text-slate-700">{reportType === 'daily' ? 'Good: strong daily performance' : 'Quaid: 80% – 89%'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                    <span className="font-semibold text-slate-700">Iqbal: 50% – 74%</span>
+                    <span className="font-semibold text-slate-700">{reportType === 'daily' ? 'Normal: expected daily performance' : 'Iqbal: 60% – 79%'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    <span className="font-semibold text-slate-700">Improvement: Below 50%</span>
+                    <span className="font-semibold text-slate-700">{reportType === 'daily' ? 'Poor: needs follow-up' : 'Improvement: Below 60%'}</span>
                   </div>
                 </div>
               </div>

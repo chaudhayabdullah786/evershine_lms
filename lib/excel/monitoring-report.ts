@@ -18,6 +18,7 @@
 
 import ExcelJS from 'exceljs'
 import { addBrandLogo, LOGO_PLACEMENT } from '@/lib/excel/brand-logo'
+import { dailyGradeLabel } from '@/lib/academic/monitoring'
 
 // ─── Branding Constants ─────────────────────────────────────────────────────
 const BRAND = {
@@ -62,8 +63,12 @@ export interface MonitoringStudentRow {
   fatherName: string | null
   rollNumber: string
   subjectScores: Record<string, number>
-  subjectRemarks?: Record<string, string[]>
+  subjectGrades?: Record<string, string>
+  subjectRemarks?: Record<string, string | string[]>
+  dailyRemarks?: string
   remarks?: string
+  isStarOfDay?: boolean
+  isConcern?: boolean
   totalMarks: number
   obtainedMarks: number
   percentage: number
@@ -72,7 +77,7 @@ export interface MonitoringStudentRow {
 }
 
 export interface MonitoringReportConfig {
-  type: 'daily' | 'monthly'
+  type: 'daily' | 'monthly' | 'yearly'
   classSectionLabel: string
   dateLabel: string
   academicYear: string
@@ -109,7 +114,8 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   wb.creator = 'Evershine Academy LMS'
   wb.created = new Date()
 
-  const sheetName = config.type === 'daily' ? 'Daily Report' : 'Monthly Report'
+  const reportLabel = config.type === 'daily' ? 'Daily' : config.type === 'yearly' ? 'Yearly' : 'Monthly'
+  const sheetName = `${reportLabel} Report`
   const ws = wb.addWorksheet(sheetName, {
     pageSetup: {
       paperSize: 9, // A4
@@ -133,10 +139,10 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   })
 
   // ── Column Setup ──────────────────────────────────────────────────────────
-  // Columns: S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Remarks | Rank
+  // Columns: Logo placeholder | S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Rank
   const subjectCount = config.subjects.length
   const fixedColCount = 4 // S.No, Roll, Name, Father (before subjects)
-  const trailingColCount = 6 // Total, Obtained, %, Group, Remarks, Rank
+  const trailingColCount = config.type === 'daily' ? 2 : 6 // daily: remarks + highlight; aggregate: Total, Obtained, %, Group, Remarks, Rank
   const totalCols = fixedColCount + subjectCount + trailingColCount
 
   const columns: Partial<ExcelJS.Column>[] = [
@@ -150,14 +156,21 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     columns.push({ width: 12 })
   }
   // Trailing columns
-  columns.push(
-    { width: 10 }, // Total Marks
-    { width: 12 }, // Obtained
-    { width: 10 }, // %
-    { width: 18 }, // Group
-    { width: 28 }, // Remarks
-    { width: 8 },  // Rank
-  )
+  if (config.type === 'daily') {
+    columns.push(
+      { width: 34 }, // Remarks
+      { width: 18 }, // Highlight
+    )
+  } else {
+    columns.push(
+      { width: 10 }, // Total Marks
+      { width: 12 }, // Obtained
+      { width: 10 }, // %
+      { width: 18 }, // Group
+      { width: 34 }, // Remarks
+      { width: 8 },  // Rank
+    )
+  }
 
   // ExcelJS requires at least 1 column — set widths via column property
   columns.forEach((colDef, idx) => {
@@ -214,7 +227,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   const titleCell = ws.getCell(currentRow, 1)
   titleCell.value = config.type === 'daily'
     ? 'DAILY STUDENT PERFORMANCE MONITORING SHEET'
-    : 'MONTHLY STUDENT PERFORMANCE MONITORING SHEET'
+    : `${reportLabel.toUpperCase()} STUDENT PERFORMANCE MONITORING SHEET`
   titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: COLORS.headerBg } }
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
   ws.getRow(currentRow).height = 28
@@ -263,12 +276,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     'Student Name',
     "Father's Name",
     ...config.subjects.map((s) => s.name),
-    'Total Marks',
-    'Obt. Marks',
-    '%',
-    'Group / Batch',
-    'Remarks',
-    'Rank',
+    ...(config.type === 'daily'
+      ? ['Remarks', 'Highlight']
+      : ['Total Marks', 'Obt. Marks', '%', 'Group / Batch', 'Remarks', 'Rank']),
   ]
 
   const row = ws.getRow(headerRow)
@@ -290,19 +300,29 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     const isEven = idx % 2 === 0
     const bgColor = isEven ? COLORS.rowEven : COLORS.rowOdd
 
-    const values: (string | number)[] = [
-      student.serial,
-      student.rollNumber,
-      student.name,
-      student.fatherName ?? '—',
-      ...config.subjects.map((s) => student.subjectScores[s.id] ?? 0),
-      student.totalMarks,
-      student.obtainedMarks,
-      `${student.percentage}%`,
-      student.performanceBatch,
-      student.remarks?.trim() || '—',
-      student.rank,
-    ]
+    const values: (string | number)[] = config.type === 'daily'
+      ? [
+          student.serial,
+          student.rollNumber,
+          student.name,
+          student.fatherName ?? '—',
+          ...config.subjects.map((s) => dailyGradeLabel(student.subjectGrades?.[s.id])),
+          student.dailyRemarks || '—',
+          student.isStarOfDay ? 'Star of the Day' : student.isConcern ? 'Needs Follow-up' : '—',
+        ]
+      : [
+          student.serial,
+          student.rollNumber,
+          student.name,
+          student.fatherName ?? '—',
+          ...config.subjects.map((s) => student.subjectScores[s.id] ?? 0),
+          student.totalMarks,
+          student.obtainedMarks,
+          `${student.percentage}%`,
+          student.performanceBatch,
+          student.remarks || '—',
+          student.rank,
+        ]
 
     values.forEach((val, colIdx) => {
       const cell = dataRow.getCell(colIdx + 1)
@@ -313,7 +333,12 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
         vertical: 'middle',
         wrapText: colIdx === values.length - 2,
       }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+      const rowHighlight = config.type === 'daily' && student.isStarOfDay
+        ? COLORS.everShine
+        : config.type === 'daily' && student.isConcern
+          ? COLORS.improvement
+          : bgColor
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowHighlight } }
       cell.border = thinBorder()
 
       // Bold student name
@@ -321,26 +346,30 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '0F172A' } }
       }
 
-      // Bold percentage
-      if (colIdx === values.length - 4) {
-        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
-      }
+      if (config.type !== 'daily') {
+        // Bold percentage
+        if (colIdx === values.length - 4) {
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
+        }
 
-      // Color-code the Group/Batch column
-      if (colIdx === values.length - 3) {
-        const { bg, text } = getBatchFill(String(val))
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
-        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }
-      }
+        // Color-code the Group/Batch column
+        if (colIdx === values.length - 3) {
+          const { bg, text } = getBatchFill(String(val))
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
+          cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }
+        }
 
-      // Keep remarks readable in print exports
-      if (colIdx === values.length - 2) {
-        cell.font = { name: 'Calibri', size: 9, color: { argb: '334155' } }
-      }
+        // Keep aggregate remarks readable in print exports
+        if (colIdx === values.length - 2) {
+          cell.font = { name: 'Calibri', size: 9, color: { argb: '334155' } }
+        }
 
-      // Bold rank
-      if (colIdx === values.length - 1) {
-        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.brandPrimary } }
+        // Bold rank
+        if (colIdx === values.length - 1) {
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.brandPrimary } }
+        }
+      } else if (colIdx >= 4 && colIdx < 4 + subjectCount) {
+        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: '0F172A' } }
       }
     })
 
@@ -363,9 +392,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   const legendItems = [
     { label: 'Ever Shine Group', range: '90% – 100%', ...getBatchFill('Ever Shine') },
-    { label: 'Quaid Group', range: '75% – 89%', ...getBatchFill('Quaid') },
-    { label: 'Iqbal Group', range: '50% – 74%', ...getBatchFill('Iqbal') },
-    { label: 'Improvement Group', range: 'Below 50%', ...getBatchFill('Improvement') },
+    { label: 'Quaid Group', range: '80% – 89%', ...getBatchFill('Quaid') },
+    { label: 'Iqbal Group', range: '60% – 79%', ...getBatchFill('Iqbal') },
+    { label: 'Improvement Group', range: 'Below 60%', ...getBatchFill('Improvement') },
   ]
 
   legendItems.forEach((item) => {

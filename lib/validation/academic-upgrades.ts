@@ -108,6 +108,9 @@ export const dailyScoreRecordSchema = z.object({
   score:     z.number().min(0),
   isAbsent:  z.boolean().default(false),
   remarks:   z.string().max(200).optional(),
+  performanceGrade: z.enum(['EXCELLENT', 'GOOD', 'NORMAL', 'POOR']).optional(),
+  isStarOfDay: z.boolean().default(false),
+  isConcern: z.boolean().default(false),
 })
 
 export const submitDailyPerformanceSchema = z.object({

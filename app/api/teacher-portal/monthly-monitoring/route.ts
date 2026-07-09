@@ -14,7 +14,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
-import { derivePerformanceBatch } from '@/lib/academic/result-utils'
+import { decodeMonitoringRemarks, derivePerformanceGroup, monitoringStatusCriteria } from '@/lib/academic/monitoring'
 
 const saveSchema = z.object({
   classSectionId: z.string().min(1),
@@ -23,6 +23,14 @@ const saveSchema = z.object({
   academicYearId: z.string().min(1),
   reportData: z.any(),
 })
+
+const monitoringTypeSchema = z.enum(['daily', 'monthly', 'yearly'])
+
+function parseLocalDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +43,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const classSectionId = searchParams.get('classSectionId')
     const academicYearId = searchParams.get('academicYearId')
-    const type = searchParams.get('type') ?? 'monthly'
+    const typeResult = monitoringTypeSchema.safeParse(searchParams.get('type') ?? 'monthly')
     const dateStr = searchParams.get('date')
     const month = parseInt(searchParams.get('month') ?? '0')
     const year = parseInt(searchParams.get('year') ?? '0')
@@ -43,21 +51,40 @@ export async function GET(req: NextRequest) {
     if (!classSectionId || !academicYearId) {
       return errors.badRequest('classSectionId and academicYearId are required')
     }
+    if (!typeResult.success) return errors.badRequest('type must be daily, monthly, or yearly')
+
+    const type = typeResult.data
+    let teacherId: string | undefined
+    if (session.user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!teacher) return errors.forbidden('Your teacher profile is not available')
+      teacherId = teacher.id
+    }
 
     let periodStart: Date
     let periodEnd: Date
     const isDaily = type === 'daily'
+    const isYearly = type === 'yearly'
 
     if (isDaily) {
       if (!dateStr) return errors.badRequest('date is required for daily monitoring')
-      periodStart = new Date(dateStr)
-      periodStart.setHours(0,0,0,0)
-      periodEnd = new Date(dateStr)
-      periodEnd.setHours(23,59,59,999)
+      const date = parseLocalDate(dateStr)
+      if (!date) return errors.badRequest('date must use YYYY-MM-DD format')
+      periodStart = new Date(date)
+      periodStart.setHours(0, 0, 0, 0)
+      periodEnd = new Date(date)
+      periodEnd.setHours(23, 59, 59, 999)
+    } else if (isYearly) {
+      if (!year) return errors.badRequest('year is required for yearly monitoring')
+      periodStart = new Date(year, 0, 1)
+      periodEnd = new Date(year, 11, 31, 23, 59, 59, 999)
     } else {
       if (!month || !year) return errors.badRequest('month and year are required for monthly monitoring')
       periodStart = new Date(year, month - 1, 1)
-      periodEnd = new Date(year, month, 0) // last day of month
+      periodEnd = new Date(year, month, 0, 23, 59, 59, 999) // last day of month
     }
 
     // 1. Get all active enrollments for section
@@ -79,10 +106,17 @@ export async function GET(req: NextRequest) {
 
     // 2. Get all SubjectOfferings for this section
     const offerings = await prisma.subjectOffering.findMany({
-      where: { classSectionId, academicYearId },
+      where: {
+        classSectionId,
+        academicYearId,
+        ...(teacherId ? { teacherId } : {}),
+      },
       include: { subject: { select: { name: true, code: true } } },
       orderBy: { subject: { name: 'asc' } },
     })
+    if (teacherId && offerings.length === 0) {
+      return errors.forbidden('You are not assigned to a subject in this class section')
+    }
 
     // 3. Get DailyPerformanceScores for this section/period
     const studentIds = enrollments.map((e) => e.studentId)
@@ -114,30 +148,45 @@ export async function GET(req: NextRequest) {
 
     const rows = enrollments.map((enrollment, index) => {
       const subjectScores: Record<string, number> = {}
+      const subjectGrades: Record<string, string> = {}
       const subjectRemarks: Record<string, string[]> = {}
-      const rowRemarks: string[] = []
       let totalObtained = 0
       let totalPossible = 0
+      let isStarOfDay = false
+      let isConcern = false
+      const remarks: string[] = []
 
       for (const offering of offerings) {
         const studentScores = scores.filter(
           (s) => s.studentId === enrollment.studentId && s.subjectOfferingId === offering.id
         )
         const subjectTotal = studentScores.reduce((sum, s) => sum + Number(s.score), 0)
-        const remarksForSubject = Array.from(new Set(
-          studentScores
-            .map((s) => s.remarks?.trim())
-            .filter((remarks): remarks is string => Boolean(remarks))
-        ))
-
         subjectScores[offering.id] = subjectTotal
-        subjectRemarks[offering.id] = remarksForSubject
-        if (remarksForSubject.length > 0) {
-          rowRemarks.push(`${offering.subject.name}: ${remarksForSubject.join('; ')}`)
-        }
         totalObtained += subjectTotal
         // Each scoring day contributes maxDailyScore possible marks per subject
         totalPossible += (scoringDaysPerOffering[offering.id] ?? 1) * offering.maxDailyScore
+
+        if (isDaily) {
+          const dailyScore = studentScores[0]
+          const metadata = decodeMonitoringRemarks(
+            dailyScore?.remarks,
+            dailyScore ? Number(dailyScore.score) : null,
+            offering.maxDailyScore
+          )
+          subjectGrades[offering.id] = metadata.grade
+          subjectRemarks[offering.id] = metadata.remarks ? [metadata.remarks] : []
+          if (metadata.remarks) remarks.push(`${offering.subject.name}: ${metadata.remarks}`)
+          isStarOfDay = isStarOfDay || metadata.isStarOfDay
+          isConcern = isConcern || metadata.isConcern
+        } else {
+          const uniqueRemarks = Array.from(new Set(
+            studentScores
+              .map((score) => decodeMonitoringRemarks(score.remarks, Number(score.score), offering.maxDailyScore).remarks)
+              .filter(Boolean)
+          ))
+          subjectRemarks[offering.id] = uniqueRemarks
+          if (uniqueRemarks.length > 0) remarks.push(`${offering.subject.name}: ${uniqueRemarks.join('; ')}`)
+        }
       }
 
       const percentage = totalPossible > 0 ? (totalObtained / totalPossible) * 100 : 0
@@ -149,12 +198,16 @@ export async function GET(req: NextRequest) {
         fatherName: enrollment.student.fatherName,
         rollNumber: enrollment.student.rollNumber ?? '',
         subjectScores,
+        subjectGrades,
         subjectRemarks,
-        remarks: rowRemarks.join(' | '),
+        dailyRemarks: isDaily ? remarks.join(' | ') : undefined,
+        remarks: isDaily ? undefined : remarks.join(' | '),
+        isStarOfDay,
+        isConcern,
         totalMarks: totalPossible,
         obtainedMarks: totalObtained,
         percentage: Math.round(percentage * 100) / 100,
-        performanceBatch: derivePerformanceBatch(percentage),
+        performanceBatch: derivePerformanceGroup(percentage),
         rank: 0,
       }
     })
@@ -167,7 +220,7 @@ export async function GET(req: NextRequest) {
     })
 
     return successResponse({
-      month: isDaily ? undefined : month,
+      month: isDaily || isYearly ? undefined : month,
       year: isDaily ? undefined : year,
       date: isDaily ? dateStr : undefined,
       type,
@@ -179,13 +232,8 @@ export async function GET(req: NextRequest) {
         maxDailyScore: o.maxDailyScore,
       })),
       students: rows,
-      statusCriteria: [
-        { label: 'Ever Shine', min: 90, max: 100 },
-        { label: 'Quaid', min: 75, max: 89 },
-        { label: 'Iqbal', min: 50, max: 74 },
-        { label: 'Improvement', min: 0, max: 49 },
-      ],
-    }, `${isDaily ? 'Daily' : 'Monthly'} monitoring report aggregated successfully`)
+      statusCriteria: monitoringStatusCriteria(),
+    }, `${isDaily ? 'Daily' : isYearly ? 'Yearly' : 'Monthly'} monitoring report aggregated successfully`)
   } catch (err) {
     console.error('[MONITORING_REPORT_GET]', err)
     return errors.internal()
@@ -203,6 +251,24 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const parsed = saveSchema.safeParse(body)
     if (!parsed.success) return errors.validation(parsed.error)
+
+    if (session.user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!teacher) return errors.forbidden('Your teacher profile is not available')
+
+      const assignment = await prisma.subjectOffering.findFirst({
+        where: {
+          classSectionId: parsed.data.classSectionId,
+          academicYearId: parsed.data.academicYearId,
+          teacherId: teacher.id,
+        },
+        select: { id: true },
+      })
+      if (!assignment) return errors.forbidden('You are not assigned to this class section')
+    }
 
     const report = await prisma.monthlyMonitoringReport.upsert({
       where: {
