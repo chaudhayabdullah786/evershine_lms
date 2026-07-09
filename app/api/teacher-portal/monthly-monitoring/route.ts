@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     let periodStart: Date
     let periodEnd: Date
-    let isDaily = type === 'daily'
+    const isDaily = type === 'daily'
 
     if (isDaily) {
       if (!dateStr) return errors.badRequest('date is required for daily monitoring')
@@ -114,6 +114,8 @@ export async function GET(req: NextRequest) {
 
     const rows = enrollments.map((enrollment, index) => {
       const subjectScores: Record<string, number> = {}
+      const subjectRemarks: Record<string, string[]> = {}
+      const rowRemarks: string[] = []
       let totalObtained = 0
       let totalPossible = 0
 
@@ -122,7 +124,17 @@ export async function GET(req: NextRequest) {
           (s) => s.studentId === enrollment.studentId && s.subjectOfferingId === offering.id
         )
         const subjectTotal = studentScores.reduce((sum, s) => sum + Number(s.score), 0)
+        const remarksForSubject = Array.from(new Set(
+          studentScores
+            .map((s) => s.remarks?.trim())
+            .filter((remarks): remarks is string => Boolean(remarks))
+        ))
+
         subjectScores[offering.id] = subjectTotal
+        subjectRemarks[offering.id] = remarksForSubject
+        if (remarksForSubject.length > 0) {
+          rowRemarks.push(`${offering.subject.name}: ${remarksForSubject.join('; ')}`)
+        }
         totalObtained += subjectTotal
         // Each scoring day contributes maxDailyScore possible marks per subject
         totalPossible += (scoringDaysPerOffering[offering.id] ?? 1) * offering.maxDailyScore
@@ -137,6 +149,8 @@ export async function GET(req: NextRequest) {
         fatherName: enrollment.student.fatherName,
         rollNumber: enrollment.student.rollNumber ?? '',
         subjectScores,
+        subjectRemarks,
+        remarks: rowRemarks.join(' | '),
         totalMarks: totalPossible,
         obtainedMarks: totalObtained,
         percentage: Math.round(percentage * 100) / 100,

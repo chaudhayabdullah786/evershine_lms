@@ -62,6 +62,8 @@ export interface MonitoringStudentRow {
   fatherName: string | null
   rollNumber: string
   subjectScores: Record<string, number>
+  subjectRemarks?: Record<string, string[]>
+  remarks?: string
   totalMarks: number
   obtainedMarks: number
   percentage: number
@@ -131,10 +133,10 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   })
 
   // ── Column Setup ──────────────────────────────────────────────────────────
-  // Columns: Logo placeholder | S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Rank
+  // Columns: S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Remarks | Rank
   const subjectCount = config.subjects.length
   const fixedColCount = 4 // S.No, Roll, Name, Father (before subjects)
-  const trailingColCount = 5 // Total, Obtained, %, Group, Rank
+  const trailingColCount = 6 // Total, Obtained, %, Group, Remarks, Rank
   const totalCols = fixedColCount + subjectCount + trailingColCount
 
   const columns: Partial<ExcelJS.Column>[] = [
@@ -153,6 +155,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     { width: 12 }, // Obtained
     { width: 10 }, // %
     { width: 18 }, // Group
+    { width: 28 }, // Remarks
     { width: 8 },  // Rank
   )
 
@@ -264,6 +267,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     'Obt. Marks',
     '%',
     'Group / Batch',
+    'Remarks',
     'Rank',
   ]
 
@@ -296,6 +300,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       student.obtainedMarks,
       `${student.percentage}%`,
       student.performanceBatch,
+      student.remarks?.trim() || '—',
       student.rank,
     ]
 
@@ -304,8 +309,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       cell.value = val
       cell.font = { name: 'Calibri', size: 10, color: { argb: '1E293B' } }
       cell.alignment = {
-        horizontal: colIdx <= 1 || colIdx >= values.length - 2 ? 'center' : (colIdx <= 3 ? 'left' : 'center'),
+        horizontal: colIdx <= 1 || colIdx === values.length - 1 ? 'center' : (colIdx <= 3 || colIdx === values.length - 2 ? 'left' : 'center'),
         vertical: 'middle',
+        wrapText: colIdx === values.length - 2,
       }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
       cell.border = thinBorder()
@@ -316,15 +322,20 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       }
 
       // Bold percentage
-      if (colIdx === values.length - 3) {
+      if (colIdx === values.length - 4) {
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
       }
 
       // Color-code the Group/Batch column
-      if (colIdx === values.length - 2) {
+      if (colIdx === values.length - 3) {
         const { bg, text } = getBatchFill(String(val))
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
         cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }
+      }
+
+      // Keep remarks readable in print exports
+      if (colIdx === values.length - 2) {
+        cell.font = { name: 'Calibri', size: 9, color: { argb: '334155' } }
       }
 
       // Bold rank

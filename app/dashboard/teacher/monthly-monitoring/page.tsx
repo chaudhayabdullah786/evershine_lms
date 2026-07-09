@@ -43,6 +43,8 @@ interface StudentRow {
   fatherName: string | null
   rollNumber: string
   subjectScores: Record<string, number>
+  subjectRemarks?: Record<string, string[]>
+  remarks?: string
   totalMarks: number
   obtainedMarks: number
   percentage: number
@@ -766,6 +768,7 @@ export default function MonthlyMonitoringPage() {
                     <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[80px]">Obt. Marks</TableHead>
                     <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[70px]">Obt. %</TableHead>
                     <TableHead className="text-center font-bold text-slate-800 border-r border-slate-200 w-[140px]">Group/Batch</TableHead>
+                    <TableHead className="font-bold text-slate-800 border-r border-slate-200 min-w-[180px]">Remarks</TableHead>
                     <TableHead className="text-center font-bold text-slate-800 w-[60px]">Rank</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -788,6 +791,9 @@ export default function MonthlyMonitoringPage() {
                         <Badge variant="outline" className={`font-bold px-2.5 py-0.5 rounded-full ${getBatchBadgeColor(row.performanceBatch)}`}>
                           {row.performanceBatch}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-700 border-r border-slate-150 whitespace-pre-wrap leading-snug">
+                        {row.remarks?.trim() || '—'}
                       </TableCell>
                       <TableCell className="text-center font-extrabold">
                         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
