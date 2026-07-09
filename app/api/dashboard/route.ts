@@ -10,13 +10,12 @@
  * caching the result in Upstash Redis with a 5-minute TTL.
  */
 
-import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
-import type { Role } from '@prisma/client'
+import type { Prisma, Role } from '@prisma/client'
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
 
@@ -36,8 +35,21 @@ export async function GET(_request: NextRequest) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Scope to campus for non-super-admins
-  const campusFilter = role !== 'SUPER_ADMIN' && campusId ? { campusId } : {}
+  // Scope to campus for non-super-admins.
+  const campusFilter: Prisma.StudentWhereInput = role !== 'SUPER_ADMIN' && campusId ? { campusId } : {}
+  const teacherCampusFilter: Prisma.TeacherWhereInput = role !== 'SUPER_ADMIN' && campusId ? { campusId } : {}
+  const invoiceCampusFilter: Prisma.FeeInvoiceWhereInput = Object.keys(campusFilter).length
+    ? { student: campusFilter }
+    : {}
+  const paymentCampusFilter: Prisma.FeePaymentWhereInput = Object.keys(campusFilter).length
+    ? { student: campusFilter }
+    : {}
+  const legacyAttendanceCampusFilter: Prisma.AttendanceWhereInput = Object.keys(campusFilter).length
+    ? { class: { campusId } }
+    : {}
+  const modernAttendanceCampusFilter: Prisma.EnrollmentAttendanceRecordWhereInput = Object.keys(campusFilter).length
+    ? { studentEnrollment: { student: campusFilter } }
+    : {}
   
   let studentClassId: string | undefined
   if (role === 'STUDENT') {
@@ -54,43 +66,51 @@ export async function GET(_request: NextRequest) {
     totalStudents,
     activeStudents,
     totalTeachers,
-    feePendingCount,
-    feeOverdueCount,
     totalFeeCollected,
-    totalFeePending,
-    todayAttendanceCount,
-    totalStudentsForRate,
+    outstandingInvoices,
+    legacyPresentRows,
+    modernPresentRows,
     upcomingExams,
     recentAdmissions,
   ] = await prisma.$transaction([
     prisma.student.count({ where: { ...campusFilter, isActive: true } }),
     prisma.student.count({ where: { ...campusFilter, isActive: true, enrollmentStatus: 'ACTIVE' } }),
-    prisma.teacher.count({ where: { ...campusFilter, isActive: true } }),
-    prisma.student.count({ where: { ...campusFilter, isActive: true, feeStatus: 'PENDING' } }),
-    prisma.student.count({ where: { ...campusFilter, isActive: true, feeStatus: 'OVERDUE' } }),
+    prisma.teacher.count({ where: { ...teacherCampusFilter, isActive: true } }),
     prisma.feePayment.aggregate({
       where: {
         status: 'COMPLETED',
-        ...(campusId ? { student: { campusId } } : {}),
+        ...paymentCampusFilter,
       },
       _sum: { amount: true },
     }),
-    prisma.student.aggregate({
-      where: { ...campusFilter, isActive: true },
-      _sum: { dueAmount: true },
-    }),
-    prisma.attendance.count({
+    prisma.feeInvoice.findMany({
       where: {
-        date: today,
-        status: 'PRESENT',
-        ...(campusId ? { class: { campusId } } : {}),
+        ...invoiceCampusFilter,
+        status: { notIn: ['PAID', 'CANCELLED'] },
+      },
+      select: {
+        studentId: true,
+        status: true,
+        dueDate: true,
+        totalAmount: true,
+        paidAmount: true,
       },
     }),
-    prisma.attendance.count({
+    prisma.attendance.findMany({
       where: {
         date: today,
-        ...(campusId ? { class: { campusId } } : {}),
+        status: { in: ['PRESENT', 'LATE'] },
+        ...legacyAttendanceCampusFilter,
       },
+      select: { studentId: true },
+    }),
+    prisma.enrollmentAttendanceRecord.findMany({
+      where: {
+        attendanceDate: today,
+        status: { in: ['PRESENT', 'LATE'] },
+        ...modernAttendanceCampusFilter,
+      },
+      select: { studentEnrollment: { select: { studentId: true } } },
     }),
     prisma.exam.findMany({
       where: {
@@ -120,6 +140,26 @@ export async function GET(_request: NextRequest) {
     }),
   ])
 
+  const invoiceBalances = outstandingInvoices.map((invoice) => ({
+    studentId: invoice.studentId,
+    status: invoice.status,
+    dueDate: invoice.dueDate,
+    balance: Math.max(0, Number(invoice.totalAmount) - Number(invoice.paidAmount)),
+  }))
+  const pendingInvoiceBalances = invoiceBalances.filter((invoice) => invoice.balance > 0)
+  const totalFeePending = pendingInvoiceBalances.reduce((sum, invoice) => sum + invoice.balance, 0)
+  const feePendingCount = new Set(pendingInvoiceBalances.map((invoice) => invoice.studentId)).size
+  const feeOverdueCount = new Set(
+    pendingInvoiceBalances
+      .filter((invoice) => invoice.status === 'OVERDUE' || invoice.dueDate < today)
+      .map((invoice) => invoice.studentId)
+  ).size
+
+  const presentStudentIds = new Set<string>()
+  for (const row of legacyPresentRows) presentStudentIds.add(row.studentId)
+  for (const row of modernPresentRows) presentStudentIds.add(row.studentEnrollment.studentId)
+  const todayAttendanceCount = presentStudentIds.size
+  const totalStudentsForRate = activeStudents
   const attendanceRate =
     totalStudentsForRate > 0
       ? Math.round((todayAttendanceCount / totalStudentsForRate) * 100)
@@ -147,7 +187,7 @@ export async function GET(_request: NextRequest) {
     teachers: { total: totalTeachers },
     finance: {
       totalCollected: Number(totalFeeCollected._sum.amount ?? 0),
-      totalPending: Number(totalFeePending._sum.dueAmount ?? 0),
+      totalPending: totalFeePending,
       reserveFundBalance: Number(latestReserveFund?.cumulativeTotal ?? 0),
       latestReserveContribution: latestReserveFund
         ? {
@@ -156,11 +196,13 @@ export async function GET(_request: NextRequest) {
             transactionDate: latestReserveFund.transactionDate,
           }
         : null,
+      metricSource: 'fee_invoices_and_payments',
     },
     attendance: {
       todayPresent: todayAttendanceCount,
       todayTotal: totalStudentsForRate,
       attendanceRate,
+      metricSource: 'student_attendance_records',
     },
     upcomingExams,
     recentAdmissions,
