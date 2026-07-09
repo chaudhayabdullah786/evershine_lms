@@ -14,6 +14,7 @@ import { AcademicUpgradesService, type SubmitDailyPerformanceInput } from '@/lib
 import { submitDailyPerformanceSchema } from '@/lib/validation/academic-upgrades'
 import { prisma } from '@/lib/prisma'
 import type { Role } from '@prisma/client'
+import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -79,13 +80,19 @@ export async function GET(request: NextRequest) {
 
         const roster = enrollments.map((enr) => {
           const existing = existingScores.find((s) => s.studentId === enr.studentId)
+          const score = existing ? existing.score.toNumber() : null
+          const metadata = decodeMonitoringRemarks(existing?.remarks, score, offering.maxDailyScore)
+
           return {
             studentId: enr.studentId,
             rollNumber: enr.rollNumber ?? enr.student.rollNumber ?? '—',
             name: `${enr.student.firstName} ${enr.student.lastName}`,
-            score: existing ? existing.score.toNumber() : null,
+            score,
             isAbsent: existing ? existing.isAbsent : false,
-            remarks: existing?.remarks ?? '',
+            remarks: metadata.remarks,
+            performanceGrade: metadata.grade,
+            isStarOfDay: metadata.isStarOfDay,
+            isConcern: metadata.isConcern,
           }
         })
 
@@ -133,9 +140,12 @@ export async function POST(request: NextRequest) {
       date: parsed.data.date!,
       records: parsed.data.records!.map((record) => ({
         studentId: record.studentId!,
-        score: record.score!,
+        score: record.performanceGrade ? 0 : record.score!,
         isAbsent: record.isAbsent,
         remarks: record.remarks,
+        performanceGrade: record.performanceGrade,
+        isStarOfDay: record.isStarOfDay,
+        isConcern: record.isConcern,
       })),
       teacherId: session.user.id,
     }

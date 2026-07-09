@@ -10,10 +10,10 @@ import {
   Award, BookOpen, TrendingUp, CheckCircle, XCircle,
   FileText, BarChart2, Star, ArrowUpRight,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
 import { fadeUp, staggerContainer } from '@/lib/animations'
+import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -235,6 +235,7 @@ export default function StudentAcademicsPage() {
     return []
   }, [termResultsRaw])
 
+
   // Auto-select most recent term
   useEffect(() => {
     if (allTermResults.length > 0 && !selectedTermId) {
@@ -321,6 +322,11 @@ export default function StudentAcademicsPage() {
               <StatCard icon={Award} label="Overall Grade" value={allTermResults.length > 0 ? stats.grade : '—'} sub={allTermResults.length > 0 ? gradeConfig(stats.grade).label : 'Pending'} color={gradeConfig(stats.grade).text} iconBg={gradeConfig(stats.grade).bg} />
               <StatCard icon={TrendingUp} label="Highest Term" value={allTermResults.length > 0 ? `${stats.highest}%` : '—'} sub="Best term score" color="text-emerald-700" iconBg="bg-emerald-50" />
               <StatCard icon={Star} label="Class Position" value={activeTermResult?.classPosition ? `#${activeTermResult.classPosition}` : '—'} sub={activeTermResult ? `in ${activeTermResult.examSessionId}` : 'Awaiting results'} color="text-indigo-700" iconBg="bg-indigo-50" />
+            </motion.div>
+
+
+            <motion.div variants={fadeUp(0.23)}>
+              <MonitoringReportPanel endpoint="/api/student-portal/monitoring" title="My Academic Monitoring" />
             </motion.div>
 
             {/* ─── Term Selector ────────────────────────────────── */}

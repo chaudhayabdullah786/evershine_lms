@@ -17,6 +17,7 @@ import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import Link from 'next/link'
 import { FeePaymentDialog } from '@/components/features/guardian/FeePaymentDialog'
 import { Upload, Clock } from 'lucide-react'
+import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -120,6 +121,7 @@ export default function MyChildrenPage() {
     enabled: !!childId && allowed,
   })
 
+
   const submitLeave = useMutation({
     mutationFn: (payload: { leaveType: string; startDate: string; endDate: string; reason: string }) =>
       fetchApi(`/api/guardian-portal/children/${childId}/leaves`, {
@@ -199,6 +201,7 @@ export default function MyChildrenPage() {
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="attendance">Attendance</TabsTrigger>
                 <TabsTrigger value="results">Results</TabsTrigger>
+                <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
                 <TabsTrigger value="fees">Fees</TabsTrigger>
                 <TabsTrigger value="leaves">Leaves</TabsTrigger>
               </TabsList>
@@ -360,6 +363,13 @@ export default function MyChildrenPage() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="monitoring" className="mt-4">
+                <MonitoringReportPanel
+                  endpoint={`/api/guardian-portal/children/${childId}/monitoring`}
+                  title={`${academic.student.firstName}'s Academic Monitoring`}
+                />
               </TabsContent>
 
               <TabsContent value="fees" className="mt-4">
