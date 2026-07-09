@@ -17,6 +17,7 @@
 import { prisma } from '@/lib/prisma'
 import { EnrollmentType, ResultDeclarationStatus } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
+import { dailyGradeScore, encodeMonitoringRemarks, type DailyPerformanceGrade } from '@/lib/academic/monitoring'
 
 // ─── Grade / batch helpers ────────────────────────────────────────────────────
 function calculateGrade(pct: number): string {
@@ -86,6 +87,9 @@ export interface DailyPerformanceRecordInput {
   score:     number
   isAbsent?: boolean
   remarks?:  string
+  performanceGrade?: DailyPerformanceGrade
+  isStarOfDay?: boolean
+  isConcern?: boolean
 }
 
 export interface SubmitDailyPerformanceInput {
@@ -575,15 +579,26 @@ export class AcademicUpgradesService {
         where: { subjectOfferingId: input.subjectOfferingId, date },
       })
 
-      const data = input.records.map((r) => ({
-        subjectOfferingId: input.subjectOfferingId,
-        studentId:         r.studentId,
-        date,
-        score:             new Decimal(r.score),
-        isAbsent:          r.isAbsent ?? false,
-        remarks:           r.remarks  ?? null,
-        markedById:        input.teacherId,
-      }))
+      const data = input.records.map((r) => {
+        const isAbsent = r.isAbsent ?? false
+        const grade = r.performanceGrade ?? 'NORMAL'
+        const score = isAbsent ? 0 : dailyGradeScore(grade, maxScore)
+
+        return {
+          subjectOfferingId: input.subjectOfferingId,
+          studentId:         r.studentId,
+          date,
+          score:             new Decimal(score),
+          isAbsent,
+          remarks:           encodeMonitoringRemarks({
+            grade,
+            remarks: r.remarks ?? '',
+            isStarOfDay: r.isStarOfDay ?? false,
+            isConcern: r.isConcern ?? grade === 'POOR',
+          }),
+          markedById:        input.teacherId,
+        }
+      })
 
       if (data.length > 0) {
         await tx.dailyPerformanceScore.createMany({ data })
