@@ -1465,8 +1465,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/layout.tsx": {
-    "mtime": 1783634896.9626706,
-    "ast_hash": "e395467b53c10aa6080edbd4c0533412",
+    "mtime": 1783638997.2631352,
+    "ast_hash": "6bf65295721da489c1e3426c710f2e0e",
     "semantic_hash": ""
   },
   "app/dashboard/leads/page.tsx": {
@@ -1975,8 +1975,8 @@
     "semantic_hash": ""
   },
   "components/layout/MobileNav.tsx": {
-    "mtime": 1783634896.9800942,
-    "ast_hash": "f94cd03addb717407da55d00e4f1ea4a",
+    "mtime": 1783638997.2641351,
+    "ast_hash": "97ca25cc0490d8da14b7da7a2730c12f",
     "semantic_hash": ""
   },
   "components/providers.tsx": {
@@ -3925,8 +3925,8 @@
     "semantic_hash": ""
   },
   "app/api/notifications/counts/route.ts": {
-    "mtime": 1783634896.9402273,
-    "ast_hash": "c34f2e44a4e74bab07493bce0d899330",
+    "mtime": 1783638997.2611353,
+    "ast_hash": "f4a054c178020525eb37785c90d89d38",
     "semantic_hash": ""
   },
   "tests/teacher-tasks-route.test.ts": {
@@ -3952,6 +3952,16 @@
   "tests/dashboard-route.test.ts": {
     "mtime": 1783634923.6909218,
     "ast_hash": "86a4b9d4a8130bf76fa3f856fbb7c017",
+    "semantic_hash": ""
+  },
+  "lib/notifications/module-map.ts": {
+    "mtime": 1783638997.2901347,
+    "ast_hash": "1974342521066c7202f734f67dc73519",
+    "semantic_hash": ""
+  },
+  "tests/notifications-counts-route.test.ts": {
+    "mtime": 1783638997.2901347,
+    "ast_hash": "8c92ba43c1db5563fe27f4a25535f8a9",
     "semantic_hash": ""
   },
   "tests/teacher-monitoring-route.test.ts": {

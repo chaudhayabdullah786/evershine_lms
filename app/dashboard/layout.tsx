@@ -56,6 +56,7 @@ import { CompulsoryFeedbackBlocker } from '@/components/student/CompulsoryFeedba
 import { RulesAgreementBlocker } from '@/components/student/RulesAgreementBlocker'
 import { GuardianFeedbackModal } from '@/components/feedback/GuardianFeedbackModal'
 import { FeeOverdueModal } from '@/components/student/FeeOverdueModal'
+import { getNotificationModuleForNavLabel, type NotificationCounts } from '@/lib/notifications/module-map'
 
 // ─── Role-gated nav items ─────────────────────────────────────────────────────
 // WHY data-driven: Adding a new route only requires updating this array.
@@ -176,35 +177,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Polled every 30s alongside the notifications query list.
   const { data: countsData } = useQuery({
     queryKey: ['notification-counts'],
-    queryFn: () => fetchApi<{ total: number; modules: Record<string, number> }>('/api/notifications/counts'),
+    queryFn: () => fetchApi<NotificationCounts>('/api/notifications/counts'),
     refetchInterval: 30000,
     enabled: status === 'authenticated',
   })
 
   const getBadgeCount = (itemName: string) => {
     if (!countsData?.modules) return 0
-    const keyMap: Record<string, string> = {
-      'Leaves': 'leaves',
-      'Student Leaves': 'leaves',
-      'Complaints': 'complaints',
-      'Academic Queries': 'queries',
-      'Admissions': 'admissions',
-      'Timetable': 'timetable',
-      'Fees': 'fees',
-      'Landing Leads': 'leads',
-      'Staff Directory': 'staff',
-      'Staff Salaries': 'salaries',
-      'Results': 'results',
-      'Exam Results': 'results',
-      'Attendance': 'attendance',
-      'Student Attendance': 'attendance',
-      'Staff Attendance': 'attendance',
-      'Class Attendance (Legacy)': 'attendance',
-      'My Children': 'my-children',
-    }
-    const key = keyMap[itemName]
+    const key = getNotificationModuleForNavLabel(itemName)
     return key ? (countsData.modules[key] ?? 0) : 0
   }
+
+  useEffect(() => {
+    const badgeApi = navigator as Navigator & {
+      setAppBadge?: (contents?: number) => Promise<void>
+      clearAppBadge?: () => Promise<void>
+    }
+
+    if (!badgeApi.setAppBadge || !badgeApi.clearAppBadge) return
+
+    const updateBadge = countsData?.total && countsData.total > 0
+      ? badgeApi.setAppBadge(countsData.total)
+      : badgeApi.clearAppBadge()
+
+    void updateBadge.catch(() => {
+      // Browser or OS may deny app-badge updates. In-app badges remain authoritative.
+    })
+  }, [countsData?.total])
 
   if (status === 'loading') {
     return (
@@ -456,10 +455,16 @@ function NotificationBell() {
     refetchInterval: 30000, // poll every 30s
   })
 
+  const { data: countsData } = useQuery({
+    queryKey: ['notification-counts'],
+    queryFn: () => fetchApi<NotificationCounts>('/api/notifications/counts'),
+    refetchInterval: 30000,
+  })
+
   const notifications = data?.data ?? []
   const unreadNotifications = notifications.filter(n => !n.isRead)
   const readNotifications = notifications.filter(n => n.isRead)
-  const unreadCount = unreadNotifications.length
+  const unreadCount = countsData?.total ?? unreadNotifications.length
 
   const displayedNotifications = activeTab === 'inbox' ? unreadNotifications : readNotifications
 
@@ -489,17 +494,31 @@ function NotificationBell() {
   const getCategoryBadge = (type: string) => {
     const map: Record<string, { label: string; className: string }> = {
       RESULT_PUBLISHED: { label: 'Academics', className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+      DATE_SHEET_PUBLISHED: { label: 'Exams', className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+      DAILY_SCORE_POSTED: { label: 'Daily Scores', className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+      TARGET_ASSIGNED: { label: 'Targets', className: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
       ATTENDANCE_ALERT: { label: 'Attendance', className: 'bg-rose-50 text-rose-700 border-rose-100' },
       TIMETABLE_CHANGE: { label: 'Timetable', className: 'bg-purple-50 text-purple-700 border-purple-100' },
+      TIMETABLE_REQUEST: { label: 'Timetable', className: 'bg-purple-50 text-purple-700 border-purple-100' },
+      TIMETABLE_UPDATE: { label: 'Timetable', className: 'bg-purple-50 text-purple-700 border-purple-100' },
+      LEAVE_SUBMITTED:  { label: 'Leaves', className: 'bg-blue-50 text-blue-700 border-blue-100' },
       LEAVE_APPROVED:   { label: 'Leaves', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
       LEAVE_REJECTED:   { label: 'Leaves', className: 'bg-rose-50 text-rose-700 border-rose-100' },
       ADMISSION_APPROVED: { label: 'Admissions', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
       ADMISSION_DECLINED: { label: 'Admissions', className: 'bg-rose-50 text-rose-700 border-rose-100' },
       QUERY_RECEIVED:   { label: 'Academic Query', className: 'bg-blue-50 text-blue-700 border-blue-100' },
       QUERY_ANSWERED:   { label: 'Academic Query', className: 'bg-blue-50 text-blue-700 border-blue-100' },
+      FEE_INVOICE_GENERATED: { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      FEE_OVERDUE:      { label: 'Finance', className: 'bg-rose-50 text-rose-700 border-rose-100' },
       FEE_REMINDER:     { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
       FEE_STATUS_UPDATE: { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      FEE_UPDATE:       { label: 'Finance', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      PROOF_RECEIVED:   { label: 'Payment Proof', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+      PROOF_APPROVED:   { label: 'Payment Proof', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+      PROOF_REJECTED:   { label: 'Payment Proof', className: 'bg-rose-50 text-rose-700 border-rose-100' },
+      COMPLAINT_SUBMITTED: { label: 'Complaints', className: 'bg-blue-50 text-blue-700 border-blue-100' },
       COMPLAINT_RESOLVED: { label: 'Complaints', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+      ANNOUNCEMENT: { label: 'Announcement', className: 'bg-sky-50 text-sky-700 border-sky-100' },
     }
     const config = map[type] ?? { label: 'General', className: 'bg-slate-50 text-slate-700 border-slate-100' }
     return (
@@ -533,8 +552,14 @@ function NotificationBell() {
             <MessageSquare className="h-4.5 w-4.5" strokeWidth={2} />
           </span>
         )
+      case 'FEE_INVOICE_GENERATED':
+      case 'FEE_OVERDUE':
       case 'FEE_REMINDER':
       case 'FEE_STATUS_UPDATE':
+      case 'FEE_UPDATE':
+      case 'PROOF_RECEIVED':
+      case 'PROOF_APPROVED':
+      case 'PROOF_REJECTED':
         return (
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 flex-shrink-0">
             <AlertCircle className="h-4.5 w-4.5" strokeWidth={2} />
