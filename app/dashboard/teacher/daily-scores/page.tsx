@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -34,6 +34,8 @@ interface RosterStudent {
   name: string
   score: number | null
   isAbsent: boolean
+  grade: string
+  highlight: 'STAR_OF_THE_DAY' | 'POOR' | null
   remarks: string
 }
 
@@ -43,7 +45,7 @@ export default function DailyScoresPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
   )
-  const [rosterState, setRosterState] = useState<Record<string, { score: string; isAbsent: boolean; remarks: string }>>({})
+  const [rosterState, setRosterState] = useState<Record<string, { score: string; isAbsent: boolean; grade: string; highlight: 'STAR_OF_THE_DAY' | 'POOR' | null; remarks: string }>>({})
 
   // Fetch teacher's subject offerings
   const { data: offerings = [], isLoading: isLoadingOfferings } = useQuery<SubjectOffering[]>({
@@ -70,11 +72,13 @@ export default function DailyScoresPage() {
       setServerMaxScore(response.maxDailyScore)
       const data = response.roster
       // Initialize editing state with database records
-      const initial: Record<string, { score: string; isAbsent: boolean; remarks: string }> = {}
+      const initial: Record<string, { score: string; isAbsent: boolean; grade: string; highlight: 'STAR_OF_THE_DAY' | 'POOR' | null; remarks: string }> = {}
       data.forEach((s) => {
         initial[s.studentId] = {
           score: s.score !== null ? s.score.toString() : '',
           isAbsent: s.isAbsent,
+          grade: s.grade ?? '',
+          highlight: s.highlight,
           remarks: s.remarks,
         }
       })
@@ -86,7 +90,7 @@ export default function DailyScoresPage() {
 
   // Save scores mutation
   const saveMutation = useMutation({
-    mutationFn: (payload: any) =>
+    mutationFn: (payload: unknown) =>
       fetchApi('/api/academic-upgrades/daily-performance', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -96,8 +100,8 @@ export default function DailyScoresPage() {
       queryClient.invalidateQueries({ queryKey: ['daily-scores-roster', selectedOfferingId, selectedDate] })
       refetch()
     },
-    onError: (err: any) => {
-      notify.error(err.message || 'Failed to save daily scores')
+    onError: (err) => {
+      notify.error(err instanceof Error ? err.message : 'Failed to save daily scores')
     },
   })
 
@@ -161,7 +165,7 @@ export default function DailyScoresPage() {
 
     // Map records to matches backend validation expectations
     const records = roster.map((s) => {
-      const state = rosterState[s.studentId] || { score: '', isAbsent: false, remarks: '' }
+      const state = rosterState[s.studentId] || { score: '', isAbsent: false, grade: '', highlight: null, remarks: '' }
       const isAbsent = state.isAbsent
       let scoreVal = 0
 
@@ -177,6 +181,8 @@ export default function DailyScoresPage() {
         studentId: s.studentId,
         score: scoreVal,
         isAbsent,
+        grade: state.grade.trim() || undefined,
+        highlight: state.highlight,
         remarks: state.remarks.trim() || undefined,
       }
     })
@@ -321,13 +327,15 @@ export default function DailyScoresPage() {
                     <TableHead className="w-[100px] font-bold text-center">Roll No</TableHead>
                     <TableHead className="font-bold">Student Name</TableHead>
                     <TableHead className="w-[120px] font-bold text-center">Absent</TableHead>
+                    <TableHead className="w-[110px] font-bold text-center">Grade</TableHead>
+                    <TableHead className="w-[170px] font-bold">Highlight</TableHead>
                     <TableHead className="w-[160px] font-bold text-center">Obtained Score (0-{maxDailyScore})</TableHead>
                     <TableHead className="font-bold">Remarks / Comments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-200">
                   {roster.map((row) => {
-                    const state = rosterState[row.studentId] || { score: '', isAbsent: false, remarks: '' }
+                    const state = rosterState[row.studentId] || { score: '', isAbsent: false, grade: '', highlight: null, remarks: '' }
                     return (
                       <TableRow key={row.studentId} className={state.isAbsent ? 'bg-rose-50/20' : 'hover:bg-gray-50/50'}>
                         <TableCell className="text-center font-mono font-medium text-sm text-gray-600">
@@ -344,6 +352,34 @@ export default function DailyScoresPage() {
                               className="border-rose-300 data-[state=checked]:bg-rose-600 data-[state=checked]:border-rose-600"
                             />
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Input
+                            value={state.grade}
+                            maxLength={20}
+                            placeholder="e.g. A"
+                            onChange={(e) => setRosterState((prev) => ({
+                              ...prev,
+                              [row.studentId]: { ...prev[row.studentId], grade: e.target.value },
+                            }))}
+                            className="w-24 mx-auto text-center font-semibold"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={state.highlight ?? 'NONE'}
+                            onValueChange={(value) => setRosterState((prev) => ({
+                              ...prev,
+                              [row.studentId]: { ...prev[row.studentId], highlight: value === 'NONE' ? null : value as 'STAR_OF_THE_DAY' | 'POOR' },
+                            }))}
+                          >
+                            <SelectTrigger className="w-40"><SelectValue placeholder="Highlight" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NONE">None</SelectItem>
+                              <SelectItem value="STAR_OF_THE_DAY">Star of the Day</SelectItem>
+                              <SelectItem value="POOR">Poor</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-center">
                           <Input

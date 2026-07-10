@@ -3,20 +3,20 @@
  * and manual override validation.
  *
  * Labels (aligned with Excel/UI display scale):
- *   ≥ 90  → "Ever Shine"
- *   75–89 → "Quaid"
- *   50–74 → "Iqbal"
- *   < 50  → "Improvement"
+ *   ≥ 90  → "Ever Shine Group"
+ *   80–89 → "Quaid Group"
+ *   60–79 → "Iqbal Group"
+ *   < 60  → "Improvement Group"
  *
  * WHY function not DB lookup: Batch thresholds are institution-constants for
  * Evershaheen Academy. If configurable thresholds are needed in future, replace
  * this with a SystemSetting lookup without changing call sites.
  */
 export function derivePerformanceBatch(percentage: number): string {
-  if (percentage >= 90) return 'Ever Shine'
-  if (percentage >= 75) return 'Quaid'
-  if (percentage >= 50) return 'Iqbal'
-  return 'Improvement'
+  if (percentage >= 90) return 'Ever Shine Group'
+  if (percentage >= 80) return 'Quaid Group'
+  if (percentage >= 60) return 'Iqbal Group'
+  return 'Improvement Group'
 }
 
 /**

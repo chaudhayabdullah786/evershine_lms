@@ -1,9 +1,7 @@
 /**
  * GET  /api/teacher-portal/monthly-monitoring
  *   ?classSectionId&month&year&academicYearId
- *   — Aggregates DailyPerformanceScore data for the period.
- *     Returns student rows with per-subject scores matching
- *     the monthly monitering report.jpeg grid format.
+ *   — Loads the teacher-owned monthly snapshot or an editable section roster.
  *
  * POST /api/teacher-portal/monthly-monitoring
  *   — Saves a snapshot MonthlyMonitoringReport for historical reference.
@@ -15,14 +13,98 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { derivePerformanceBatch } from '@/lib/academic/result-utils'
+import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+
+export const dynamic = 'force-dynamic'
+
+// Kept narrow while the local generated Prisma client is refreshed during deploy.
+const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
 
 const saveSchema = z.object({
   classSectionId: z.string().min(1),
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020),
   academicYearId: z.string().min(1),
-  reportData: z.any(),
+  reportData: z.record(z.string(), z.unknown()),
 })
+
+const monthlyColumnSchema = z.object({
+  id: z.string().min(1).max(80),
+  label: z.string().trim().min(1).max(100),
+  type: z.enum(['COURSE', 'CUSTOM']).default('CUSTOM'),
+})
+
+const monthlyStudentSchema = z.object({
+  studentId: z.string().min(1),
+  courseMarks: z.record(z.string(), z.object({
+    totalMarks: z.number().finite().min(0).max(100000),
+    obtainedMarks: z.number().finite().min(0).max(100000),
+  })).default({}),
+  customValues: z.record(z.string(), z.string().max(500)).default({}),
+  remarks: z.string().max(1000).default(''),
+})
+
+const monthlyDataSchema = z.object({
+  columns: z.array(monthlyColumnSchema).min(1).max(80),
+  students: z.array(monthlyStudentSchema).min(1).max(1000),
+})
+
+function stripCourseNameFromRemarks(remarks: string | null, courseName: string): string {
+  const trimmed = remarks?.trim() ?? ''
+  if (!trimmed) return ''
+  const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return trimmed.replace(new RegExp(`^${escapedCourseName}\\s*:\\s*`, 'i'), '').trim()
+}
+
+function calculateMonthlySnapshot(input: unknown, enrollments: Array<{ studentId: string; student: { firstName: string; lastName: string; fatherName: string | null; rollNumber: string | null } }>, classSectionId: string) {
+  const parsed = monthlyDataSchema.safeParse(input)
+  if (!parsed.success) throw new Error('Monthly report columns and student marks are invalid.')
+  const columnIds = new Set(parsed.data.columns.map((column) => column.id))
+  if (columnIds.size !== parsed.data.columns.length) {
+    throw new Error('Each monthly report column must have a unique identifier.')
+  }
+  const courseColumnIds = new Set(parsed.data.columns.filter((column) => column.type === 'COURSE').map((column) => column.id))
+  const customColumnIds = new Set(parsed.data.columns.filter((column) => column.type === 'CUSTOM').map((column) => column.id))
+  const enrollmentMap = new Map(enrollments.map((e) => [e.studentId, e]))
+  const seen = new Set<string>()
+  const rows = parsed.data.students.map((entry, index) => {
+    const enrollment = enrollmentMap.get(entry.studentId)
+    if (!enrollment || seen.has(entry.studentId)) throw new Error('Every selected student must be actively enrolled in this section and appear once.')
+    seen.add(entry.studentId)
+    for (const [columnId, mark] of Object.entries(entry.courseMarks)) {
+      if (!courseColumnIds.has(columnId)) throw new Error('Marks can only be entered for marks columns in this report.')
+      if (mark.obtainedMarks > mark.totalMarks) throw new Error('Obtained marks cannot exceed total marks.')
+    }
+    for (const columnId of Object.keys(entry.customValues)) {
+      if (!customColumnIds.has(columnId)) throw new Error('Custom values can only be entered for custom columns in this report.')
+    }
+    const totalMarks = Object.values(entry.courseMarks).reduce((sum, mark) => sum + mark.totalMarks, 0)
+    const obtainedMarks = Object.values(entry.courseMarks).reduce((sum, mark) => sum + mark.obtainedMarks, 0)
+    const percentage = totalMarks > 0 ? Math.round((obtainedMarks / totalMarks) * 10000) / 100 : 0
+    return {
+      serial: index + 1,
+      studentId: entry.studentId,
+      name: `${enrollment.student.firstName} ${enrollment.student.lastName}`.trim(),
+      fatherName: enrollment.student.fatherName,
+      rollNumber: enrollment.student.rollNumber ?? '',
+      courseMarks: entry.courseMarks,
+      customValues: entry.customValues,
+      remarks: entry.remarks.trim(),
+      totalMarks,
+      obtainedMarks,
+      percentage,
+      performanceBatch: derivePerformanceBatch(percentage),
+      rank: 0,
+    }
+  })
+  ;[...rows].sort((a, b) => b.percentage - a.percentage || a.name.localeCompare(b.name)).forEach((row, index) => { row.rank = index + 1 })
+  return { classSectionId, columns: parsed.data.columns, students: rows, statusCriteria: [
+    { label: 'Ever Shine Group', min: 90, max: 100 },
+    { label: 'Quaid Group', min: 80, max: 89.99 },
+    { label: 'Iqbal Group', min: 60, max: 79.99 },
+    { label: 'Improvement Group', min: 0, max: 59.99 },
+  ] }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,7 +128,7 @@ export async function GET(req: NextRequest) {
 
     let periodStart: Date
     let periodEnd: Date
-    let isDaily = type === 'daily'
+    const isDaily = type === 'daily'
 
     if (isDaily) {
       if (!dateStr) return errors.badRequest('date is required for daily monitoring')
@@ -84,6 +166,29 @@ export async function GET(req: NextRequest) {
       orderBy: { subject: { name: 'asc' } },
     })
 
+    if (!isDaily) {
+      const snapshot = await monitoringModel.findUnique({
+        where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } },
+        select: { reportData: true, declarationStatus: true, declaredAt: true },
+      })
+      if (snapshot) {
+        return successResponse({
+          ...(snapshot.reportData as Record<string, unknown>),
+          type: 'monthly',
+          month,
+          year,
+          declarationStatus: snapshot.declarationStatus,
+          declaredAt: snapshot.declaredAt,
+          isPersisted: true,
+        }, 'Monthly monitoring report loaded successfully')
+      }
+      const initial = calculateMonthlySnapshot({
+        columns: offerings.map((o) => ({ id: o.id, label: o.subject.name, type: 'COURSE' })),
+        students: enrollments.map((e) => ({ studentId: e.studentId, courseMarks: {}, customValues: {}, remarks: '' })),
+      }, enrollments, classSectionId)
+      return successResponse({ ...initial, type: 'monthly', month, year, declarationStatus: 'DRAFT', isPersisted: false }, 'Monthly monitoring report ready for entry')
+    }
+
     // 3. Get DailyPerformanceScores for this section/period
     const studentIds = enrollments.map((e) => e.studentId)
     const offeringIds = offerings.map((o) => o.id)
@@ -94,84 +199,20 @@ export async function GET(req: NextRequest) {
         subjectOfferingId: { in: offeringIds },
         date: { gte: periodStart, lte: periodEnd },
       },
+      include: { subjectOffering: { include: { subject: { select: { name: true, code: true } } } } },
     })
 
-    // 4. Build per-student row — sum scores per subject
-    // WHY distinct day counting: For monthly aggregation, each day's PST score
-    // is out of offering.maxDailyScore. If a student has 25 entries across the
-    // month, the total possible is 25 × maxDailyScore per subject.
-    // For daily mode (single day), it's exactly maxDailyScore per subject offering.
-
-    // Pre-compute the distinct scoring dates per subject offering across ALL students
-    // to establish a fair baseline (same total possible for all students).
-    const scoringDaysPerOffering: Record<string, number> = {}
-    for (const offering of offerings) {
-      const offeringScores = scores.filter((s) => s.subjectOfferingId === offering.id)
-      const distinctDays = new Set(offeringScores.map((s) => s.date.toISOString().split('T')[0]))
-      // For daily mode there is at most 1 day; for monthly it is however many days had entries
-      scoringDaysPerOffering[offering.id] = Math.max(distinctDays.size, isDaily ? 1 : 0)
+    if (isDaily) {
+      const enrollmentMap = new Map(enrollments.map((enrollment) => [enrollment.studentId, enrollment]))
+      const dailyRows = (scores as Array<(typeof scores)[number] & { grade?: string | null; highlight?: string | null }>).map((score, index) => {
+        const enrollment = enrollmentMap.get(score.studentId)
+        const courseName = score.subjectOffering.subject.name
+        const remarks = stripCourseNameFromRemarks(score.remarks, courseName)
+        return { serial: index + 1, studentId: score.studentId, rollNumber: enrollment?.student.rollNumber ?? '', name: enrollment ? `${enrollment.student.firstName} ${enrollment.student.lastName}` : '', courseName, remarks, highlight: score.highlight, grade: score.grade, score: Number(score.score), isAbsent: score.isAbsent }
+      })
+      return successResponse({ type: 'daily', date: dateStr, classSectionId, students: dailyRows, columns: ['Serial Number', 'Roll Number', 'Student Name', 'Course Name', 'Remarks', 'Highlight', 'Grade'] }, 'Daily monitoring report loaded successfully')
     }
 
-    const rows = enrollments.map((enrollment, index) => {
-      const subjectScores: Record<string, number> = {}
-      let totalObtained = 0
-      let totalPossible = 0
-
-      for (const offering of offerings) {
-        const studentScores = scores.filter(
-          (s) => s.studentId === enrollment.studentId && s.subjectOfferingId === offering.id
-        )
-        const subjectTotal = studentScores.reduce((sum, s) => sum + Number(s.score), 0)
-        subjectScores[offering.id] = subjectTotal
-        totalObtained += subjectTotal
-        // Each scoring day contributes maxDailyScore possible marks per subject
-        totalPossible += (scoringDaysPerOffering[offering.id] ?? 1) * offering.maxDailyScore
-      }
-
-      const percentage = totalPossible > 0 ? (totalObtained / totalPossible) * 100 : 0
-
-      return {
-        serial: index + 1,
-        studentId: enrollment.studentId,
-        name: `${enrollment.student.firstName} ${enrollment.student.lastName}`,
-        fatherName: enrollment.student.fatherName,
-        rollNumber: enrollment.student.rollNumber ?? '',
-        subjectScores,
-        totalMarks: totalPossible,
-        obtainedMarks: totalObtained,
-        percentage: Math.round(percentage * 100) / 100,
-        performanceBatch: derivePerformanceBatch(percentage),
-        rank: 0,
-      }
-    })
-
-    // 5. Assign ranks
-    const sorted = [...rows].sort((a, b) => b.obtainedMarks - a.obtainedMarks)
-    sorted.forEach((row, i) => {
-      const original = rows.find((r) => r.studentId === row.studentId)
-      if (original) original.rank = i + 1
-    })
-
-    return successResponse({
-      month: isDaily ? undefined : month,
-      year: isDaily ? undefined : year,
-      date: isDaily ? dateStr : undefined,
-      type,
-      classSectionId,
-      subjects: offerings.map((o) => ({
-        id: o.id,
-        name: o.subject.name,
-        code: o.subject.code,
-        maxDailyScore: o.maxDailyScore,
-      })),
-      students: rows,
-      statusCriteria: [
-        { label: 'Ever Shine', min: 90, max: 100 },
-        { label: 'Quaid', min: 75, max: 89 },
-        { label: 'Iqbal', min: 50, max: 74 },
-        { label: 'Improvement', min: 0, max: 49 },
-      ],
-    }, `${isDaily ? 'Daily' : 'Monthly'} monitoring report aggregated successfully`)
   } catch (err) {
     console.error('[MONITORING_REPORT_GET]', err)
     return errors.internal()
@@ -190,7 +231,32 @@ export async function POST(req: NextRequest) {
     const parsed = saveSchema.safeParse(body)
     if (!parsed.success) return errors.validation(parsed.error)
 
-    const report = await prisma.monthlyMonitoringReport.upsert({
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: { classSectionId: parsed.data.classSectionId, academicYearId: parsed.data.academicYearId, status: 'ACTIVE' },
+      include: { student: { select: { firstName: true, lastName: true, fatherName: true, rollNumber: true } } },
+    })
+    if (!enrollments.length) return errors.badRequest('No active students are enrolled in this section.')
+    if (session.user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId: parsed.data.classSectionId, teacherId: teacher.id }, select: { id: true } })
+      if (!assigned) return errors.forbidden('You are not assigned to this class section.')
+    }
+    let reportData: ReturnType<typeof calculateMonthlySnapshot>
+    try { reportData = calculateMonthlySnapshot(parsed.data.reportData, enrollments, parsed.data.classSectionId) } catch (error) { return errors.badRequest(error instanceof Error ? error.message : 'Invalid monthly report data.') }
+    const existingReport = await monitoringModel.findUnique({
+      where: {
+        classSectionId_month_year_academicYearId: {
+          classSectionId: parsed.data.classSectionId,
+          month: parsed.data.month,
+          year: parsed.data.year,
+          academicYearId: parsed.data.academicYearId,
+        },
+      },
+    })
+    if (existingReport?.declarationStatus === 'DECLARED') {
+      return errors.badRequest('Declared monthly monitoring reports are locked and cannot be edited.')
+    }
+    const report = await monitoringModel.upsert({
       where: {
         classSectionId_month_year_academicYearId: {
           classSectionId: parsed.data.classSectionId,
@@ -205,11 +271,11 @@ export async function POST(req: NextRequest) {
         year: parsed.data.year,
         academicYearId: parsed.data.academicYearId,
         generatedById: session.user.id,
-        reportData: parsed.data.reportData ?? {},
+        reportData,
       },
       update: {
         generatedById: session.user.id,
-        reportData: parsed.data.reportData ?? {},
+        reportData,
       },
     })
 

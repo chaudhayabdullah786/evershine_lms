@@ -119,21 +119,16 @@ export async function POST(
         })
       }
 
-      // Dispatch to all active students in section
-      const userIds = await getStudentUserIdsForSection(updated.classSectionId)
-      if (userIds.length > 0) {
-        await dispatchBulkNotification({
-          userIds,
-          title: 'Result Published',
-          message: `Your result for ${updated.classSection.className}-${updated.classSection.sectionName} (${updated.examSessionId}) has been declared. Check your portal.`,
-          type: 'RESULT_PUBLISHED',
-          relatedId: id,
-          tx,
-        })
-      }
-
       return updated
     })
+
+    // Notification delivery is best-effort and must never roll back publication.
+    try {
+      const userIds = await getStudentUserIdsForSection(declared.classSectionId)
+      if (userIds.length > 0) await dispatchBulkNotification({ userIds, title: 'Result Published', message: 'Your result has been declared. Check your portal.', type: 'RESULT_PUBLISHED', relatedId: id })
+    } catch (notificationError) {
+      console.error('[RESULT_DECLARE_NOTIFY]', notificationError)
+    }
 
     return successResponse(declared, 'Result declared successfully')
   } catch (err) {

@@ -85,6 +85,8 @@ export interface DailyPerformanceRecordInput {
   studentId: string
   score:     number
   isAbsent?: boolean
+  grade?: string
+  highlight?: 'STAR_OF_THE_DAY' | 'POOR' | null
   remarks?:  string
 }
 
@@ -93,6 +95,13 @@ export interface SubmitDailyPerformanceInput {
   date:              string
   records:           DailyPerformanceRecordInput[]
   teacherId:         string
+}
+
+function normalizeDailyRemarks(remarks: string | undefined, courseName: string): string | null {
+  const trimmed = remarks?.trim()
+  if (!trimmed) return null
+  const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return trimmed.replace(new RegExp(`^${escapedCourseName}\\s*:\\s*`, 'i'), '').trim() || null
 }
 
 export interface StudentTargetInput {
@@ -551,11 +560,17 @@ export class AcademicUpgradesService {
   static async submitDailyPerformance(input: SubmitDailyPerformanceInput) {
     return prisma.$transaction(async (tx) => {
       const date = new Date(input.date)
+      if (Number.isNaN(date.getTime())) throw new Error('Invalid daily performance date')
 
       // Fetch configurable max for this offering
       const offering = await tx.subjectOffering.findUnique({
         where: { id: input.subjectOfferingId },
-        select: { maxDailyScore: true },
+        select: {
+          maxDailyScore: true,
+          classSectionId: true,
+          academicYearId: true,
+          subject: { select: { name: true } },
+        },
       })
       if (!offering) throw new Error('Subject offering not found')
 
@@ -570,6 +585,24 @@ export class AcademicUpgradesService {
         }
       }
 
+      const activeEnrollments = await tx.studentEnrollment.findMany({
+        where: {
+          classSectionId: offering.classSectionId,
+          academicYearId: offering.academicYearId,
+          status: 'ACTIVE',
+        },
+        select: { studentId: true },
+      })
+      const expectedStudentIds = new Set(activeEnrollments.map((enrollment) => enrollment.studentId))
+      const submittedStudentIds = new Set(input.records.map((record) => record.studentId))
+      if (
+        submittedStudentIds.size !== input.records.length ||
+        submittedStudentIds.size !== expectedStudentIds.size ||
+        [...submittedStudentIds].some((studentId) => !expectedStudentIds.has(studentId))
+      ) {
+        throw new Error('Submit exactly one daily performance record for every active student in this section.')
+      }
+
       // Replace that day's records atomically
       await tx.dailyPerformanceScore.deleteMany({
         where: { subjectOfferingId: input.subjectOfferingId, date },
@@ -579,9 +612,11 @@ export class AcademicUpgradesService {
         subjectOfferingId: input.subjectOfferingId,
         studentId:         r.studentId,
         date,
-        score:             new Decimal(r.score),
+        score:             new Decimal(r.isAbsent ? 0 : r.score),
         isAbsent:          r.isAbsent ?? false,
-        remarks:           r.remarks  ?? null,
+        grade:             r.grade?.trim() || null,
+        highlight:         r.highlight ?? null,
+        remarks:           normalizeDailyRemarks(r.remarks, offering.subject.name),
         markedById:        input.teacherId,
       }))
 

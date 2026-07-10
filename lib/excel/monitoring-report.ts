@@ -67,6 +67,10 @@ export interface MonitoringStudentRow {
   percentage: number
   performanceBatch: string
   rank: number
+  courseName?: string
+  remarks?: string | null
+  highlight?: string | null
+  grade?: string | null
 }
 
 export interface MonitoringReportConfig {
@@ -83,12 +87,16 @@ export interface MonitoringReportConfig {
 function getBatchFill(batch: string): { bg: string; text: string } {
   switch (batch) {
     case 'Ever Shine':
+    case 'Ever Shine Group':
       return { bg: COLORS.everShine, text: COLORS.everShineText }
     case 'Quaid':
+    case 'Quaid Group':
       return { bg: COLORS.quaid, text: COLORS.quaidText }
     case 'Iqbal':
+    case 'Iqbal Group':
       return { bg: COLORS.iqbal, text: COLORS.iqbalText }
     case 'Improvement':
+    case 'Improvement Group':
       return { bg: COLORS.improvement, text: COLORS.improvementText }
     default:
       return { bg: COLORS.rowOdd, text: '000000' }
@@ -132,23 +140,26 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   // ── Column Setup ──────────────────────────────────────────────────────────
   // Columns: Logo placeholder | S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Rank
+  const isDaily = config.type === 'daily'
   const subjectCount = config.subjects.length
   const fixedColCount = 4 // S.No, Roll, Name, Father (before subjects)
   const trailingColCount = 5 // Total, Obtained, %, Group, Rank
-  const totalCols = fixedColCount + subjectCount + trailingColCount
+  const totalCols = isDaily ? 7 : fixedColCount + subjectCount + trailingColCount
 
-  const columns: Partial<ExcelJS.Column>[] = [
+  const columns: Partial<ExcelJS.Column>[] = isDaily ? [
+    { width: 8 }, { width: 14 }, { width: 28 }, { width: 22 }, { width: 42 }, { width: 22 }, { width: 12 },
+  ] : [
     { width: 6 },  // S.No
     { width: 12 }, // Roll No
     { width: 26 }, // Student Name
     { width: 22 }, // Father Name
   ]
   // Subject columns
-  for (let i = 0; i < subjectCount; i++) {
+  for (let i = 0; i < subjectCount && !isDaily; i++) {
     columns.push({ width: 12 })
   }
   // Trailing columns
-  columns.push(
+  if (!isDaily) columns.push(
     { width: 10 }, // Total Marks
     { width: 12 }, // Obtained
     { width: 10 }, // %
@@ -254,7 +265,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   // ── DATA TABLE HEADER ROW ─────────────────────────────────────────────────
   const headerRow = currentRow
-  const headers: string[] = [
+  const headers: string[] = isDaily ? [
+    'S.No', 'Roll No', 'Student Name', 'Course Name', 'Remarks', 'Highlight', 'Grade',
+  ] : [
     'S.No',
     'Roll No',
     'Student Name',
@@ -286,7 +299,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     const isEven = idx % 2 === 0
     const bgColor = isEven ? COLORS.rowEven : COLORS.rowOdd
 
-    const values: (string | number)[] = [
+    const values: (string | number)[] = isDaily ? [
+      student.serial, student.rollNumber, student.name, student.courseName ?? config.subjects[0]?.name ?? '—', student.remarks ?? '—', student.highlight ?? '—', student.grade ?? '—',
+    ] : [
       student.serial,
       student.rollNumber,
       student.name,
@@ -352,9 +367,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   const legendItems = [
     { label: 'Ever Shine Group', range: '90% – 100%', ...getBatchFill('Ever Shine') },
-    { label: 'Quaid Group', range: '75% – 89%', ...getBatchFill('Quaid') },
-    { label: 'Iqbal Group', range: '50% – 74%', ...getBatchFill('Iqbal') },
-    { label: 'Improvement Group', range: 'Below 50%', ...getBatchFill('Improvement') },
+    { label: 'Quaid Group', range: '80% – 89.99%', ...getBatchFill('Quaid') },
+    { label: 'Iqbal Group', range: '60% – 79.99%', ...getBatchFill('Iqbal') },
+    { label: 'Improvement Group', range: 'Below 60%', ...getBatchFill('Improvement') },
   ]
 
   legendItems.forEach((item) => {
@@ -386,15 +401,18 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   currentRow += 2
 
   // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
+  // Keep signature areas disjoint for the compact seven-column daily sheet.
+  const teacherSignatureEnd = Math.min(4, Math.floor(totalCols / 2))
+  const rightStart = Math.max(teacherSignatureEnd + 1, totalCols - 3)
+
   // Class Teacher Signature (left side)
-  ws.mergeCells(currentRow, 1, currentRow, 4)
+  ws.mergeCells(currentRow, 1, currentRow, teacherSignatureEnd)
   const teacherSigCell = ws.getCell(currentRow, 1)
   teacherSigCell.value = '______________________________'
   teacherSigCell.alignment = { horizontal: 'center', vertical: 'bottom' }
   teacherSigCell.font = { name: 'Calibri', size: 10, color: { argb: '64748B' } }
 
   // Principal Signature (right side)
-  const rightStart = totalCols - 3
   ws.mergeCells(currentRow, rightStart, currentRow, totalCols)
   const principalSigCell = ws.getCell(currentRow, rightStart)
   principalSigCell.value = '______________________________'
@@ -404,7 +422,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   currentRow++
 
   // Signature labels
-  ws.mergeCells(currentRow, 1, currentRow, 4)
+  ws.mergeCells(currentRow, 1, currentRow, teacherSignatureEnd)
   const teacherLabel = ws.getCell(currentRow, 1)
   teacherLabel.value = 'Class Teacher Signature'
   teacherLabel.alignment = { horizontal: 'center', vertical: 'top' }

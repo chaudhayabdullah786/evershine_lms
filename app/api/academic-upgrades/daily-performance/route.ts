@@ -78,13 +78,15 @@ export async function GET(request: NextRequest) {
         })
 
         const roster = enrollments.map((enr) => {
-          const existing = existingScores.find((s) => s.studentId === enr.studentId)
+          const existing = existingScores.find((s) => s.studentId === enr.studentId) as (typeof existingScores[number] & { grade?: string | null; highlight?: string | null }) | undefined
           return {
             studentId: enr.studentId,
             rollNumber: enr.rollNumber ?? enr.student.rollNumber ?? '—',
             name: `${enr.student.firstName} ${enr.student.lastName}`,
             score: existing ? existing.score.toNumber() : null,
             isAbsent: existing ? existing.isAbsent : false,
+            grade: existing?.grade ?? '',
+            highlight: existing?.highlight ?? null,
             remarks: existing?.remarks ?? '',
           }
         })
@@ -93,8 +95,8 @@ export async function GET(request: NextRequest) {
           maxDailyScore: offering.maxDailyScore,
           roster,
         })
-      } catch (err: any) {
-        return errors.badRequest(err.message ?? 'Failed to fetch roster daily scores.')
+      } catch (err: unknown) {
+        return errors.badRequest(err instanceof Error ? err.message : 'Failed to fetch roster daily scores.')
       }
     }
     return errors.badRequest('studentId or both subjectOfferingId and date query parameters are required.')
@@ -108,8 +110,8 @@ export async function GET(request: NextRequest) {
       endDate   ? new Date(endDate)   : undefined,
     )
     return successResponse(logs)
-  } catch (err: any) {
-    return errors.badRequest(err.message ?? 'Failed to fetch performance logs.')
+  } catch (err: unknown) {
+    return errors.badRequest(err instanceof Error ? err.message : 'Failed to fetch performance logs.')
   }
 }
 
@@ -135,13 +137,15 @@ export async function POST(request: NextRequest) {
         studentId: record.studentId!,
         score: record.score!,
         isAbsent: record.isAbsent,
+        grade: record.grade,
+        highlight: record.highlight,
         remarks: record.remarks,
       })),
       teacherId: session.user.id,
     }
     const result = await AcademicUpgradesService.submitDailyPerformance(payload)
     return successResponse(result, `${result.count} daily performance records saved for ${result.date}.`)
-  } catch (err: any) {
-    return errors.badRequest(err.message ?? 'Failed to submit daily performance records.')
+  } catch (err: unknown) {
+    return errors.badRequest(err instanceof Error ? err.message : 'Failed to submit daily performance records.')
   }
 }

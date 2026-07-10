@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "app/api/academic-upgrades/daily-performance/route.ts": {
-    "mtime": 1783195298.0070214,
-    "ast_hash": "ec35b319965b97a9bb775f2a3d14d75c",
+    "mtime": 1783710231.478712,
+    "ast_hash": "55d98d924f3b44ce2e7d081a99a5d722",
     "semantic_hash": ""
   },
   "app/api/academic-upgrades/date-sheets/route.ts": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "app/api/admissions/[id]/approve/route.ts": {
-    "mtime": 1783453842.6547122,
-    "ast_hash": "ab4956e26a677af1c1539984e7fcee18",
+    "mtime": 1783682083.1333933,
+    "ast_hash": "17ea338a63d5933d4e7013b51fc406fd",
     "semantic_hash": ""
   },
   "app/api/admissions/[id]/decline/route.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": ""
   },
   "app/api/guardian-portal/children/[studentId]/academic/route.ts": {
-    "mtime": 1782497245.8845646,
-    "ast_hash": "16736fca16722fa3d413b9e2abfcc312",
+    "mtime": 1783710230.9166903,
+    "ast_hash": "b84cedcaaa806536ce3bbdc893d1ea99",
     "semantic_hash": ""
   },
   "app/api/guardian-portal/children/[studentId]/leaves/route.ts": {
@@ -895,8 +895,8 @@
     "semantic_hash": ""
   },
   "app/api/student-portal/results/route.ts": {
-    "mtime": 1782497245.8895802,
-    "ast_hash": "8c060012615e65213c97f9073c0fc75d",
+    "mtime": 1783710230.728683,
+    "ast_hash": "c5462528417aa819f1e31d3c510308c8",
     "semantic_hash": ""
   },
   "app/api/student-portal/targets/route.ts": {
@@ -1075,8 +1075,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/monthly-monitoring/route.ts": {
-    "mtime": 1782497245.8940103,
-    "ast_hash": "ff34a8e44a56ebd74a8ced8e20191543",
+    "mtime": 1783710453.8875513,
+    "ast_hash": "8ebf22bf901e5007e92eb5786c507e1e",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/my-assignments/route.ts": {
@@ -1100,8 +1100,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/declare/route.ts": {
-    "mtime": 1783628313.3947954,
-    "ast_hash": "5f6db2024b8ea6fecb6d738613769362",
+    "mtime": 1783681774.704003,
+    "ast_hash": "fec1d883291272ab18bc31cc027b5eb6",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/performance-batch/route.ts": {
@@ -1430,8 +1430,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/enrollment/page.tsx": {
-    "mtime": 1782497245.9043696,
-    "ast_hash": "137334c0d4abe54a3e244bc50e049889",
+    "mtime": 1783710007.0342042,
+    "ast_hash": "d8cabd53e531295c783d7561d3b2cfa0",
     "semantic_hash": ""
   },
   "app/dashboard/exams/date-sheets/page.tsx": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/my-children/page.tsx": {
-    "mtime": 1783195298.0505345,
-    "ast_hash": "7e352c0c6c9f54f35df03606317eb186",
+    "mtime": 1783710007.2322114,
+    "ast_hash": "c0d41e71f4c9acfa01b68813dbfeb9fc",
     "semantic_hash": ""
   },
   "app/dashboard/page.tsx": {
@@ -1570,8 +1570,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/daily-scores/page.tsx": {
-    "mtime": 1782497245.9100144,
-    "ast_hash": "89e0edc2223167e36e41c3d9bb5d8744",
+    "mtime": 1783710231.1076977,
+    "ast_hash": "9696aeab38183433876de4bd89325743",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grade-entry/page.tsx": {
@@ -1595,8 +1595,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/monthly-monitoring/page.tsx": {
-    "mtime": 1782497245.9103696,
-    "ast_hash": "93d382d3feb4fb4f5038ce403c483986",
+    "mtime": 1783710231.294705,
+    "ast_hash": "b356cd136dddd9530f95cf233e80c0b6",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/page.tsx": {
@@ -2275,8 +2275,8 @@
     "semantic_hash": ""
   },
   "lib/academic/result-utils.ts": {
-    "mtime": 1782497245.9795775,
-    "ast_hash": "08b596e66162c9ba603e78c8f6fd3ff8",
+    "mtime": 1783681497.882204,
+    "ast_hash": "b096e266540572cc39ca8d703d4ae2d4",
     "semantic_hash": ""
   },
   "lib/academic/seed-demo.ts": {
@@ -2400,8 +2400,8 @@
     "semantic_hash": ""
   },
   "lib/excel/monitoring-report.ts": {
-    "mtime": 1782497245.9814606,
-    "ast_hash": "064c41678f060f88c7afae094caad77a",
+    "mtime": 1783710387.1128645,
+    "ast_hash": "6ce98c8b9a6bf8e8a8adc882597e123f",
     "semantic_hash": ""
   },
   "lib/excel/profit-loss-report.ts": {
@@ -2505,8 +2505,8 @@
     "semantic_hash": ""
   },
   "lib/services/academic-upgrades-service.ts": {
-    "mtime": 1783542888.880092,
-    "ast_hash": "d7fedbe8282b7e79be26825acada2005",
+    "mtime": 1783710454.300568,
+    "ast_hash": "221a90080b480c91b4fc300b6fdf389d",
     "semantic_hash": ""
   },
   "lib/store.ts": {
@@ -2540,8 +2540,8 @@
     "semantic_hash": ""
   },
   "lib/validation/academic-upgrades.ts": {
-    "mtime": 1782497245.9845035,
-    "ast_hash": "079e45ef55116110fba88da5aa749831",
+    "mtime": 1783681583.9832053,
+    "ast_hash": "f4b678824d610c8c5d9debb55c6d4786",
     "semantic_hash": ""
   },
   "lib/validation/academic.ts": {
@@ -3115,13 +3115,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report-bw.pdf": {
-    "mtime": 1782497246.3152177,
-    "ast_hash": "4a265d41294c6f0e5257545328360bbd",
+    "mtime": 1783710302.2064872,
+    "ast_hash": "cdbd4e4de9d0bbc76fb982d0709b273c",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report-color.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "bc8f4d847f4702cb7814ec45c6876e16",
+    "mtime": 1783710302.204487,
+    "ast_hash": "71c415431ecdf49023f3ad9b0ab08764",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report.pdf": {
@@ -3130,13 +3130,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate-bw.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "8a3a2e69527826028c518424125c454e",
+    "mtime": 1783710302.182486,
+    "ast_hash": "c92e4e1b7b1bf2be305cb92ff3f3183e",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate-color.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "1782c12c0d336ccbddeac13c4f1b01ea",
+    "mtime": 1783710302.1754858,
+    "ast_hash": "d5d90ed574f1a63b625b64088bd85b9f",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate.pdf": {
@@ -3145,13 +3145,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate-bw.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "31a050fe9d412303327c5560894c2537",
+    "mtime": 1783710302.1894865,
+    "ast_hash": "6b3b1dff8c3c8d7d9b166a5cd5ba6b34",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate-color.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "3a0021d0d401752ca15d5adcfa2a1d5b",
+    "mtime": 1783710302.1864862,
+    "ast_hash": "3b9f0fd2135b891172e47ff77ed8375d",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate.pdf": {
@@ -3160,13 +3160,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card-bw.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "58216aaef66618dd1499cbe28d95f8d2",
+    "mtime": 1783710302.1364844,
+    "ast_hash": "0c11664d4c462c77371861a4479cc84c",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card-color.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "f22643b9dc45cf1457980279e5a26256",
+    "mtime": 1783710302.1244838,
+    "ast_hash": "bee5f08a50ac93d7c4f8ee7ba478af5f",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card.pdf": {
@@ -3175,13 +3175,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card-bw.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "1881e9f428e2b2b2f2bd256ba7402c79",
+    "mtime": 1783710302.202487,
+    "ast_hash": "f9c4c8a5b59291a032a4d16f6df16f96",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card-color.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "8cb66ced46bc6239f521fe47e5754d44",
+    "mtime": 1783710302.200487,
+    "ast_hash": "fd1361c2e1997289b872c07d096401e8",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card.pdf": {
@@ -3190,13 +3190,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card-bw.pdf": {
-    "mtime": 1782497246.3155072,
-    "ast_hash": "e3110783260f08899469bd92b0df819f",
+    "mtime": 1783710302.1964867,
+    "ast_hash": "ecd09a29ddcb89d46d18dc9c3647f423",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card-color.pdf": {
-    "mtime": 1782497246.3163784,
-    "ast_hash": "20506af5bd2a3124bad79eb4167f1673",
+    "mtime": 1783710302.1924865,
+    "ast_hash": "86fa619bcc1d9b8cee88b6785ccd8171",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card.pdf": {
@@ -3905,8 +3905,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teachers/attendance/page.tsx": {
-    "mtime": 1783195298.055857,
-    "ast_hash": "d85761fb92aeef2a120a07e4e922c157",
+    "mtime": 1783682083.3014064,
+    "ast_hash": "454735956790a589a54f7441a06d1e8e",
     "semantic_hash": ""
   },
   "lib/teacher-attendance.ts": {
@@ -3920,8 +3920,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-results-workflow.test.ts": {
-    "mtime": 1783628313.4187956,
-    "ast_hash": "7e69de80f1410be8f30f0e246906ce10",
+    "mtime": 1783710494.3301902,
+    "ast_hash": "78849fbf1a0b0fa8710fec63b83f367a",
     "semantic_hash": ""
   },
   "app/api/notifications/counts/route.ts": {
@@ -3962,6 +3962,96 @@
   "tests/notifications-counts-route.test.ts": {
     "mtime": 1783628313.4187956,
     "ast_hash": "8c92ba43c1db5563fe27f4a25535f8a9",
+    "semantic_hash": ""
+  },
+  "app/api/teacher-portal/monthly-monitoring/declare/route.ts": {
+    "mtime": 1783710454.0905595,
+    "ast_hash": "aeaf0b59ced5ab65ba85a916b93d1f89",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260710160000_monitoring_reports_customization/migration.sql": {
+    "mtime": 1783681583.8161817,
+    "ast_hash": "356fd3e91386f8158268e8ebf7e7836b",
+    "semantic_hash": ""
+  },
+  "tests/result-utils.test.ts": {
+    "mtime": 1783682141.8128197,
+    "ast_hash": "4f13c6d2ac028a7cf083767b7e0499e1",
+    "semantic_hash": ""
+  },
+  "lib/academic/monitoring-report.ts": {
+    "mtime": 1783710453.677543,
+    "ast_hash": "e9c0a7cc415f25cf792b42e737c699f7",
+    "semantic_hash": ""
+  },
+  "tests/monitoring-excel.test.ts": {
+    "mtime": 1783710364.332954,
+    "ast_hash": "e8e400eefdee0a159453a6c345f46d3e",
+    "semantic_hash": ""
+  },
+  "tests/monitoring-report-privacy.test.ts": {
+    "mtime": 1783710065.0843542,
+    "ast_hash": "c0c1fe634b0b34426ca182ee9cd39393",
+    "semantic_hash": ""
+  },
+  "samples_output/Fees_Outstanding_Deficit_Report-Report-bw.pdf": {
+    "mtime": 1783710302.2064872,
+    "ast_hash": "cdbd4e4de9d0bbc76fb982d0709b273c",
+    "semantic_hash": ""
+  },
+  "samples_output/Fees_Outstanding_Deficit_Report-Report-color.pdf": {
+    "mtime": 1783710302.204487,
+    "ast_hash": "71c415431ecdf49023f3ad9b0ab08764",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Birthday-Certificate-bw.pdf": {
+    "mtime": 1783710302.182486,
+    "ast_hash": "c92e4e1b7b1bf2be305cb92ff3f3183e",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Birthday-Certificate-color.pdf": {
+    "mtime": 1783710302.176486,
+    "ast_hash": "d5d90ed574f1a63b625b64088bd85b9f",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Bonafide-Certificate-bw.pdf": {
+    "mtime": 1783710302.1894865,
+    "ast_hash": "6b3b1dff8c3c8d7d9b166a5cd5ba6b34",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Bonafide-Certificate-color.pdf": {
+    "mtime": 1783710302.1864862,
+    "ast_hash": "3b9f0fd2135b891172e47ff77ed8375d",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-ID-Card-bw.pdf": {
+    "mtime": 1783710302.1364844,
+    "ast_hash": "0c11664d4c462c77371861a4479cc84c",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-ID-Card-color.pdf": {
+    "mtime": 1783710302.125484,
+    "ast_hash": "bee5f08a50ac93d7c4f8ee7ba478af5f",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Performance-Card-bw.pdf": {
+    "mtime": 1783710302.202487,
+    "ast_hash": "f9c4c8a5b59291a032a4d16f6df16f96",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Performance-Card-color.pdf": {
+    "mtime": 1783710302.200487,
+    "ast_hash": "fd1361c2e1997289b872c07d096401e8",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Result-Card-bw.pdf": {
+    "mtime": 1783710302.1964867,
+    "ast_hash": "ecd09a29ddcb89d46d18dc9c3647f423",
+    "semantic_hash": ""
+  },
+  "samples_output/Muhammad_Ahmad-Result-Card-color.pdf": {
+    "mtime": 1783710302.1924865,
+    "ast_hash": "86fa619bcc1d9b8cee88b6785ccd8171",
     "semantic_hash": ""
   }
 }

@@ -107,6 +107,8 @@ export const dailyScoreRecordSchema = z.object({
   // and validated server-side in AcademicUpgradesService.submitDailyPerformance().
   score:     z.number().min(0),
   isAbsent:  z.boolean().default(false),
+  grade:     z.string().trim().min(1).max(20).optional(),
+  highlight: z.enum(['STAR_OF_THE_DAY', 'POOR']).nullable().optional(),
   remarks:   z.string().max(200).optional(),
 })
 

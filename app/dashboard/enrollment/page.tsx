@@ -41,6 +41,26 @@ type ResultsData = {
     isPassed: boolean
     breakdown: Array<{ component: string; weight: number; obtained: number; maxMarks: number }>
   }>
+  monitoringReports: {
+    daily: Array<{ date: string; courseName: string; remarks: string | null; grade: string | null; highlight: string | null }>
+    monthly: Array<{
+      id: string
+      month: number
+      year: number
+      declaredAt: string | null
+      columns: Array<{ id: string; label: string; type: 'COURSE' | 'CUSTOM' }>
+      student: {
+        courseMarks: Record<string, { totalMarks: number; obtainedMarks: number }>
+        customValues: Record<string, string>
+        remarks: string
+        totalMarks: number
+        obtainedMarks: number
+        percentage: number
+        performanceBatch: string
+        rank: number
+      }
+    }>
+  }
 }
 
 type TargetItem = {
@@ -502,6 +522,75 @@ function StudentEnrollmentPageInner() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+                Monitoring Reports
+              </CardTitle>
+              <CardDescription>
+                Daily feedback appears as soon as your teacher saves it. Monthly reports appear after declaration.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-slate-800">Recent daily monitoring</h3>
+                {(results?.monitoringReports?.daily ?? []).length === 0 ? (
+                  <p className="text-sm text-gray-500">No daily monitoring entries yet.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[650px] text-sm">
+                      <thead className="bg-slate-50 text-left text-xs text-slate-600">
+                        <tr><th className="p-3">Date</th><th className="p-3">Course</th><th className="p-3">Grade</th><th className="p-3">Highlight</th><th className="p-3">Remarks</th></tr>
+                      </thead>
+                      <tbody>
+                        {(results?.monitoringReports?.daily ?? []).map((entry, index) => (
+                          <tr key={`${entry.date}-${entry.courseName}-${index}`} className="border-t">
+                            <td className="p-3">{new Date(entry.date).toLocaleDateString('en-PK')}</td>
+                            <td className="p-3 font-medium">{entry.courseName}</td>
+                            <td className="p-3">{entry.grade ?? '—'}</td>
+                            <td className="p-3">{entry.highlight === 'STAR_OF_THE_DAY' ? 'Star of the Day' : entry.highlight === 'POOR' ? 'Poor' : '—'}</td>
+                            <td className="p-3 text-slate-600">{entry.remarks || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-slate-800">Declared monthly monitoring</h3>
+                {(results?.monitoringReports?.monthly ?? []).length === 0 ? (
+                  <p className="text-sm text-gray-500">No monthly monitoring report has been declared yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(results?.monitoringReports?.monthly ?? []).map((report) => (
+                      <div key={report.id} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{new Date(report.year, report.month - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' })}</p>
+                            <p className="text-xs text-slate-500">Declared {report.declaredAt ? new Date(report.declaredAt).toLocaleDateString('en-PK') : '—'}</p>
+                          </div>
+                          <Badge className="bg-indigo-100 text-indigo-800">{report.student.performanceBatch} · Rank {report.student.rank}</Badge>
+                        </div>
+                        <p className="mt-3 text-lg font-bold text-slate-900">{report.student.obtainedMarks}/{report.student.totalMarks} · {report.student.percentage.toFixed(2)}%</p>
+                        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                          {report.columns.map((column) => column.type === 'COURSE' ? (
+                            <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.courseMarks[column.id]?.obtainedMarks ?? 0}/{report.student.courseMarks[column.id]?.totalMarks ?? 0}</p>
+                          ) : report.student.customValues[column.id] ? (
+                            <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.customValues[column.id]}</p>
+                          ) : null)}
+                        </div>
+                        {report.student.remarks && <p className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-800">Teacher remarks:</span> {report.student.remarks}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -70,6 +70,26 @@ type ChildAcademic = {
     penaltyAmount: number
     proofStatus: string | null
   }>
+  monitoringReports: {
+    daily: Array<{ date: string; courseName: string; remarks: string | null; grade: string | null; highlight: string | null }>
+    monthly: Array<{
+      id: string
+      month: number
+      year: number
+      declaredAt: string | null
+      columns: Array<{ id: string; label: string; type: 'COURSE' | 'CUSTOM' }>
+      student: {
+        courseMarks: Record<string, { totalMarks: number; obtainedMarks: number }>
+        customValues: Record<string, string>
+        remarks: string
+        totalMarks: number
+        obtainedMarks: number
+        percentage: number
+        performanceBatch: string
+        rank: number
+      }
+    }>
+  }
 }
 
 type ChildLeave = {
@@ -306,7 +326,7 @@ export default function MyChildrenPage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="results" className="mt-4">
+              <TabsContent value="results" className="mt-4 space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
@@ -358,6 +378,48 @@ export default function MyChildrenPage() {
                         </div>
                       ))
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+                      Monitoring Reports
+                    </CardTitle>
+                    <CardDescription>Daily feedback is visible after teacher save; monthly reports are visible after declaration.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-slate-800">Recent daily monitoring</h3>
+                      {academic.monitoringReports.daily.length === 0 ? <p className="text-sm text-gray-500">No daily monitoring entries yet.</p> : (
+                        <div className="space-y-2">
+                          {academic.monitoringReports.daily.map((entry, index) => (
+                            <div key={`${entry.date}-${entry.courseName}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-sm">
+                              <div><p className="font-medium">{entry.courseName}</p><p className="text-xs text-slate-500">{new Date(entry.date).toLocaleDateString('en-PK')} · Grade: {entry.grade ?? '—'} · {entry.highlight === 'STAR_OF_THE_DAY' ? 'Star of the Day' : entry.highlight === 'POOR' ? 'Poor' : 'No highlight'}</p></div>
+                              <p className="max-w-md text-slate-600">{entry.remarks || '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-slate-800">Declared monthly monitoring</h3>
+                      {academic.monitoringReports.monthly.length === 0 ? <p className="text-sm text-gray-500">No monthly monitoring report has been declared yet.</p> : (
+                        <div className="space-y-3">
+                          {academic.monitoringReports.monthly.map((report) => (
+                            <div key={report.id} className="rounded-lg border p-4">
+                              <div className="flex flex-wrap justify-between gap-2"><p className="font-semibold">{new Date(report.year, report.month - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' })}</p><Badge>{report.student.performanceBatch} · Rank {report.student.rank}</Badge></div>
+                              <p className="mt-2 font-semibold text-slate-800">{report.student.obtainedMarks}/{report.student.totalMarks} · {report.student.percentage.toFixed(2)}%</p>
+                              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                                {report.columns.map((column) => column.type === 'COURSE' ? <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.courseMarks[column.id]?.obtainedMarks ?? 0}/{report.student.courseMarks[column.id]?.totalMarks ?? 0}</p> : report.student.customValues[column.id] ? <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.customValues[column.id]}</p> : null)}
+                              </div>
+                              {report.student.remarks && <p className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-800">Teacher remarks:</span> {report.student.remarks}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
