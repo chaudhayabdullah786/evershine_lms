@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
 import { ApiError, fetchApi } from '@/lib/api-client'
@@ -79,7 +79,9 @@ function getEntryStatus(entry: SubjectEntry) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function TeacherResultEntryPage() {
+// WHY: useSearchParams() requires a Suspense boundary in Next.js App Router.
+// Inner component holds all logic; outer default export provides the boundary.
+function TeacherResultEntryInner() {
   const { data: session, status } = useSession()
   const qc = useQueryClient()
 
@@ -723,5 +725,20 @@ export default function TeacherResultEntryPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function TeacherResultEntryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh] gap-3 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          <span className="text-sm font-medium">Loading grade entry…</span>
+        </div>
+      }
+    >
+      <TeacherResultEntryInner />
+    </Suspense>
   )
 }
