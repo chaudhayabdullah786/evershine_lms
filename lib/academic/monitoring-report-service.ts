@@ -4,8 +4,14 @@ import {
   derivePerformanceGroup,
   monitoringStatusCriteria,
 } from '@/lib/academic/monitoring'
+import {
+  toPortalMonthlyMonitoringReport,
+  type MonthlyMonitoringRepository,
+} from '@/lib/academic/monitoring-report'
 
 export type MonitoringReportKind = 'daily' | 'monthly' | 'yearly'
+
+const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
 
 type BuildStudentMonitoringOptions = {
   type: MonitoringReportKind
@@ -86,6 +92,45 @@ export async function buildStudentMonitoringReport(studentId: string, options: B
     orderBy: { subject: { name: 'asc' } },
   })
 
+  // Monthly reports are teacher-authored snapshots. A draft must never be
+  // visible in either student or guardian portal, and classmate rows are
+  // removed by the mapper before the response is returned.
+  if (options.type === 'monthly') {
+    const report = await monitoringModel.findMany({
+      where: {
+        classSectionId: enrollment.classSectionId,
+        academicYearId: enrollment.academicYearId,
+        month: options.month ?? (new Date().getMonth() + 1),
+        year: options.year ?? new Date().getFullYear(),
+        declarationStatus: 'DECLARED',
+      },
+      orderBy: { declaredAt: 'desc' },
+      take: 1,
+    }).then((reports) => reports[0] ?? null)
+
+    const portalReport = report
+      ? toPortalMonthlyMonitoringReport(report, studentId)
+      : null
+
+    if (!portalReport) {
+      return {
+        type: 'monthly' as const,
+        report: null,
+        periodLabel: period.label,
+        message: 'No declared monthly monitoring report is available for this period.',
+      }
+    }
+
+    return {
+      type: 'monthly' as const,
+      periodLabel: period.label,
+      classSection: enrollment.classSection,
+      academicYear: enrollment.academicYear,
+      student: enrollment.student,
+      monthly: portalReport,
+    }
+  }
+
   const scores = await prisma.dailyPerformanceScore.findMany({
     where: {
       studentId,
@@ -99,17 +144,20 @@ export async function buildStudentMonitoringReport(studentId: string, options: B
     const subjectReports = offerings.map((offering) => {
       const score = scores.find((item) => item.subjectOfferingId === offering.id)
       const metadata = decodeMonitoringRemarks(score?.remarks, score ? Number(score.score) : null, offering.maxDailyScore)
+      const storedScore = score as (typeof scores)[number] & { grade?: string | null; highlight?: string | null } | undefined
+      const performanceGrade = storedScore?.grade ?? metadata.grade
+      const highlight = storedScore?.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
       return {
         subjectId: offering.subject.id,
         subjectOfferingId: offering.id,
         subjectName: offering.subject.name,
         subjectCode: offering.subject.code,
-        performanceGrade: metadata.grade,
-        performanceLabel: metadata.grade,
+        performanceGrade,
+        performanceLabel: performanceGrade,
         remarks: metadata.remarks,
         isAbsent: score?.isAbsent ?? false,
-        isStarOfDay: metadata.isStarOfDay,
-        isConcern: metadata.isConcern,
+        isStarOfDay: highlight === 'STAR_OF_THE_DAY',
+        isConcern: highlight === 'POOR',
       }
     })
 

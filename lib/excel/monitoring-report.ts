@@ -18,7 +18,6 @@
 
 import ExcelJS from 'exceljs'
 import { addBrandLogo, LOGO_PLACEMENT } from '@/lib/excel/brand-logo'
-import { dailyGradeLabel } from '@/lib/academic/monitoring'
 
 // ─── Branding Constants ─────────────────────────────────────────────────────
 const BRAND = {
@@ -63,21 +62,19 @@ export interface MonitoringStudentRow {
   fatherName: string | null
   rollNumber: string
   subjectScores: Record<string, number>
-  subjectGrades?: Record<string, string>
-  subjectRemarks?: Record<string, string | string[]>
-  dailyRemarks?: string
-  remarks?: string
-  isStarOfDay?: boolean
-  isConcern?: boolean
   totalMarks: number
   obtainedMarks: number
   percentage: number
   performanceBatch: string
   rank: number
+  courseName?: string
+  remarks?: string | null
+  highlight?: string | null
+  grade?: string | null
 }
 
 export interface MonitoringReportConfig {
-  type: 'daily' | 'monthly' | 'yearly'
+  type: 'daily' | 'monthly'
   classSectionLabel: string
   dateLabel: string
   academicYear: string
@@ -90,12 +87,16 @@ export interface MonitoringReportConfig {
 function getBatchFill(batch: string): { bg: string; text: string } {
   switch (batch) {
     case 'Ever Shine':
+    case 'Ever Shine Group':
       return { bg: COLORS.everShine, text: COLORS.everShineText }
     case 'Quaid':
+    case 'Quaid Group':
       return { bg: COLORS.quaid, text: COLORS.quaidText }
     case 'Iqbal':
+    case 'Iqbal Group':
       return { bg: COLORS.iqbal, text: COLORS.iqbalText }
     case 'Improvement':
+    case 'Improvement Group':
       return { bg: COLORS.improvement, text: COLORS.improvementText }
     default:
       return { bg: COLORS.rowOdd, text: '000000' }
@@ -114,8 +115,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   wb.creator = 'Evershine Academy LMS'
   wb.created = new Date()
 
-  const reportLabel = config.type === 'daily' ? 'Daily' : config.type === 'yearly' ? 'Yearly' : 'Monthly'
-  const sheetName = `${reportLabel} Report`
+  const sheetName = config.type === 'daily' ? 'Daily Report' : 'Monthly Report'
   const ws = wb.addWorksheet(sheetName, {
     pageSetup: {
       paperSize: 9, // A4
@@ -140,37 +140,33 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   // ── Column Setup ──────────────────────────────────────────────────────────
   // Columns: Logo placeholder | S.No | Roll No | Student Name | Father Name | [subjects...] | Total | Obtained | % | Group | Rank
+  const isDaily = config.type === 'daily'
   const subjectCount = config.subjects.length
   const fixedColCount = 4 // S.No, Roll, Name, Father (before subjects)
-  const trailingColCount = config.type === 'daily' ? 2 : 6 // daily: remarks + highlight; aggregate: Total, Obtained, %, Group, Remarks, Rank
-  const totalCols = fixedColCount + subjectCount + trailingColCount
+  const trailingColCount = 6 // Total, Obtained, %, Group, Remarks, Rank
+  const totalCols = isDaily ? 7 : fixedColCount + subjectCount + trailingColCount
 
-  const columns: Partial<ExcelJS.Column>[] = [
+  const columns: Partial<ExcelJS.Column>[] = isDaily ? [
+    { width: 8 }, { width: 14 }, { width: 28 }, { width: 22 }, { width: 42 }, { width: 22 }, { width: 12 },
+  ] : [
     { width: 6 },  // S.No
     { width: 12 }, // Roll No
     { width: 26 }, // Student Name
     { width: 22 }, // Father Name
   ]
   // Subject columns
-  for (let i = 0; i < subjectCount; i++) {
+  for (let i = 0; i < subjectCount && !isDaily; i++) {
     columns.push({ width: 12 })
   }
   // Trailing columns
-  if (config.type === 'daily') {
-    columns.push(
-      { width: 34 }, // Remarks
-      { width: 18 }, // Highlight
-    )
-  } else {
-    columns.push(
-      { width: 10 }, // Total Marks
-      { width: 12 }, // Obtained
-      { width: 10 }, // %
-      { width: 18 }, // Group
-      { width: 34 }, // Remarks
-      { width: 8 },  // Rank
-    )
-  }
+  if (!isDaily) columns.push(
+    { width: 10 }, // Total Marks
+    { width: 12 }, // Obtained
+    { width: 10 }, // %
+    { width: 18 }, // Group
+    { width: 38 }, // Teacher remarks
+    { width: 8 },  // Rank
+  )
 
   // ExcelJS requires at least 1 column — set widths via column property
   columns.forEach((colDef, idx) => {
@@ -227,7 +223,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   const titleCell = ws.getCell(currentRow, 1)
   titleCell.value = config.type === 'daily'
     ? 'DAILY STUDENT PERFORMANCE MONITORING SHEET'
-    : `${reportLabel.toUpperCase()} STUDENT PERFORMANCE MONITORING SHEET`
+    : 'MONTHLY STUDENT PERFORMANCE MONITORING SHEET'
   titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: COLORS.headerBg } }
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
   ws.getRow(currentRow).height = 28
@@ -270,15 +266,20 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   // ── DATA TABLE HEADER ROW ─────────────────────────────────────────────────
   const headerRow = currentRow
-  const headers: string[] = [
+  const headers: string[] = isDaily ? [
+    'S.No', 'Roll No', 'Student Name', 'Course Name', 'Remarks', 'Highlight', 'Grade',
+  ] : [
     'S.No',
     'Roll No',
     'Student Name',
     "Father's Name",
     ...config.subjects.map((s) => s.name),
-    ...(config.type === 'daily'
-      ? ['Remarks', 'Highlight']
-      : ['Total Marks', 'Obt. Marks', '%', 'Group / Batch', 'Remarks', 'Rank']),
+    'Total Marks',
+    'Obt. Marks',
+    '%',
+    'Group / Batch',
+    'Remarks',
+    'Rank',
   ]
 
   const row = ws.getRow(headerRow)
@@ -300,45 +301,33 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     const isEven = idx % 2 === 0
     const bgColor = isEven ? COLORS.rowEven : COLORS.rowOdd
 
-    const values: (string | number)[] = config.type === 'daily'
-      ? [
-          student.serial,
-          student.rollNumber,
-          student.name,
-          student.fatherName ?? '—',
-          ...config.subjects.map((s) => dailyGradeLabel(student.subjectGrades?.[s.id])),
-          student.dailyRemarks || '—',
-          student.isStarOfDay ? 'Star of the Day' : student.isConcern ? 'Needs Follow-up' : '—',
-        ]
-      : [
-          student.serial,
-          student.rollNumber,
-          student.name,
-          student.fatherName ?? '—',
-          ...config.subjects.map((s) => student.subjectScores[s.id] ?? 0),
-          student.totalMarks,
-          student.obtainedMarks,
-          `${student.percentage}%`,
-          student.performanceBatch,
-          student.remarks || '—',
-          student.rank,
-        ]
+    const values: (string | number)[] = isDaily ? [
+      student.serial, student.rollNumber, student.name, student.courseName ?? config.subjects[0]?.name ?? '—', student.remarks ?? '—', student.highlight ?? '—', student.grade ?? '—',
+    ] : [
+      student.serial,
+      student.rollNumber,
+      student.name,
+      student.fatherName ?? '—',
+      ...config.subjects.map((s) => student.subjectScores[s.id] ?? 0),
+      student.totalMarks,
+      student.obtainedMarks,
+      `${student.percentage}%`,
+      student.performanceBatch,
+      student.remarks ?? '—',
+      student.rank,
+    ]
 
     values.forEach((val, colIdx) => {
       const cell = dataRow.getCell(colIdx + 1)
       cell.value = val
       cell.font = { name: 'Calibri', size: 10, color: { argb: '1E293B' } }
       cell.alignment = {
-        horizontal: colIdx <= 1 || colIdx === values.length - 1 ? 'center' : (colIdx <= 3 || colIdx === values.length - 2 ? 'left' : 'center'),
+        horizontal: colIdx <= 1 || colIdx === values.length - 1 || (!isDaily && (colIdx === values.length - 4 || colIdx === values.length - 3))
+          ? 'center'
+          : (colIdx <= 3 || (!isDaily && colIdx === values.length - 2) ? 'left' : 'center'),
         vertical: 'middle',
-        wrapText: colIdx === values.length - 2,
       }
-      const rowHighlight = config.type === 'daily' && student.isStarOfDay
-        ? COLORS.everShine
-        : config.type === 'daily' && student.isConcern
-          ? COLORS.improvement
-          : bgColor
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowHighlight } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
       cell.border = thinBorder()
 
       // Bold student name
@@ -346,30 +335,21 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '0F172A' } }
       }
 
-      if (config.type !== 'daily') {
-        // Bold percentage
-        if (colIdx === values.length - 4) {
-          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
-        }
+      // Bold percentage
+      if (colIdx === (isDaily ? -1 : values.length - 4)) {
+        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
+      }
 
-        // Color-code the Group/Batch column
-        if (colIdx === values.length - 3) {
-          const { bg, text } = getBatchFill(String(val))
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
-          cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }
-        }
+      // Color-code the Group/Batch column
+      if (colIdx === (isDaily ? -1 : values.length - 3)) {
+        const { bg, text } = getBatchFill(String(val))
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
+        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }
+      }
 
-        // Keep aggregate remarks readable in print exports
-        if (colIdx === values.length - 2) {
-          cell.font = { name: 'Calibri', size: 9, color: { argb: '334155' } }
-        }
-
-        // Bold rank
-        if (colIdx === values.length - 1) {
-          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.brandPrimary } }
-        }
-      } else if (colIdx >= 4 && colIdx < 4 + subjectCount) {
-        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: '0F172A' } }
+      // Bold rank
+      if (colIdx === values.length - 1) {
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.brandPrimary } }
       }
     })
 
@@ -392,8 +372,8 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
 
   const legendItems = [
     { label: 'Ever Shine Group', range: '90% – 100%', ...getBatchFill('Ever Shine') },
-    { label: 'Quaid Group', range: '80% – 89%', ...getBatchFill('Quaid') },
-    { label: 'Iqbal Group', range: '60% – 79%', ...getBatchFill('Iqbal') },
+    { label: 'Quaid Group', range: '80% – 89.99%', ...getBatchFill('Quaid') },
+    { label: 'Iqbal Group', range: '60% – 79.99%', ...getBatchFill('Iqbal') },
     { label: 'Improvement Group', range: 'Below 60%', ...getBatchFill('Improvement') },
   ]
 
@@ -426,15 +406,18 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   currentRow += 2
 
   // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
+  // Keep signature areas disjoint for the compact seven-column daily sheet.
+  const teacherSignatureEnd = Math.min(4, Math.floor(totalCols / 2))
+  const rightStart = Math.max(teacherSignatureEnd + 1, totalCols - 3)
+
   // Class Teacher Signature (left side)
-  ws.mergeCells(currentRow, 1, currentRow, 4)
+  ws.mergeCells(currentRow, 1, currentRow, teacherSignatureEnd)
   const teacherSigCell = ws.getCell(currentRow, 1)
   teacherSigCell.value = '______________________________'
   teacherSigCell.alignment = { horizontal: 'center', vertical: 'bottom' }
   teacherSigCell.font = { name: 'Calibri', size: 10, color: { argb: '64748B' } }
 
   // Principal Signature (right side)
-  const rightStart = totalCols - 3
   ws.mergeCells(currentRow, rightStart, currentRow, totalCols)
   const principalSigCell = ws.getCell(currentRow, rightStart)
   principalSigCell.value = '______________________________'
@@ -444,7 +427,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   currentRow++
 
   // Signature labels
-  ws.mergeCells(currentRow, 1, currentRow, 4)
+  ws.mergeCells(currentRow, 1, currentRow, teacherSignatureEnd)
   const teacherLabel = ws.getCell(currentRow, 1)
   teacherLabel.value = 'Class Teacher Signature'
   teacherLabel.alignment = { horizontal: 'center', vertical: 'top' }

@@ -2237,6 +2237,8 @@ model DailyPerformanceScore {
   date              DateTime @db.Date
   score             Decimal  @db.Decimal(5, 2)
   isAbsent          Boolean  @default(false)
+  grade             String?
+  highlight         String? // STAR_OF_THE_DAY | POOR
   remarks           String?
   markedById        String
   createdAt         DateTime @default(now())
@@ -2356,17 +2358,22 @@ model MonthlyMonitoringReport {
   year           Int
   academicYearId String
   generatedById  String // Teacher User.id
+  declarationStatus ResultDeclarationStatus @default(DRAFT)
+  declaredAt     DateTime?
+  declaredById   String?
   // WHY Json: subject columns vary per section based on SubjectOffering;
   // storing as snapshot prevents report from changing when offerings change.
   // Format: {students: [{name, rollNo, subjectScores: {offeringId: marks}, totalMarks, obtainedMarks, rank}], performanceBatches: {}}
   reportData     Json
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   classSection ClassSection @relation(fields: [classSectionId], references: [id])
 
   @@unique([classSectionId, month, year, academicYearId])
   @@index([classSectionId])
   @@index([generatedById])
+  @@index([declarationStatus])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

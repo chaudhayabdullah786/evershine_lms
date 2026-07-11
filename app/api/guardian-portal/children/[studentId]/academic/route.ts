@@ -4,6 +4,9 @@ import { errors, successResponse } from '@/lib/api-response'
 import { assertGuardianAccessToStudent } from '@/lib/academic/guardian'
 import { getActiveAcademicYear, calculateWeightedPercentage } from '@/lib/academic/engine'
 import { mapGradeLetter } from '@/lib/academic/grades'
+import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   _request: Request,
@@ -48,6 +51,33 @@ export async function GET(
     : []
 
   const enrollment = enrollments[0] ?? null
+
+  const [dailyMonitoring, declaredMonthly] = enrollments.length && activeYear
+    ? await Promise.all([
+        prisma.dailyPerformanceScore.findMany({
+          where: {
+            studentId,
+            date: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+            subjectOffering: {
+              classSectionId: { in: enrollments.map((record) => record.classSectionId) },
+              academicYearId: activeYear.id,
+            },
+          },
+          include: { subjectOffering: { include: { subject: { select: { name: true, code: true } } } } },
+          orderBy: { date: 'desc' },
+          take: 100,
+        }),
+        (prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository).findMany({
+          where: {
+            classSectionId: { in: enrollments.map((record) => record.classSectionId) },
+            academicYearId: activeYear.id,
+            declarationStatus: 'DECLARED',
+          },
+          orderBy: [{ year: 'desc' }, { month: 'desc' }],
+          take: 12,
+        }),
+      ])
+    : [[], []]
 
   const attendanceRecords = enrollments.length
     ? await prisma.enrollmentAttendanceRecord.findMany({
@@ -161,5 +191,21 @@ export async function GET(
         : null,
     timetable,
     feeInvoices,
+    monitoringReports: {
+      daily: dailyMonitoring.map((entry) => {
+        const assessment = entry as typeof entry & { grade?: string | null; highlight?: string | null }
+        return {
+          date: entry.date,
+          courseName: entry.subjectOffering.subject.name,
+          remarks: entry.remarks,
+          grade: assessment.grade,
+          highlight: assessment.highlight,
+        }
+      }),
+      monthly: declaredMonthly.flatMap((report) => {
+        const studentReport = toPortalMonthlyMonitoringReport(report, studentId)
+        return studentReport ? [studentReport] : []
+      }),
+    },
   })
 }

@@ -86,6 +86,8 @@ export interface DailyPerformanceRecordInput {
   studentId: string
   score:     number
   isAbsent?: boolean
+  grade?: string
+  highlight?: 'STAR_OF_THE_DAY' | 'POOR' | null
   remarks?:  string
   performanceGrade?: DailyPerformanceGrade
   isStarOfDay?: boolean
@@ -555,11 +557,16 @@ export class AcademicUpgradesService {
   static async submitDailyPerformance(input: SubmitDailyPerformanceInput) {
     return prisma.$transaction(async (tx) => {
       const date = new Date(input.date)
+      if (Number.isNaN(date.getTime())) throw new Error('Invalid daily performance date')
 
       // Fetch configurable max for this offering
       const offering = await tx.subjectOffering.findUnique({
         where: { id: input.subjectOfferingId },
-        select: { maxDailyScore: true },
+        select: {
+          maxDailyScore: true,
+          classSectionId: true,
+          academicYearId: true,
+        },
       })
       if (!offering) throw new Error('Subject offering not found')
 
@@ -574,6 +581,24 @@ export class AcademicUpgradesService {
         }
       }
 
+      const activeEnrollments = await tx.studentEnrollment.findMany({
+        where: {
+          classSectionId: offering.classSectionId,
+          academicYearId: offering.academicYearId,
+          status: 'ACTIVE',
+        },
+        select: { studentId: true },
+      })
+      const expectedStudentIds = new Set(activeEnrollments.map((enrollment) => enrollment.studentId))
+      const submittedStudentIds = new Set(input.records.map((record) => record.studentId))
+      if (
+        submittedStudentIds.size !== input.records.length ||
+        submittedStudentIds.size !== expectedStudentIds.size ||
+        [...submittedStudentIds].some((studentId) => !expectedStudentIds.has(studentId))
+      ) {
+        throw new Error('Submit exactly one daily performance record for every active student in this section.')
+      }
+
       // Replace that day's records atomically
       await tx.dailyPerformanceScore.deleteMany({
         where: { subjectOfferingId: input.subjectOfferingId, date },
@@ -581,8 +606,13 @@ export class AcademicUpgradesService {
 
       const data = input.records.map((r) => {
         const isAbsent = r.isAbsent ?? false
-        const grade = r.performanceGrade ?? 'NORMAL'
-        const score = isAbsent ? 0 : dailyGradeScore(grade, maxScore)
+        const performanceGrade = r.performanceGrade ?? 'NORMAL'
+        const grade = r.grade?.trim() || performanceGrade
+        const highlight = r.highlight ?? (r.isStarOfDay ? 'STAR_OF_THE_DAY' : r.isConcern || performanceGrade === 'POOR' ? 'POOR' : null)
+        // Preserve existing qualitative entries while allowing an explicitly entered score.
+        const score = isAbsent ? 0 : r.performanceGrade && r.score === 0
+          ? dailyGradeScore(performanceGrade, maxScore)
+          : r.score
 
         return {
           subjectOfferingId: input.subjectOfferingId,
@@ -590,11 +620,13 @@ export class AcademicUpgradesService {
           date,
           score:             new Decimal(score),
           isAbsent,
+          grade,
+          highlight,
           remarks:           encodeMonitoringRemarks({
-            grade,
+            grade: performanceGrade,
             remarks: r.remarks ?? '',
-            isStarOfDay: r.isStarOfDay ?? false,
-            isConcern: r.isConcern ?? grade === 'POOR',
+            isStarOfDay: highlight === 'STAR_OF_THE_DAY',
+            isConcern: highlight === 'POOR',
           }),
           markedById:        input.teacherId,
         }

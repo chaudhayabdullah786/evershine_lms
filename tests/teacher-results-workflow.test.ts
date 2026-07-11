@@ -104,4 +104,35 @@ describe('teacher result workflow', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
     expect(mockDispatchBulkNotification).not.toHaveBeenCalled()
   })
+
+  it('keeps a successful declaration published when notification delivery fails', async () => {
+    mockPrisma.termResult.findUnique.mockResolvedValue({
+      id: 'result-1',
+      classSectionId: 'section-1',
+      examSessionId: 'exam-1',
+      declarationStatus: 'DRAFT',
+      classSection: { className: 'Class 10', sectionName: 'Jun' },
+      student: { firstName: 'Rizwan', lastName: 'Ali' },
+    })
+    mockPrisma.subjectOffering.findFirst.mockResolvedValue({ id: 'offering-1' })
+    mockPrisma.subjectResult.count.mockResolvedValue(1)
+    mockPrisma.subjectResult.findMany.mockResolvedValue([])
+    mockPrisma.$transaction.mockImplementation(async (callback: (transaction: unknown) => unknown) => callback({
+      termResult: {
+        update: vi.fn().mockResolvedValue({ id: 'result-1', classSectionId: 'section-1', examSessionId: 'exam-1' }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    }))
+    mockGetStudentUserIdsForSection.mockResolvedValue(['student-user-1'])
+    mockDispatchBulkNotification.mockRejectedValue(new Error('Notification provider unavailable'))
+
+    const response = await declareTeacherResult(
+      new Request('http://localhost/api/teacher-portal/results/result-1/declare') as never,
+      { params: Promise.resolve({ id: 'result-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).success).toBe(true)
+    expect(mockDispatchBulkNotification).toHaveBeenCalledOnce()
+  })
 })

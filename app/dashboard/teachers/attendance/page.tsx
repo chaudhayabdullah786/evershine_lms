@@ -494,7 +494,7 @@ export default function BulkTeacherAttendancePage() {
       {/* live updates statistics strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: 'Total staff', count: localSummary.total, bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
+          { label: 'Total staff', count: localSummary.total, bg: 'bg-slate-50', border: 'border-slate-200', color: 'text-slate-700', text: 'text-slate-700' },
           { label: 'Present', count: localSummary.present, ...STATUS_CONFIG.PRESENT },
           { label: 'Absent', count: localSummary.absent, ...STATUS_CONFIG.ABSENT },
           { label: 'Late', count: localSummary.late, ...STATUS_CONFIG.LATE },

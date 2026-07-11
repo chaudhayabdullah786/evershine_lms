@@ -79,9 +79,11 @@ export async function GET(request: NextRequest) {
         })
 
         const roster = enrollments.map((enr) => {
-          const existing = existingScores.find((s) => s.studentId === enr.studentId)
+          const existing = existingScores.find((s) => s.studentId === enr.studentId) as (typeof existingScores[number] & { grade?: string | null; highlight?: 'STAR_OF_THE_DAY' | 'POOR' | null }) | undefined
           const score = existing ? existing.score.toNumber() : null
           const metadata = decodeMonitoringRemarks(existing?.remarks, score, offering.maxDailyScore)
+          const grade = existing?.grade ?? metadata.grade
+          const highlight = existing?.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
 
           return {
             studentId: enr.studentId,
@@ -90,9 +92,11 @@ export async function GET(request: NextRequest) {
             score,
             isAbsent: existing ? existing.isAbsent : false,
             remarks: metadata.remarks,
-            performanceGrade: metadata.grade,
-            isStarOfDay: metadata.isStarOfDay,
-            isConcern: metadata.isConcern,
+            grade,
+            highlight,
+            performanceGrade: grade,
+            isStarOfDay: highlight === 'STAR_OF_THE_DAY',
+            isConcern: highlight === 'POOR',
           }
         })
 
@@ -100,8 +104,8 @@ export async function GET(request: NextRequest) {
           maxDailyScore: offering.maxDailyScore,
           roster,
         })
-      } catch (err: any) {
-        return errors.badRequest(err.message ?? 'Failed to fetch roster daily scores.')
+      } catch (err: unknown) {
+        return errors.badRequest(err instanceof Error ? err.message : 'Failed to fetch roster daily scores.')
       }
     }
     return errors.badRequest('studentId or both subjectOfferingId and date query parameters are required.')
@@ -115,8 +119,8 @@ export async function GET(request: NextRequest) {
       endDate   ? new Date(endDate)   : undefined,
     )
     return successResponse(logs)
-  } catch (err: any) {
-    return errors.badRequest(err.message ?? 'Failed to fetch performance logs.')
+  } catch (err: unknown) {
+    return errors.badRequest(err instanceof Error ? err.message : 'Failed to fetch performance logs.')
   }
 }
 
@@ -135,13 +139,29 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
+    if (role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!teacher) return errors.forbidden('Your teacher profile is not available')
+
+      const offering = await prisma.subjectOffering.findFirst({
+        where: { id: parsed.data.subjectOfferingId, teacherId: teacher.id },
+        select: { id: true },
+      })
+      if (!offering) return errors.forbidden('Only the assigned teacher can save these scores')
+    }
+
     const payload: SubmitDailyPerformanceInput = {
       subjectOfferingId: parsed.data.subjectOfferingId!,
       date: parsed.data.date!,
       records: parsed.data.records!.map((record) => ({
         studentId: record.studentId!,
-        score: record.performanceGrade ? 0 : record.score!,
+        score: record.score!,
         isAbsent: record.isAbsent,
+        grade: record.grade ?? record.performanceGrade,
+        highlight: record.highlight ?? (record.isStarOfDay ? 'STAR_OF_THE_DAY' : record.isConcern ? 'POOR' : null),
         remarks: record.remarks,
         performanceGrade: record.performanceGrade,
         isStarOfDay: record.isStarOfDay,
@@ -151,7 +171,7 @@ export async function POST(request: NextRequest) {
     }
     const result = await AcademicUpgradesService.submitDailyPerformance(payload)
     return successResponse(result, `${result.count} daily performance records saved for ${result.date}.`)
-  } catch (err: any) {
-    return errors.badRequest(err.message ?? 'Failed to submit daily performance records.')
+  } catch (err: unknown) {
+    return errors.badRequest(err instanceof Error ? err.message : 'Failed to submit daily performance records.')
   }
 }

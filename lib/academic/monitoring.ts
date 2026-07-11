@@ -97,17 +97,17 @@ export function decodeMonitoringRemarks(
 }
 
 export function derivePerformanceGroup(percentage: number): string {
-  if (percentage >= 90) return 'Ever Shine'
-  if (percentage >= 80) return 'Quaid'
-  if (percentage >= 60) return 'Iqbal'
-  return 'Improvement'
+  if (percentage >= 90) return 'Ever Shine Group'
+  if (percentage >= 80) return 'Quaid Group'
+  if (percentage >= 60) return 'Iqbal Group'
+  return 'Improvement Group'
 }
 
 export function monitoringStatusCriteria() {
   return [
-    { label: 'Ever Shine', min: 90, max: 100 },
-    { label: 'Quaid', min: 80, max: 89 },
-    { label: 'Iqbal', min: 60, max: 79 },
-    { label: 'Improvement', min: 0, max: 59 },
+    { label: 'Ever Shine Group', min: 90, max: 100 },
+    { label: 'Quaid Group', min: 80, max: 89 },
+    { label: 'Iqbal Group', min: 60, max: 79 },
+    { label: 'Improvement Group', min: 0, max: 59 },
   ]
 }

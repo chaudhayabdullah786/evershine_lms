@@ -30,6 +30,20 @@ type AggregateSubject = {
   remarks: string
 }
 
+type DeclaredMonthlyReport = {
+  columns: Array<{ id: string; label: string; type: 'COURSE' | 'CUSTOM' }>
+  student: {
+    courseMarks: Record<string, { totalMarks: number; obtainedMarks: number }>
+    customValues: Record<string, string>
+    remarks: string
+    totalMarks: number
+    obtainedMarks: number
+    percentage: number
+    performanceBatch: string
+    rank: number
+  }
+}
+
 type MonitoringReport = {
   type: MonitoringKind
   periodLabel?: string
@@ -44,6 +58,7 @@ type MonitoringReport = {
     percentage: number
     performanceBatch: string
   }
+  monthly?: DeclaredMonthlyReport
 }
 
 type Props = {
@@ -84,6 +99,7 @@ export function MonitoringReportPanel({ endpoint, title = 'Monitoring Report' }:
     : undefined
   const dailySubjects = report?.type === 'daily' ? (report.subjects as DailySubject[] | undefined) ?? [] : []
   const aggregateSubjects = report?.type !== 'daily' ? (report?.subjects as AggregateSubject[] | undefined) ?? [] : []
+  const monthlyReport = report?.type === 'monthly' ? report.monthly : undefined
 
   return (
     <Card>
@@ -168,6 +184,25 @@ export function MonitoringReportPanel({ endpoint, title = 'Monitoring Report' }:
                 </div>
               ))}
             </div>
+          </div>
+        ) : monthlyReport ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-3 text-sm sm:grid-cols-4">
+              <div><p className="text-xs text-slate-500">Total marks</p><p className="font-bold text-slate-900">{monthlyReport.student.totalMarks}</p></div>
+              <div><p className="text-xs text-slate-500">Obtained marks</p><p className="font-bold text-slate-900">{monthlyReport.student.obtainedMarks}</p></div>
+              <div><p className="text-xs text-slate-500">Percentage</p><p className="font-bold text-slate-900">{monthlyReport.student.percentage}%</p></div>
+              <div><p className="text-xs text-slate-500">Group</p><p className="font-bold text-slate-900">{monthlyReport.student.performanceBatch}</p></div>
+            </div>
+            <div className="divide-y rounded-lg border">
+              {monthlyReport.columns.map((column) => {
+                const marks = monthlyReport.student.courseMarks[column.id]
+                const value = column.type === 'COURSE'
+                  ? marks ? `${marks.obtainedMarks} / ${marks.totalMarks}` : '—'
+                  : monthlyReport.student.customValues[column.id] || '—'
+                return <div key={column.id} className="flex items-center justify-between gap-4 px-3 py-2 text-sm"><span className="font-semibold text-slate-900">{column.label}</span><span className="text-slate-600">{value}</span></div>
+              })}
+            </div>
+            {monthlyReport.student.remarks && <p className="rounded-lg border bg-slate-50 px-3 py-2 text-sm text-slate-700"><span className="font-semibold">Teacher remarks:</span> {monthlyReport.student.remarks}</p>}
           </div>
         ) : (
           <div className="space-y-4">

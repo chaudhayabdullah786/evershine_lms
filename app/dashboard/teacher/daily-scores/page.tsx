@@ -184,7 +184,7 @@ export default function DailyScoresPage() {
             <Target className="w-6 h-6 text-indigo-600" />
             Daily Academic Monitoring
           </h1>
-          <p className="text-sm text-gray-500">Record qualitative daily performance, remarks, star students, and concern follow-ups. Marks stay internal for monthly summaries.</p>
+          <p className="text-sm text-gray-500">Assign each student&apos;s daily grade manually, then add remarks and any Star of the Day or Poor follow-up highlight.</p>
         </div>
       </div>
 
@@ -283,7 +283,7 @@ export default function DailyScoresPage() {
                   Roster Score Sheet
                 </span>
                 <span className="text-xs font-normal text-gray-500 flex items-center gap-1.5">
-                  Daily report uses Excellent, Good, Normal, and Poor labels
+                  Daily grades are assigned manually by the teacher
                 </span>
               </CardTitle>
             </CardHeader>
@@ -294,7 +294,7 @@ export default function DailyScoresPage() {
                     <TableHead className="w-[100px] font-bold text-center">Roll No</TableHead>
                     <TableHead className="font-bold">Student Name</TableHead>
                     <TableHead className="w-[100px] font-bold text-center">Absent</TableHead>
-                    <TableHead className="w-[180px] font-bold text-center">Performance</TableHead>
+                    <TableHead className="w-[180px] font-bold text-center">Grade</TableHead>
                     <TableHead className="w-[150px] font-bold text-center">Highlights</TableHead>
                     <TableHead className="font-bold">Remarks / Comments</TableHead>
                   </TableRow>
@@ -326,7 +326,7 @@ export default function DailyScoresPage() {
                             disabled={state.isAbsent}
                           >
                             <SelectTrigger className="w-40 mx-auto border-gray-200">
-                              <SelectValue placeholder="Select performance" />
+                              <SelectValue placeholder="Select grade" />
                             </SelectTrigger>
                             <SelectContent>
                               {DAILY_GRADE_OPTIONS.map((option) => (

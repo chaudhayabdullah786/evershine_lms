@@ -215,7 +215,8 @@ describe('Feature 6: submitDailyPerformance', () => {
     // WHY: submitDailyPerformance resolves tx.subjectOffering.findUnique first to
     // validate scores against maxDailyScore. Without a return value it gets undefined
     // and throws 'Subject offering not found' before reaching the assertions below.
-    vi.mocked(prisma.subjectOffering.findUnique).mockResolvedValue({ maxDailyScore: 10 } as any)
+    vi.mocked(prisma.subjectOffering.findUnique).mockResolvedValue({ maxDailyScore: 10, classSectionId: 'cs-1', academicYearId: 'yr-1' } as any)
+    vi.mocked(prisma.studentEnrollment.findMany).mockResolvedValue([{ studentId: 's-1' }, { studentId: 's-2' }] as any)
     vi.mocked(prisma.dailyPerformanceScore.deleteMany).mockResolvedValue({ count: 3 } as any)
     vi.mocked(prisma.dailyPerformanceScore.createMany).mockResolvedValue({ count: 2 } as any)
 
