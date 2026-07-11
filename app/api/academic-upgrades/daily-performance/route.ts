@@ -14,6 +14,7 @@ import { AcademicUpgradesService, type SubmitDailyPerformanceInput } from '@/lib
 import { submitDailyPerformanceSchema } from '@/lib/validation/academic-upgrades'
 import { prisma } from '@/lib/prisma'
 import type { Role } from '@prisma/client'
+import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -78,16 +79,24 @@ export async function GET(request: NextRequest) {
         })
 
         const roster = enrollments.map((enr) => {
-          const existing = existingScores.find((s) => s.studentId === enr.studentId) as (typeof existingScores[number] & { grade?: string | null; highlight?: string | null }) | undefined
+          const existing = existingScores.find((s) => s.studentId === enr.studentId) as (typeof existingScores[number] & { grade?: string | null; highlight?: 'STAR_OF_THE_DAY' | 'POOR' | null }) | undefined
+          const score = existing ? existing.score.toNumber() : null
+          const metadata = decodeMonitoringRemarks(existing?.remarks, score, offering.maxDailyScore)
+          const grade = existing?.grade ?? metadata.grade
+          const highlight = existing?.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
+
           return {
             studentId: enr.studentId,
             rollNumber: enr.rollNumber ?? enr.student.rollNumber ?? '—',
             name: `${enr.student.firstName} ${enr.student.lastName}`,
-            score: existing ? existing.score.toNumber() : null,
+            score,
             isAbsent: existing ? existing.isAbsent : false,
-            grade: existing?.grade ?? '',
-            highlight: existing?.highlight ?? null,
-            remarks: existing?.remarks ?? '',
+            remarks: metadata.remarks,
+            grade,
+            highlight,
+            performanceGrade: grade,
+            isStarOfDay: highlight === 'STAR_OF_THE_DAY',
+            isConcern: highlight === 'POOR',
           }
         })
 
@@ -130,6 +139,20 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   try {
+    if (role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!teacher) return errors.forbidden('Your teacher profile is not available')
+
+      const offering = await prisma.subjectOffering.findFirst({
+        where: { id: parsed.data.subjectOfferingId, teacherId: teacher.id },
+        select: { id: true },
+      })
+      if (!offering) return errors.forbidden('Only the assigned teacher can save these scores')
+    }
+
     const payload: SubmitDailyPerformanceInput = {
       subjectOfferingId: parsed.data.subjectOfferingId!,
       date: parsed.data.date!,
@@ -137,9 +160,12 @@ export async function POST(request: NextRequest) {
         studentId: record.studentId!,
         score: record.score!,
         isAbsent: record.isAbsent,
-        grade: record.grade,
-        highlight: record.highlight,
+        grade: record.grade ?? record.performanceGrade,
+        highlight: record.highlight ?? (record.isStarOfDay ? 'STAR_OF_THE_DAY' : record.isConcern ? 'POOR' : null),
         remarks: record.remarks,
+        performanceGrade: record.performanceGrade,
+        isStarOfDay: record.isStarOfDay,
+        isConcern: record.isConcern,
       })),
       teacherId: session.user.id,
     }

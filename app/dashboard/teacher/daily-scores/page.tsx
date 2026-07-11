@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { notify } from '@/lib/notify'
-import { Loader2, Save, Target, AlertCircle, Sparkles, UserX, UserCheck, Info } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Loader2, Save, Target, AlertCircle, Sparkles, UserX, UserCheck, Star, AlertTriangle } from 'lucide-react'
+import { DAILY_GRADE_OPTIONS, type DailyPerformanceGrade } from '@/lib/academic/monitoring'
 
 interface SubjectOffering {
   id: string
@@ -34,9 +34,10 @@ interface RosterStudent {
   name: string
   score: number | null
   isAbsent: boolean
-  grade: string
-  highlight: 'STAR_OF_THE_DAY' | 'POOR' | null
   remarks: string
+  performanceGrade: DailyPerformanceGrade
+  isStarOfDay: boolean
+  isConcern: boolean
 }
 
 export default function DailyScoresPage() {
@@ -45,7 +46,7 @@ export default function DailyScoresPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
   )
-  const [rosterState, setRosterState] = useState<Record<string, { score: string; isAbsent: boolean; grade: string; highlight: 'STAR_OF_THE_DAY' | 'POOR' | null; remarks: string }>>({})
+  const [rosterState, setRosterState] = useState<Record<string, { performanceGrade: DailyPerformanceGrade; isAbsent: boolean; remarks: string; isStarOfDay: boolean; isConcern: boolean }>>({})
 
   // Fetch teacher's subject offerings
   const { data: offerings = [], isLoading: isLoadingOfferings } = useQuery<SubjectOffering[]>({
@@ -58,10 +59,7 @@ export default function DailyScoresPage() {
     setSelectedOfferingId(offerings[0].id)
   }
 
-  // Fetch roster & existing scores for selected offering and date
-  // WHY separate state: API now returns { maxDailyScore, roster } instead of bare array.
-  // We track the server-reported max separately so score entry stays in sync.
-  const [serverMaxScore, setServerMaxScore] = useState<number | null>(null)
+  // Fetch roster & existing monitoring records for selected offering and date.
 
   const { data: roster = [], isLoading: isLoadingRoster, refetch } = useQuery<RosterStudent[]>({
     queryKey: ['daily-scores-roster', selectedOfferingId, selectedDate],
@@ -69,17 +67,16 @@ export default function DailyScoresPage() {
       const response = await fetchApi<{ maxDailyScore: number; roster: RosterStudent[] }>(
         `/api/academic-upgrades/daily-performance?subjectOfferingId=${selectedOfferingId}&date=${selectedDate}`
       )
-      setServerMaxScore(response.maxDailyScore)
       const data = response.roster
       // Initialize editing state with database records
-      const initial: Record<string, { score: string; isAbsent: boolean; grade: string; highlight: 'STAR_OF_THE_DAY' | 'POOR' | null; remarks: string }> = {}
+      const initial: Record<string, { performanceGrade: DailyPerformanceGrade; isAbsent: boolean; remarks: string; isStarOfDay: boolean; isConcern: boolean }> = {}
       data.forEach((s) => {
         initial[s.studentId] = {
-          score: s.score !== null ? s.score.toString() : '',
+          performanceGrade: s.performanceGrade ?? 'NORMAL',
           isAbsent: s.isAbsent,
-          grade: s.grade ?? '',
-          highlight: s.highlight,
           remarks: s.remarks,
+          isStarOfDay: s.isStarOfDay,
+          isConcern: s.isConcern,
         }
       })
       setRosterState(initial)
@@ -90,7 +87,7 @@ export default function DailyScoresPage() {
 
   // Save scores mutation
   const saveMutation = useMutation({
-    mutationFn: (payload: unknown) =>
+    mutationFn: (payload: any) =>
       fetchApi('/api/academic-upgrades/daily-performance', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -100,40 +97,20 @@ export default function DailyScoresPage() {
       queryClient.invalidateQueries({ queryKey: ['daily-scores-roster', selectedOfferingId, selectedDate] })
       refetch()
     },
-    onError: (err) => {
-      notify.error(err instanceof Error ? err.message : 'Failed to save daily scores')
+    onError: (err: any) => {
+      notify.error(err.message || 'Failed to save daily scores')
     },
   })
 
-  const selectedOffering = offerings.find((o) => o.id === selectedOfferingId)
 
-  // Resolve maxDailyScore: prefer server-reported value, then offering field, fallback 20
-  const maxDailyScore = serverMaxScore
-    ?? selectedOffering?.maxDailyScore
-    ?? 20
-
-  const handleScoreChange = (studentId: string, val: string) => {
-    // Basic sanitization — allow empty string or float/integer within bounds
-    if (val === '') {
-      setRosterState((prev) => ({
-        ...prev,
-        [studentId]: { ...prev[studentId], score: '' },
-      }))
-      return
-    }
-
-    const num = parseFloat(val)
-    if (isNaN(num)) return
-
-    // Limit between 0 and the offering's configurable max
-    if (num < 0 || num > maxDailyScore) {
-      notify.error(`Score must be between 0 and ${maxDailyScore}`)
-      return
-    }
-
+  const handleGradeChange = (studentId: string, performanceGrade: DailyPerformanceGrade) => {
     setRosterState((prev) => ({
       ...prev,
-      [studentId]: { ...prev[studentId], score: val },
+      [studentId]: {
+        ...prev[studentId],
+        performanceGrade,
+        isConcern: performanceGrade === 'POOR' ? true : prev[studentId]?.isConcern ?? false,
+      },
     }))
   }
 
@@ -143,8 +120,8 @@ export default function DailyScoresPage() {
       [studentId]: {
         ...prev[studentId],
         isAbsent: checked,
-        // If absent, reset score visually, though backend will ignore/set to 0
-        score: checked ? '' : prev[studentId]?.score || '',
+        performanceGrade: checked ? 'POOR' : prev[studentId]?.performanceGrade ?? 'NORMAL',
+        isConcern: checked ? true : prev[studentId]?.isConcern ?? false,
       },
     }))
   }
@@ -159,31 +136,31 @@ export default function DailyScoresPage() {
     }))
   }
 
+  const handleFlagChange = (studentId: string, key: 'isStarOfDay' | 'isConcern', checked: boolean) => {
+    setRosterState((prev) => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [key]: checked,
+      },
+    }))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedOfferingId) return
 
     // Map records to matches backend validation expectations
     const records = roster.map((s) => {
-      const state = rosterState[s.studentId] || { score: '', isAbsent: false, grade: '', highlight: null, remarks: '' }
-      const isAbsent = state.isAbsent
-      let scoreVal = 0
-
-      if (!isAbsent) {
-        const num = parseFloat(state.score)
-        if (state.score === '' || isNaN(num)) {
-          throw new Error(`Please enter valid score for ${s.name} or mark them as absent.`)
-        }
-        scoreVal = num
-      }
-
+      const state = rosterState[s.studentId] || { performanceGrade: 'NORMAL' as DailyPerformanceGrade, isAbsent: false, remarks: '', isStarOfDay: false, isConcern: false }
       return {
         studentId: s.studentId,
-        score: scoreVal,
-        isAbsent,
-        grade: state.grade.trim() || undefined,
-        highlight: state.highlight,
+        score: 0,
+        isAbsent: state.isAbsent,
         remarks: state.remarks.trim() || undefined,
+        performanceGrade: state.performanceGrade,
+        isStarOfDay: state.isStarOfDay,
+        isConcern: state.isConcern,
       }
     })
 
@@ -205,9 +182,9 @@ export default function DailyScoresPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
             <Target className="w-6 h-6 text-indigo-600" />
-            Daily Academic Score Entry
+            Daily Academic Monitoring
           </h1>
-          <p className="text-sm text-gray-500">Record daily academic progress scores out of {maxDailyScore} marks.</p>
+          <p className="text-sm text-gray-500">Assign each student&apos;s daily grade manually, then add remarks and any Star of the Day or Poor follow-up highlight.</p>
         </div>
       </div>
 
@@ -306,17 +283,7 @@ export default function DailyScoresPage() {
                   Roster Score Sheet
                 </span>
                 <span className="text-xs font-normal text-gray-500 flex items-center gap-1.5">
-                  Maximum Score: {maxDailyScore}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                        Max score is configured per subject offering by the admin in the Academic Engine.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  Daily grades are assigned manually by the teacher
                 </span>
               </CardTitle>
             </CardHeader>
@@ -326,18 +293,17 @@ export default function DailyScoresPage() {
                   <TableRow>
                     <TableHead className="w-[100px] font-bold text-center">Roll No</TableHead>
                     <TableHead className="font-bold">Student Name</TableHead>
-                    <TableHead className="w-[120px] font-bold text-center">Absent</TableHead>
-                    <TableHead className="w-[110px] font-bold text-center">Grade</TableHead>
-                    <TableHead className="w-[170px] font-bold">Highlight</TableHead>
-                    <TableHead className="w-[160px] font-bold text-center">Obtained Score (0-{maxDailyScore})</TableHead>
+                    <TableHead className="w-[100px] font-bold text-center">Absent</TableHead>
+                    <TableHead className="w-[180px] font-bold text-center">Grade</TableHead>
+                    <TableHead className="w-[150px] font-bold text-center">Highlights</TableHead>
                     <TableHead className="font-bold">Remarks / Comments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-200">
                   {roster.map((row) => {
-                    const state = rosterState[row.studentId] || { score: '', isAbsent: false, grade: '', highlight: null, remarks: '' }
+                    const state = rosterState[row.studentId] || { performanceGrade: 'NORMAL' as DailyPerformanceGrade, isAbsent: false, remarks: '', isStarOfDay: false, isConcern: false }
                     return (
-                      <TableRow key={row.studentId} className={state.isAbsent ? 'bg-rose-50/20' : 'hover:bg-gray-50/50'}>
+                      <TableRow key={row.studentId} className={state.isStarOfDay ? 'bg-amber-50/80' : state.isConcern ? 'bg-rose-50/60' : state.isAbsent ? 'bg-rose-50/20' : 'hover:bg-gray-50/50'}>
                         <TableCell className="text-center font-mono font-medium text-sm text-gray-600">
                           {row.rollNumber}
                         </TableCell>
@@ -354,45 +320,40 @@ export default function DailyScoresPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            value={state.grade}
-                            maxLength={20}
-                            placeholder="e.g. A"
-                            onChange={(e) => setRosterState((prev) => ({
-                              ...prev,
-                              [row.studentId]: { ...prev[row.studentId], grade: e.target.value },
-                            }))}
-                            className="w-24 mx-auto text-center font-semibold"
-                          />
-                        </TableCell>
-                        <TableCell>
                           <Select
-                            value={state.highlight ?? 'NONE'}
-                            onValueChange={(value) => setRosterState((prev) => ({
-                              ...prev,
-                              [row.studentId]: { ...prev[row.studentId], highlight: value === 'NONE' ? null : value as 'STAR_OF_THE_DAY' | 'POOR' },
-                            }))}
+                            value={state.performanceGrade}
+                            onValueChange={(value) => handleGradeChange(row.studentId, value as DailyPerformanceGrade)}
+                            disabled={state.isAbsent}
                           >
-                            <SelectTrigger className="w-40"><SelectValue placeholder="Highlight" /></SelectTrigger>
+                            <SelectTrigger className="w-40 mx-auto border-gray-200">
+                              <SelectValue placeholder="Select grade" />
+                            </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="NONE">None</SelectItem>
-                              <SelectItem value="STAR_OF_THE_DAY">Star of the Day</SelectItem>
-                              <SelectItem value="POOR">Poor</SelectItem>
+                              {DAILY_GRADE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            max={maxDailyScore}
-                            step="0.5"
-                            value={state.score}
-                            disabled={state.isAbsent}
-                            placeholder={state.isAbsent ? 'ABSENT' : `0.0 - ${maxDailyScore}.0`}
-                            onChange={(e) => handleScoreChange(row.studentId, e.target.value)}
-                            className="w-32 mx-auto text-center font-bold text-indigo-700 bg-white border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
-                          />
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-4">
+                            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                              <Checkbox
+                                checked={state.isStarOfDay}
+                                onCheckedChange={(checked) => handleFlagChange(row.studentId, 'isStarOfDay', !!checked)}
+                                className="border-amber-300 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                              />
+                              <Star className="w-3.5 h-3.5" />
+                            </label>
+                            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+                              <Checkbox
+                                checked={state.isConcern}
+                                onCheckedChange={(checked) => handleFlagChange(row.studentId, 'isConcern', !!checked)}
+                                className="border-rose-300 data-[state=checked]:bg-rose-600 data-[state=checked]:border-rose-600"
+                              />
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                            </label>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Input
@@ -422,7 +383,7 @@ export default function DailyScoresPage() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              Save Score Sheet
+              Save Daily Report
             </Button>
           </div>
         </form>

@@ -14,6 +14,7 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { derivePerformanceBatch } from '@/lib/academic/result-utils'
 import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,14 @@ const monthlyDataSchema = z.object({
   columns: z.array(monthlyColumnSchema).min(1).max(80),
   students: z.array(monthlyStudentSchema).min(1).max(1000),
 })
+
+const monitoringTypeSchema = z.enum(['daily', 'monthly', 'yearly'])
+
+function parseLocalDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
 
 function stripCourseNameFromRemarks(remarks: string | null, courseName: string): string {
   const trimmed = remarks?.trim() ?? ''
@@ -117,7 +126,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const classSectionId = searchParams.get('classSectionId')
     const academicYearId = searchParams.get('academicYearId')
-    const type = searchParams.get('type') ?? 'monthly'
+    const typeResult = monitoringTypeSchema.safeParse(searchParams.get('type') ?? 'monthly')
     const dateStr = searchParams.get('date')
     const month = parseInt(searchParams.get('month') ?? '0')
     const year = parseInt(searchParams.get('year') ?? '0')
@@ -125,21 +134,40 @@ export async function GET(req: NextRequest) {
     if (!classSectionId || !academicYearId) {
       return errors.badRequest('classSectionId and academicYearId are required')
     }
+    if (!typeResult.success) return errors.badRequest('type must be daily, monthly, or yearly')
+
+    const type = typeResult.data
+    let teacherId: string | undefined
+    if (session.user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!teacher) return errors.forbidden('Your teacher profile is not available')
+      teacherId = teacher.id
+    }
 
     let periodStart: Date
     let periodEnd: Date
     const isDaily = type === 'daily'
+    const isYearly = type === 'yearly'
 
     if (isDaily) {
       if (!dateStr) return errors.badRequest('date is required for daily monitoring')
-      periodStart = new Date(dateStr)
-      periodStart.setHours(0,0,0,0)
-      periodEnd = new Date(dateStr)
-      periodEnd.setHours(23,59,59,999)
+      const date = parseLocalDate(dateStr)
+      if (!date) return errors.badRequest('date must use YYYY-MM-DD format')
+      periodStart = new Date(date)
+      periodStart.setHours(0, 0, 0, 0)
+      periodEnd = new Date(date)
+      periodEnd.setHours(23, 59, 59, 999)
+    } else if (isYearly) {
+      if (!year) return errors.badRequest('year is required for yearly monitoring')
+      periodStart = new Date(year, 0, 1)
+      periodEnd = new Date(year, 11, 31, 23, 59, 59, 999)
     } else {
       if (!month || !year) return errors.badRequest('month and year are required for monthly monitoring')
       periodStart = new Date(year, month - 1, 1)
-      periodEnd = new Date(year, month, 0) // last day of month
+      periodEnd = new Date(year, month, 0, 23, 59, 59, 999)
     }
 
     // 1. Get all active enrollments for section
@@ -161,12 +189,15 @@ export async function GET(req: NextRequest) {
 
     // 2. Get all SubjectOfferings for this section
     const offerings = await prisma.subjectOffering.findMany({
-      where: { classSectionId, academicYearId },
+      where: { classSectionId, academicYearId, ...(teacherId ? { teacherId } : {}) },
       include: { subject: { select: { name: true, code: true } } },
       orderBy: { subject: { name: 'asc' } },
     })
+    if (teacherId && offerings.length === 0) {
+      return errors.forbidden('You are not assigned to a subject in this class section')
+    }
 
-    if (!isDaily) {
+    if (type === 'monthly') {
       const snapshot = await monitoringModel.findUnique({
         where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } },
         select: { reportData: true, declarationStatus: true, declaredAt: true },
@@ -199,19 +230,146 @@ export async function GET(req: NextRequest) {
         subjectOfferingId: { in: offeringIds },
         date: { gte: periodStart, lte: periodEnd },
       },
-      include: { subjectOffering: { include: { subject: { select: { name: true, code: true } } } } },
     })
+    const offeringsById = new Map(offerings.map((offering) => [offering.id, offering]))
+    const enrollmentByStudentId = new Map(enrollments.map((enrollment) => [enrollment.studentId, enrollment]))
 
     if (isDaily) {
-      const enrollmentMap = new Map(enrollments.map((enrollment) => [enrollment.studentId, enrollment]))
-      const dailyRows = (scores as Array<(typeof scores)[number] & { grade?: string | null; highlight?: string | null }>).map((score, index) => {
-        const enrollment = enrollmentMap.get(score.studentId)
-        const courseName = score.subjectOffering.subject.name
-        const remarks = stripCourseNameFromRemarks(score.remarks, courseName)
-        return { serial: index + 1, studentId: score.studentId, rollNumber: enrollment?.student.rollNumber ?? '', name: enrollment ? `${enrollment.student.firstName} ${enrollment.student.lastName}` : '', courseName, remarks, highlight: score.highlight, grade: score.grade, score: Number(score.score), isAbsent: score.isAbsent }
+      const dailyEntries = scores.flatMap((score, index) => {
+        const enrollment = enrollmentByStudentId.get(score.studentId)
+        const offering = offeringsById.get(score.subjectOfferingId)
+        if (!offering || !enrollment) return []
+        const metadata = decodeMonitoringRemarks(score.remarks, Number(score.score), offering.maxDailyScore)
+        const storedScore = score as typeof score & { grade?: string | null; highlight?: string | null }
+        const courseName = offering.subject.name
+        const grade = storedScore.grade ?? metadata.grade
+        const highlight = storedScore.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
+        return [{
+          serial: index + 1,
+          studentId: score.studentId,
+          rollNumber: enrollment.student.rollNumber ?? '',
+          name: `${enrollment.student.firstName} ${enrollment.student.lastName}`.trim(),
+          courseName,
+          remarks: stripCourseNameFromRemarks(metadata.remarks, courseName),
+          highlight,
+          grade,
+          score: Number(score.score),
+          isAbsent: score.isAbsent,
+        }]
       })
-      return successResponse({ type: 'daily', date: dateStr, classSectionId, students: dailyRows, columns: ['Serial Number', 'Roll Number', 'Student Name', 'Course Name', 'Remarks', 'Highlight', 'Grade'] }, 'Daily monitoring report loaded successfully')
+      const students = enrollments.map((enrollment, index) => {
+        const subjectScores: Record<string, number> = {}
+        const subjectGrades: Record<string, string> = {}
+        const subjectRemarks: Record<string, string[]> = {}
+        const remarks: string[] = []
+        let totalMarks = 0
+        let obtainedMarks = 0
+        let isStarOfDay = false
+        let isConcern = false
+        for (const offering of offerings) {
+          const score = scores.find((item) => item.studentId === enrollment.studentId && item.subjectOfferingId === offering.id)
+          const metadata = decodeMonitoringRemarks(score?.remarks, score ? Number(score.score) : null, offering.maxDailyScore)
+          const storedScore = score as (typeof scores)[number] & { grade?: string | null; highlight?: string | null } | undefined
+          const grade = storedScore?.grade ?? metadata.grade
+          const highlight = storedScore?.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
+          const remark = stripCourseNameFromRemarks(metadata.remarks, offering.subject.name)
+          subjectScores[offering.id] = score ? Number(score.score) : 0
+          subjectGrades[offering.id] = grade
+          subjectRemarks[offering.id] = remark ? [remark] : []
+          if (remark) remarks.push(`${offering.subject.name}: ${remark}`)
+          obtainedMarks += score ? Number(score.score) : 0
+          totalMarks += offering.maxDailyScore
+          isStarOfDay ||= highlight === 'STAR_OF_THE_DAY'
+          isConcern ||= highlight === 'POOR'
+        }
+        const percentage = totalMarks > 0 ? Math.round((obtainedMarks / totalMarks) * 10000) / 100 : 0
+        return {
+          serial: index + 1,
+          studentId: enrollment.studentId,
+          name: `${enrollment.student.firstName} ${enrollment.student.lastName}`.trim(),
+          fatherName: enrollment.student.fatherName,
+          rollNumber: enrollment.student.rollNumber ?? '',
+          subjectScores,
+          subjectGrades,
+          subjectRemarks,
+          dailyRemarks: remarks.join(' | '),
+          isStarOfDay,
+          isConcern,
+          totalMarks,
+          obtainedMarks,
+          percentage,
+          performanceBatch: derivePerformanceBatch(percentage),
+          rank: 0,
+        }
+      })
+      ;[...students].sort((a, b) => b.obtainedMarks - a.obtainedMarks || a.name.localeCompare(b.name)).forEach((student, index) => { student.rank = index + 1 })
+      return successResponse({
+        type: 'daily',
+        date: dateStr,
+        classSectionId,
+        subjects: offerings.map((offering) => ({ id: offering.id, name: offering.subject.name, code: offering.subject.code, maxDailyScore: offering.maxDailyScore })),
+        students,
+        dailyEntries,
+        columns: ['Serial Number', 'Roll Number', 'Student Name', 'Course Name', 'Remarks', 'Highlight', 'Grade'],
+      }, 'Daily monitoring report loaded successfully')
     }
+
+    const scoringDays = new Map<string, Set<string>>()
+    for (const score of scores) {
+      const dates = scoringDays.get(score.subjectOfferingId) ?? new Set<string>()
+      dates.add(score.date.toISOString().slice(0, 10))
+      scoringDays.set(score.subjectOfferingId, dates)
+    }
+    const students = enrollments.map((enrollment, index) => {
+      const subjectScores: Record<string, number> = {}
+      const subjectRemarks: Record<string, string[]> = {}
+      const remarks: string[] = []
+      let totalMarks = 0
+      let obtainedMarks = 0
+      for (const offering of offerings) {
+        const studentScores = scores.filter((score) => score.studentId === enrollment.studentId && score.subjectOfferingId === offering.id)
+        const subjectTotal = studentScores.reduce((sum, score) => sum + Number(score.score), 0)
+        const uniqueRemarks = Array.from(new Set(studentScores.map((score) => stripCourseNameFromRemarks(
+          decodeMonitoringRemarks(score.remarks, Number(score.score), offering.maxDailyScore).remarks,
+          offering.subject.name,
+        )).filter(Boolean)))
+        subjectScores[offering.id] = subjectTotal
+        subjectRemarks[offering.id] = uniqueRemarks
+        if (uniqueRemarks.length) remarks.push(`${offering.subject.name}: ${uniqueRemarks.join('; ')}`)
+        obtainedMarks += subjectTotal
+        totalMarks += (scoringDays.get(offering.id)?.size ?? 0) * offering.maxDailyScore
+      }
+      const percentage = totalMarks > 0 ? Math.round((obtainedMarks / totalMarks) * 10000) / 100 : 0
+      return {
+        serial: index + 1,
+        studentId: enrollment.studentId,
+        name: `${enrollment.student.firstName} ${enrollment.student.lastName}`.trim(),
+        fatherName: enrollment.student.fatherName,
+        rollNumber: enrollment.student.rollNumber ?? '',
+        subjectScores,
+        subjectRemarks,
+        remarks: remarks.join(' | '),
+        totalMarks,
+        obtainedMarks,
+        percentage,
+        performanceBatch: derivePerformanceBatch(percentage),
+        rank: 0,
+      }
+    })
+    ;[...students].sort((a, b) => b.obtainedMarks - a.obtainedMarks || a.name.localeCompare(b.name)).forEach((student, index) => { student.rank = index + 1 })
+    return successResponse({
+      type: 'yearly',
+      year,
+      classSectionId,
+      subjects: offerings.map((offering) => ({ id: offering.id, name: offering.subject.name, code: offering.subject.code, maxDailyScore: offering.maxDailyScore })),
+      students,
+      statusCriteria: [
+        { label: 'Ever Shine Group', min: 90, max: 100 },
+        { label: 'Quaid Group', min: 80, max: 89.99 },
+        { label: 'Iqbal Group', min: 60, max: 79.99 },
+        { label: 'Improvement Group', min: 0, max: 59.99 },
+      ],
+    }, 'Yearly monitoring report aggregated successfully')
 
   } catch (err) {
     console.error('[MONITORING_REPORT_GET]', err)
@@ -238,7 +396,7 @@ export async function POST(req: NextRequest) {
     if (!enrollments.length) return errors.badRequest('No active students are enrolled in this section.')
     if (session.user.role === 'TEACHER') {
       const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
-      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId: parsed.data.classSectionId, teacherId: teacher.id }, select: { id: true } })
+      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId: parsed.data.classSectionId, academicYearId: parsed.data.academicYearId, teacherId: teacher.id }, select: { id: true } })
       if (!assigned) return errors.forbidden('You are not assigned to this class section.')
     }
     let reportData: ReturnType<typeof calculateMonthlySnapshot>

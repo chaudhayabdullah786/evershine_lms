@@ -110,6 +110,9 @@ export const dailyScoreRecordSchema = z.object({
   grade:     z.string().trim().min(1).max(20).optional(),
   highlight: z.enum(['STAR_OF_THE_DAY', 'POOR']).nullable().optional(),
   remarks:   z.string().max(200).optional(),
+  performanceGrade: z.enum(['EXCELLENT', 'GOOD', 'NORMAL', 'POOR']).optional(),
+  isStarOfDay: z.boolean().default(false),
+  isConcern: z.boolean().default(false),
 })
 
 export const submitDailyPerformanceSchema = z.object({

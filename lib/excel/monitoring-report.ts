@@ -143,7 +143,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
   const isDaily = config.type === 'daily'
   const subjectCount = config.subjects.length
   const fixedColCount = 4 // S.No, Roll, Name, Father (before subjects)
-  const trailingColCount = 5 // Total, Obtained, %, Group, Rank
+  const trailingColCount = 6 // Total, Obtained, %, Group, Remarks, Rank
   const totalCols = isDaily ? 7 : fixedColCount + subjectCount + trailingColCount
 
   const columns: Partial<ExcelJS.Column>[] = isDaily ? [
@@ -164,6 +164,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     { width: 12 }, // Obtained
     { width: 10 }, // %
     { width: 18 }, // Group
+    { width: 38 }, // Teacher remarks
     { width: 8 },  // Rank
   )
 
@@ -277,6 +278,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
     'Obt. Marks',
     '%',
     'Group / Batch',
+    'Remarks',
     'Rank',
   ]
 
@@ -311,6 +313,7 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       student.obtainedMarks,
       `${student.percentage}%`,
       student.performanceBatch,
+      student.remarks ?? '—',
       student.rank,
     ]
 
@@ -319,7 +322,9 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       cell.value = val
       cell.font = { name: 'Calibri', size: 10, color: { argb: '1E293B' } }
       cell.alignment = {
-        horizontal: colIdx <= 1 || colIdx >= values.length - 2 ? 'center' : (colIdx <= 3 ? 'left' : 'center'),
+        horizontal: colIdx <= 1 || colIdx === values.length - 1 || (!isDaily && (colIdx === values.length - 4 || colIdx === values.length - 3))
+          ? 'center'
+          : (colIdx <= 3 || (!isDaily && colIdx === values.length - 2) ? 'left' : 'center'),
         vertical: 'middle',
       }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
@@ -331,12 +336,12 @@ export async function downloadMonitoringExcel(config: MonitoringReportConfig): P
       }
 
       // Bold percentage
-      if (colIdx === values.length - 3) {
+      if (colIdx === (isDaily ? -1 : values.length - 4)) {
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: COLORS.brandPrimary } }
       }
 
       // Color-code the Group/Batch column
-      if (colIdx === values.length - 2) {
+      if (colIdx === (isDaily ? -1 : values.length - 3)) {
         const { bg, text } = getBatchFill(String(val))
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
         cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: text } }

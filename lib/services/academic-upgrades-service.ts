@@ -17,6 +17,7 @@
 import { prisma } from '@/lib/prisma'
 import { EnrollmentType, ResultDeclarationStatus } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
+import { dailyGradeScore, encodeMonitoringRemarks, type DailyPerformanceGrade } from '@/lib/academic/monitoring'
 
 // ─── Grade / batch helpers ────────────────────────────────────────────────────
 function calculateGrade(pct: number): string {
@@ -88,6 +89,9 @@ export interface DailyPerformanceRecordInput {
   grade?: string
   highlight?: 'STAR_OF_THE_DAY' | 'POOR' | null
   remarks?:  string
+  performanceGrade?: DailyPerformanceGrade
+  isStarOfDay?: boolean
+  isConcern?: boolean
 }
 
 export interface SubmitDailyPerformanceInput {
@@ -95,13 +99,6 @@ export interface SubmitDailyPerformanceInput {
   date:              string
   records:           DailyPerformanceRecordInput[]
   teacherId:         string
-}
-
-function normalizeDailyRemarks(remarks: string | undefined, courseName: string): string | null {
-  const trimmed = remarks?.trim()
-  if (!trimmed) return null
-  const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return trimmed.replace(new RegExp(`^${escapedCourseName}\\s*:\\s*`, 'i'), '').trim() || null
 }
 
 export interface StudentTargetInput {
@@ -569,7 +566,6 @@ export class AcademicUpgradesService {
           maxDailyScore: true,
           classSectionId: true,
           academicYearId: true,
-          subject: { select: { name: true } },
         },
       })
       if (!offering) throw new Error('Subject offering not found')
@@ -608,17 +604,33 @@ export class AcademicUpgradesService {
         where: { subjectOfferingId: input.subjectOfferingId, date },
       })
 
-      const data = input.records.map((r) => ({
-        subjectOfferingId: input.subjectOfferingId,
-        studentId:         r.studentId,
-        date,
-        score:             new Decimal(r.isAbsent ? 0 : r.score),
-        isAbsent:          r.isAbsent ?? false,
-        grade:             r.grade?.trim() || null,
-        highlight:         r.highlight ?? null,
-        remarks:           normalizeDailyRemarks(r.remarks, offering.subject.name),
-        markedById:        input.teacherId,
-      }))
+      const data = input.records.map((r) => {
+        const isAbsent = r.isAbsent ?? false
+        const performanceGrade = r.performanceGrade ?? 'NORMAL'
+        const grade = r.grade?.trim() || performanceGrade
+        const highlight = r.highlight ?? (r.isStarOfDay ? 'STAR_OF_THE_DAY' : r.isConcern || performanceGrade === 'POOR' ? 'POOR' : null)
+        // Preserve existing qualitative entries while allowing an explicitly entered score.
+        const score = isAbsent ? 0 : r.performanceGrade && r.score === 0
+          ? dailyGradeScore(performanceGrade, maxScore)
+          : r.score
+
+        return {
+          subjectOfferingId: input.subjectOfferingId,
+          studentId:         r.studentId,
+          date,
+          score:             new Decimal(score),
+          isAbsent,
+          grade,
+          highlight,
+          remarks:           encodeMonitoringRemarks({
+            grade: performanceGrade,
+            remarks: r.remarks ?? '',
+            isStarOfDay: highlight === 'STAR_OF_THE_DAY',
+            isConcern: highlight === 'POOR',
+          }),
+          markedById:        input.teacherId,
+        }
+      })
 
       if (data.length > 0) {
         await tx.dailyPerformanceScore.createMany({ data })
