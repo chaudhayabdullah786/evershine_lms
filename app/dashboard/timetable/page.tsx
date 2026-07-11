@@ -161,7 +161,7 @@ export default function TimetablePage() {
 
   // Fetch timetable slots based on target filters
   const { data: timetableData, isLoading } = useQuery<any>({
-    queryKey: ['timetable-grid', targetClassId, targetTeacherId, effectiveShift],
+    queryKey: ['timetable-grid', targetClassId, targetTeacherId, isTeacher ? undefined : effectiveShift],
     queryFn: () => {
       if (targetClassId) {
         let url = `/api/timetable?classId=${targetClassId}`
@@ -169,11 +169,8 @@ export default function TimetablePage() {
         return fetchApi<any>(url)
       }
       if (targetTeacherId) {
-        // Always pass shift for teachers so night/evening slots are not hidden
-        const params = new URLSearchParams()
-        if (effectiveShift) params.set('shift', effectiveShift)
-        const qs = params.toString()
-        return fetchApi<any>(`/api/teachers/${targetTeacherId}/timetable${qs ? `?${qs}` : ''}`)
+        // Do not pass shift for teachers to fetch all shifts dynamically
+        return fetchApi<any>(`/api/teachers/${targetTeacherId}/timetable`)
       }
       return Promise.resolve({ data: [] })
     },
@@ -362,6 +359,11 @@ export default function TimetablePage() {
 
   const gridSlots = timeSlots.length > 0 ? timeSlots : defaultTimeSlots
 
+  // Extract unique sorted shifts from the retrieved slots to represent all active shifts dynamically
+  const uniqueShifts = Array.from(
+    new Set<string>(slots.map((s: any) => s.shift).filter(Boolean))
+  )
+
   if (sessionStatus === 'loading' || isAdmin) {
     return (
       <div className="p-8 text-center text-gray-500 text-sm">
@@ -390,11 +392,19 @@ export default function TimetablePage() {
               {sessionShiftFormalLabel(studentShift)}
             </span>
           )}
-          {isTeacher && teacherShift && (
+          {isTeacher && (uniqueShifts.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {uniqueShifts.map((shiftCode) => (
+                <span key={shiftCode} className={`inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full border ${SESSION_SHIFT_BADGE_CLASS[shiftCode as keyof typeof SESSION_SHIFT_BADGE_CLASS] || 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                  {SESSION_SHIFT_LABELS[shiftCode as keyof typeof SESSION_SHIFT_LABELS] || shiftCode}
+                </span>
+              ))}
+            </div>
+          ) : teacherShift && (
             <span className={`inline-flex mt-2 text-[10px] font-bold px-2.5 py-1 rounded-full border ${SESSION_SHIFT_BADGE_CLASS[teacherShift]}`}>
               {sessionShiftFormalLabel(teacherShift)}
             </span>
-          )}
+          ))}
         </div>
 
         <div className="flex flex-wrap gap-2.5">
