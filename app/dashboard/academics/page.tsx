@@ -8,7 +8,7 @@ import { fetchApi } from '@/lib/api-client'
 import Link from 'next/link'
 import {
   Award, BookOpen, TrendingUp, CheckCircle, XCircle,
-  FileText, BarChart2, Star, ArrowUpRight,
+  FileText, BarChart2, Star, ArrowUpRight, ClipboardList,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
@@ -59,6 +59,23 @@ interface TermResult {
   customFields: Array<{ label: string; value: string }> | null
   subjectResults: TermSubjectResult[]
   createdAt: string
+}
+
+interface TaskMarkResult {
+  id: string
+  taskId: string
+  title: string
+  type: string
+  dueDate: string | null
+  maxMarks: number
+  obtainedMarks: number
+  percentage: number
+  remarks: string | null
+  subjectName: string
+  subjectCode: string | null
+  classLabel: string
+  shiftName: string | null
+  updatedAt: string
 }
 
 // ─── Grade helpers ───────────────────────────────────────────────────────────
@@ -235,6 +252,16 @@ export default function StudentAcademicsPage() {
     return []
   }, [termResultsRaw])
 
+  const { data: portalResultsRaw } = useQuery<any>({
+    queryKey: ['student-portal-results-academics'],
+    queryFn: () => fetchApi<any>('/api/student-portal/results'),
+    enabled: role === 'STUDENT',
+  })
+
+  const taskResults: TaskMarkResult[] = useMemo(() => {
+    const raw = portalResultsRaw?.data ?? portalResultsRaw
+    return Array.isArray(raw?.taskResults) ? raw.taskResults : []
+  }, [portalResultsRaw])
 
   // Auto-select most recent term
   useEffect(() => {
@@ -327,6 +354,40 @@ export default function StudentAcademicsPage() {
 
             <motion.div variants={fadeUp(0.23)}>
               <MonitoringReportPanel endpoint="/api/student-portal/monitoring" title="My Academic Monitoring" />
+            </motion.div>
+
+            <motion.div variants={fadeUp(0.24)} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+                <div className="p-2 bg-violet-50 rounded-xl"><ClipboardList className="w-4 h-4 text-violet-700" /></div>
+                <div>
+                  <p className="font-black text-gray-900 text-sm">Assignments & Task Marks</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Marks saved or declared by teachers appear here for students and guardians.</p>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {taskResults.length === 0 ? (
+                  <p className="px-5 py-5 text-sm text-gray-500">No assignment or task marks have been published yet.</p>
+                ) : taskResults.map((task) => (
+                  <div key={task.id} className="px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-gray-900 truncate">{task.title}</p>
+                      <p className="text-[11px] font-medium text-gray-500">
+                        {task.subjectName} · {task.classLabel}{task.shiftName ? <> · {task.shiftName}</> : null}{task.dueDate ? <> · Due {new Date(task.dueDate).toLocaleDateString('en-PK')}</> : null}
+                      </p>
+                      {task.remarks && <p className="mt-1 text-xs text-gray-600">Remarks: {task.remarks}</p>}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-gray-400">Obtained</p>
+                        <p className="text-sm font-black text-gray-900">{task.obtainedMarks}/{task.maxMarks}</p>
+                      </div>
+                      <div className={task.percentage >= 60 ? 'px-3 py-1.5 rounded-xl border text-sm font-black bg-emerald-50 text-emerald-700 border-emerald-200' : 'px-3 py-1.5 rounded-xl border text-sm font-black bg-rose-50 text-rose-700 border-rose-200'}>
+                        {task.percentage.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
             {/* ─── Term Selector ────────────────────────────────── */}

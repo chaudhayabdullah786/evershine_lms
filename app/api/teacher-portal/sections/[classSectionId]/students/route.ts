@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export async function GET(
   _req: NextRequest,
@@ -19,6 +20,15 @@ export async function GET(
     if (session.user.role !== 'TEACHER') return errors.forbidden()
 
     const { classSectionId } = await params
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    if (!teacher) return errors.notFound('Teacher profile not found')
+
+    const canAccess = await teacherCanAccessClassSection(teacher.id, classSectionId)
+    if (!canAccess) return errors.forbidden('You are not assigned to this class section')
 
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
@@ -35,6 +45,7 @@ export async function GET(
           },
         },
       },
+      orderBy: [{ rollNumber: 'asc' }, { student: { firstName: 'asc' } }],
     })
 
     const studentsList = enrollments.map((e) => ({

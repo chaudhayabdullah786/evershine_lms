@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { findLegacyClassForSection, findOrCreateLegacySubject } from '@/lib/teacher-access'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { sessionShiftSchema, type SessionShift } from '@/lib/validation/shift'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -107,7 +108,7 @@ export async function GET(request: NextRequest) {
 
   const where = {
     teacherId: teacher.id,
-    ...(classId && { classId }),
+    ...(classId ? { OR: [{ classId }, { classSectionId: classId }] } : {}),
     ...(subjectId && { subjectId }),
   }
 
@@ -120,6 +121,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         class: { select: { name: true, section: true } },
+        classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
         subject: { select: { name: true, code: true } }
       }
     }),
@@ -166,6 +168,9 @@ export async function POST(request: NextRequest) {
         .toUpperCase()
         .replace(/\s+/g, '')
         .replace(/SHIFT$/, '')
+      const legacyShift: SessionShift = sessionShiftSchema.safeParse(shiftCode).success
+        ? (shiftCode as SessionShift)
+        : 'MORNING'
 
       const legacyClass = await findLegacyClassForSection({
         grade: section.grade,
@@ -189,7 +194,7 @@ export async function POST(request: NextRequest) {
               section: section.sectionName ?? '',
               campusId: section.campusId,
               academicYear: academicYearName,
-              shift: shiftCode as any,
+              shift: legacyShift,
             }
           },
           update: {},
@@ -200,7 +205,7 @@ export async function POST(request: NextRequest) {
             campusId: section.campusId,
             batchId: section.batchId,
             academicYear: academicYearName,
-            shift: shiftCode as any,
+            shift: legacyShift,
             isActive: true,
           },
           select: { id: true }
@@ -246,12 +251,14 @@ export async function POST(request: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : null,
       maxMarks,
       classId: resolvedClassId,
+      classSectionId: resolvedClassSectionId,
       subjectId: resolvedSubjectId,
       teacherId: teacher.id,
     },
     include: {
       class: { select: { name: true, section: true } },
-      subject: { select: { name: true } }
+      classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+      subject: { select: { name: true, code: true } }
     }
   })
 

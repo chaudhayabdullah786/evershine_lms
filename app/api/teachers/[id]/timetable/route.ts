@@ -26,7 +26,6 @@ import { errors, successResponse } from '@/lib/api-response'
 import { timetableQuerySchema } from '@/lib/validation/teacher'
 import type { Role } from '@prisma/client'
 
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -137,12 +136,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }))
   }
 
-  // Return new engine results if we have any
-  if (newEngineSlots.length > 0) {
-    return successResponse(newEngineSlots)
-  }
-
-  // ── Attempt 2: Legacy Timetable model (fallback) ──────────────────────────
+  // ── Attempt 2: Legacy Timetable model ────────────────────────────────────
   //
   // WHY: The admin may have built the timetable using the legacy /api/timetable
   // route (which writes to the `Timetable` model with a direct `shift` enum
@@ -188,7 +182,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     source: 'legacy' as const,
   }))
 
-  return successResponse(normalizedLegacy)
+  const combined = [...newEngineSlots, ...normalizedLegacy]
+  const deduped = Array.from(
+    new Map(combined.map((slot) => [
+      [slot.dayOfWeek, slot.startTime, slot.endTime, slot.subjectName, slot.className, slot.sectionName, slot.shift].join('|'),
+      slot,
+    ])).values(),
+  ).sort((left, right) => left.dayOfWeek - right.dayOfWeek || left.startTime.localeCompare(right.startTime))
+
+  return successResponse(deduped)
 }
 
 // ── Shared normalised slot shape ───────────────────────────────────────────────

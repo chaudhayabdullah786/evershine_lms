@@ -4,12 +4,12 @@
  * Returns class sections assigned to the teacher.
  */
 
-import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
+import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
     if (!session?.user) return errors.unauthorized()
@@ -21,18 +21,22 @@ export async function GET(req: NextRequest) {
     })
     if (!teacher) return successResponse([])
 
+    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id)
+    if (allowedSectionIds.length === 0) return successResponse([])
+
     const sections = await prisma.classSection.findMany({
       where: {
+        id: { in: allowedSectionIds },
         isActive: true,
-        subjectOfferings: {
-          some: { teacherId: teacher.id }
-        }
       },
       select: {
         id: true,
         className: true,
         sectionName: true,
-      }
+        shift: { select: { code: true, name: true } },
+        batch: { select: { name: true } },
+      },
+      orderBy: [{ grade: 'asc' }, { sectionName: 'asc' }],
     })
 
     return successResponse(sections)

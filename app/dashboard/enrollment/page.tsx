@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { AccessDenied } from '@/components/AccessDenied'
 import { notify } from '@/lib/notify'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BookOpen, Calendar, CheckCircle2, Clock, Loader2, ClipboardCheck, BarChart2, Download, Target, TrendingUp, ArrowUpRight } from 'lucide-react'
+import { BookOpen, Calendar, CheckCircle2, Clock, Loader2, ClipboardCheck, BarChart2, Download, Target, TrendingUp, ArrowUpRight, Star, AlertTriangle, Trophy, Award, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState as useLocalState } from 'react'
 import { downloadReportCardForEnrollment } from '@/lib/academic/download-report-card'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 
@@ -28,10 +29,46 @@ type AttendanceData = {
   records: Array<{ id: string; attendanceDate: string; status: string; remarks?: string | null }>
 }
 
+type DeclaredSubject = {
+  subjectId: string
+  subjectName: string
+  subjectCode: string
+  totalMarks: number
+  obtainedMarks: number
+  percentage: number
+  grade: string
+  resultStatus: string
+  isPassed: boolean
+  isAbsent: boolean
+  isNotApplicable: boolean
+  remarks: string | null
+  performanceBatch: string | null
+}
+
+type DeclaredResult = {
+  termResultId: string
+  examSessionId: string
+  examSessionLabel: string
+  sectionLabel: string
+  shiftName: string | null
+  overallPercentage: number
+  grade: string
+  classPosition: number | null
+  performanceBatch: string
+  teacherRemarks: string | null
+  declaredAt: string | null
+  subjects: DeclaredSubject[]
+}
+
 type ResultsData = {
   academicYear: { name: string } | null
   overallPercentage: number | null
   overallGrade: string | null
+  latestExamSession: string | null
+  latestPerformanceBatch: string | null
+  latestClassPosition: number | null
+  latestTeacherRemarks: string | null
+  declaredResults: DeclaredResult[]
   results: Array<{
     subjectName: string
     subjectCode: string
@@ -149,6 +186,361 @@ const statusBadge: Record<string, string> = {
 
 const PORTAL_TABS = ['courses', 'attendance', 'results', 'targets'] as const
 type PortalTab = (typeof PORTAL_TABS)[number]
+
+// ── Monitoring Component ──────────────────────────────────────────────────────
+function MonitoringCard({ results }: { results: ResultsData | undefined }) {
+  return (
+    <Card className="border border-slate-200 shadow-sm">
+      <CardHeader className="bg-slate-50/50 border-b pb-4">
+        <div className="flex items-center gap-2">
+          <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+          <div>
+            <CardTitle className="text-base font-bold text-slate-900">Academic & Behavior Monitoring</CardTitle>
+            <CardDescription className="text-xs text-slate-500 mt-0.5">
+              Real-time daily feedback and declared monthly monitoring reports.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6 pt-6">
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-indigo-600" />
+            Recent Daily Monitoring
+          </h3>
+          {(results?.monitoringReports?.daily ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500 bg-slate-50 border border-dashed rounded-lg p-6 text-center">
+              No daily performance records found for this period.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+              <table className="w-full min-w-[650px] text-sm">
+                <thead className="bg-slate-50/70 border-b text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <tr>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">Course</th>
+                    <th className="p-3.5">Grade</th>
+                    <th className="p-3.5 text-center">Status highlight</th>
+                    <th className="p-3.5">Teacher remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(results?.monitoringReports?.daily ?? []).map((entry, index) => {
+                    const isStar = entry.highlight === 'STAR_OF_THE_DAY'
+                    const isConcern = entry.highlight === 'POOR'
+                    return (
+                      <tr
+                        key={`${entry.date}-${entry.courseName}-${index}`}
+                        className={`hover:bg-slate-50/50 transition-colors ${
+                          isStar ? 'bg-amber-50/30' : isConcern ? 'bg-rose-50/20' : ''
+                        }`}
+                      >
+                        <td className="p-3.5 font-medium text-slate-600">
+                          {new Date(entry.date).toLocaleDateString('en-PK', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-900">{entry.courseName}</td>
+                        <td className="p-3.5">
+                          <span className="inline-flex items-center justify-center font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
+                            {entry.grade ?? '—'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          {isStar && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200">
+                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Star of the Day
+                            </span>
+                          )}
+                          {isConcern && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800 border border-rose-200">
+                              <AlertTriangle className="h-3 w-3 text-rose-500" /> Needs Improvement
+                            </span>
+                          )}
+                          {!isStar && !isConcern && <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="p-3.5 text-slate-600 max-w-xs truncate">{entry.remarks || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-600" />
+            Declared Monthly Performance Sheets
+          </h3>
+          {(results?.monitoringReports?.monthly ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500 bg-slate-50 border border-dashed rounded-lg p-6 text-center">
+              No academic monthly sheets declared yet for this session.
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {(results?.monitoringReports?.monthly ?? []).map((report) => (
+                <div
+                  key={report.id}
+                  className="rounded-xl border border-slate-200 p-4 bg-white hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between border-b pb-3 mb-3">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {new Date(report.year, report.month - 1, 1).toLocaleString('en', {
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Declared: {report.declaredAt ? new Date(report.declaredAt).toLocaleDateString('en-PK') : '—'}
+                      </p>
+                    </div>
+                    <Badge className="bg-indigo-100 hover:bg-indigo-100 text-indigo-800 font-bold border border-indigo-200">
+                      {report.student.performanceBatch} · Rank {report.student.rank}
+                    </Badge>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <span className="text-2xl font-black text-indigo-600">
+                      {report.student.obtainedMarks}
+                    </span>
+                    <span className="text-slate-400 text-sm">/ {report.student.totalMarks} marks</span>
+                    <span className="ml-auto text-sm font-bold text-slate-800">
+                      {report.student.percentage.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="grid gap-2 text-xs">
+                    {report.columns.map((column) => {
+                      if (column.type === 'COURSE') {
+                        const marks = report.student.courseMarks[column.id]
+                        return (
+                          <div
+                            key={column.id}
+                            className="flex justify-between items-center rounded-lg bg-slate-50/70 p-2 border border-slate-100"
+                          >
+                            <span className="font-semibold text-slate-700">{column.label}</span>
+                            <span className="font-bold text-slate-800">
+                              {marks?.obtainedMarks ?? 0} / {marks?.totalMarks ?? 0}
+                            </span>
+                          </div>
+                        )
+                      } else {
+                        const value = report.student.customValues[column.id]
+                        if (!value) return null
+                        return (
+                          <div
+                            key={column.id}
+                            className="flex justify-between items-center rounded-lg bg-slate-50/70 p-2 border border-slate-100"
+                          >
+                            <span className="font-semibold text-slate-700">{column.label}</span>
+                            <span className="font-bold text-slate-800">{value}</span>
+                          </div>
+                        )
+                      }
+                    })}
+                  </div>
+                  {report.student.remarks && (
+                    <div className="mt-3 bg-slate-50 p-2.5 rounded-lg border text-xs text-slate-600">
+                      <p className="font-bold text-slate-700 mb-0.5">Instructor Remarks:</p>
+                      {report.student.remarks}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+    )
+  }
+
+// ── Results Tab Component ─────────────────────────────────────────────────────
+function ResultsTabContent({
+  results,
+  enrollmentId,
+  downloadingCard,
+  setDownloadingCard,
+}: {
+  results: ResultsData | undefined
+  enrollmentId: string | undefined
+  downloadingCard: boolean
+  setDownloadingCard: (val: boolean) => void
+}) {
+  const [expandedSession, setExpandedSession] = useLocalState<string | null>(null)
+
+  const hasDeclared = (results?.declaredResults ?? []).length > 0
+
+  return (
+    <Card className="border border-slate-200 shadow-sm">
+      <CardHeader className="bg-slate-50/50 border-b pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-purple-600" />
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900">Declared Exam Results</CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                Official marks sheets published and verified by the administration.
+              </CardDescription>
+            </div>
+          </div>
+          {enrollmentId && hasDeclared && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50 shadow-sm font-semibold text-xs h-9"
+              disabled={downloadingCard}
+              onClick={async () => {
+                setDownloadingCard(true)
+                try {
+                  await downloadReportCardForEnrollment(enrollmentId)
+                  notify.success('Official report card downloaded successfully.')
+                } catch (e) {
+                  notify.error(e instanceof Error ? e.message : 'Failed to download report card.')
+                } finally {
+                  setDownloadingCard(false)
+                }
+              }}
+            >
+              {downloadingCard ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              Download Report Card (PDF)
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-6">
+        {!hasDeclared ? (
+          <div className="text-center py-12">
+            <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              Your results for this session have not been declared yet. Results appear immediately after the administration declared them.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(results?.declaredResults ?? []).map((sessionResult) => {
+              const isExpanded = expandedSession === sessionResult.examSessionId
+              const batchColorClass =
+                sessionResult.performanceBatch === 'Ever Shine'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : sessionResult.performanceBatch === 'Quaid'
+                  ? 'bg-blue-100 text-blue-800 border-blue-200'
+                  : sessionResult.performanceBatch === 'Iqbal'
+                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                  : 'bg-rose-100 text-rose-800 border-rose-200'
+
+              return (
+                <div
+                  key={sessionResult.examSessionId}
+                  className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm"
+                >
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50/40 cursor-pointer hover:bg-slate-50/80 transition-colors border-b"
+                    onClick={() => setExpandedSession(isExpanded ? null : sessionResult.examSessionId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Award className="w-5 h-5 text-purple-600" />
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                          {sessionResult.examSessionLabel}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Section: {sessionResult.sectionLabel} {sessionResult.shiftName ? `(${sessionResult.shiftName})` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-lg font-black text-slate-900">
+                          {sessionResult.overallPercentage.toFixed(1)}%
+                        </span>
+                        <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                          <Badge className={`${batchColorClass} text-[10px] font-bold py-0`}>
+                            {sessionResult.performanceBatch} Group
+                          </Badge>
+                          {sessionResult.classPosition !== null && (
+                            <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
+                              Rank {sessionResult.classPosition}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-slate-400" />
+                      )}
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="p-4 space-y-4 bg-white">
+                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                        {sessionResult.subjects.map((sub) => {
+                          const statusColor = sub.isPassed
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-rose-100 text-rose-800'
+                          return (
+                            <div
+                              key={sub.subjectId}
+                              className="border border-slate-100 hover:border-slate-200 rounded-xl p-3.5 bg-slate-50/20 flex flex-col justify-between"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-bold text-slate-900 text-sm">{sub.subjectName}</p>
+                                  <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">
+                                    {sub.subjectCode}
+                                  </p>
+                                </div>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
+                                  {sub.grade}
+                                </span>
+                              </div>
+                              <div className="flex items-baseline justify-between mt-4">
+                                <span className="text-base font-black text-slate-800">
+                                  {sub.obtainedMarks} <span className="text-slate-400 text-xs font-normal">/ {sub.totalMarks}</span>
+                                </span>
+                                <span className="text-xs font-bold text-indigo-600">
+                                  {sub.percentage.toFixed(1)}%
+                                </span>
+                              </div>
+                              {sub.remarks && (
+                                <p className="mt-2 text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded border border-slate-100">
+                                  {sub.remarks}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {sessionResult.teacherRemarks && (
+                        <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-4 text-sm text-purple-900">
+                          <p className="font-bold text-purple-950 flex items-center gap-1.5 mb-1">
+                            <GraduationCap className="h-4 w-4" /> Head Teacher Remarks
+                          </p>
+                          <p className="text-purple-800">{sessionResult.teacherRemarks}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+    )
+  }
 
 function StudentEnrollmentPageInner() {
   const { data: session, status } = useSession()
@@ -526,153 +918,16 @@ function StudentEnrollmentPageInner() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-indigo-600" />
-                Monitoring Reports
-              </CardTitle>
-              <CardDescription>
-                Daily feedback appears as soon as your teacher saves it. Monthly reports appear after declaration.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-slate-800">Recent daily monitoring</h3>
-                {(results?.monitoringReports?.daily ?? []).length === 0 ? (
-                  <p className="text-sm text-gray-500">No daily monitoring entries yet.</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full min-w-[650px] text-sm">
-                      <thead className="bg-slate-50 text-left text-xs text-slate-600">
-                        <tr><th className="p-3">Date</th><th className="p-3">Course</th><th className="p-3">Grade</th><th className="p-3">Highlight</th><th className="p-3">Remarks</th></tr>
-                      </thead>
-                      <tbody>
-                        {(results?.monitoringReports?.daily ?? []).map((entry, index) => (
-                          <tr key={`${entry.date}-${entry.courseName}-${index}`} className="border-t">
-                            <td className="p-3">{new Date(entry.date).toLocaleDateString('en-PK')}</td>
-                            <td className="p-3 font-medium">{entry.courseName}</td>
-                            <td className="p-3">{entry.grade ?? '—'}</td>
-                            <td className="p-3">{entry.highlight === 'STAR_OF_THE_DAY' ? 'Star of the Day' : entry.highlight === 'POOR' ? 'Poor' : '—'}</td>
-                            <td className="p-3 text-slate-600">{entry.remarks || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-slate-800">Declared monthly monitoring</h3>
-                {(results?.monitoringReports?.monthly ?? []).length === 0 ? (
-                  <p className="text-sm text-gray-500">No monthly monitoring report has been declared yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {(results?.monitoringReports?.monthly ?? []).map((report) => (
-                      <div key={report.id} className="rounded-lg border p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{new Date(report.year, report.month - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' })}</p>
-                            <p className="text-xs text-slate-500">Declared {report.declaredAt ? new Date(report.declaredAt).toLocaleDateString('en-PK') : '—'}</p>
-                          </div>
-                          <Badge className="bg-indigo-100 text-indigo-800">{report.student.performanceBatch} · Rank {report.student.rank}</Badge>
-                        </div>
-                        <p className="mt-3 text-lg font-bold text-slate-900">{report.student.obtainedMarks}/{report.student.totalMarks} · {report.student.percentage.toFixed(2)}%</p>
-                        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                          {report.columns.map((column) => column.type === 'COURSE' ? (
-                            <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.courseMarks[column.id]?.obtainedMarks ?? 0}/{report.student.courseMarks[column.id]?.totalMarks ?? 0}</p>
-                          ) : report.student.customValues[column.id] ? (
-                            <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.customValues[column.id]}</p>
-                          ) : null)}
-                        </div>
-                        {report.student.remarks && <p className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-800">Teacher remarks:</span> {report.student.remarks}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <MonitoringCard results={results} />
         </TabsContent>
 
         <TabsContent value="results" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart2 className="w-5 h-5 text-purple-600" />
-                Published Results
-              </CardTitle>
-              <CardDescription>
-                Only subjects with published grading schemes appear here.
-              </CardDescription>
-              {data?.enrollment?.id && (results?.results ?? []).length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 w-fit"
-                  disabled={downloadingCard}
-                  onClick={async () => {
-                    setDownloadingCard(true)
-                    try {
-                      await downloadReportCardForEnrollment(data.enrollment!.id)
-                      notify.success('Report card downloaded')
-                    } catch (e) {
-                      notify.error(e instanceof Error ? e.message : 'Download failed')
-                    } finally {
-                      setDownloadingCard(false)
-                    }
-                  }}
-                >
-                  {downloadingCard ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Download report card (PDF)
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {results?.overallPercentage != null && (
-                <div className="rounded-lg bg-purple-50 border border-purple-100 p-4 flex justify-between items-center">
-                  <span className="font-medium text-purple-900">Overall average</span>
-                  <span className="text-xl font-bold text-purple-700">
-                    {results.overallPercentage}% · {results.overallGrade}
-                  </span>
-                </div>
-              )}
-              {(results?.results ?? []).length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No published results yet. Results appear after teachers enter marks and administration publishes grading schemes.
-                </p>
-              ) : (
-                results?.results.map((r) => (
-                  <div key={r.subjectCode} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-semibold">{r.subjectName}</p>
-                        <p className="text-xs text-gray-500">{r.schemeName}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold">{r.percentage}%</p>
-                        <Badge className={r.isPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {r.grade} · {r.isPassed ? 'Pass' : 'Fail'}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-1 text-xs text-gray-600">
-                      {r.breakdown.map((b) => (
-                        <div key={b.component}>
-                          {b.component} ({b.weight}%): {b.obtained}/{b.maxMarks}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          <ResultsTabContent
+            results={results}
+            enrollmentId={data?.enrollment?.id}
+            downloadingCard={downloadingCard}
+            setDownloadingCard={setDownloadingCard}
+          />
         </TabsContent>
 
         <TabsContent value="targets" className="mt-4 space-y-4">
