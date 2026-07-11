@@ -2915,8 +2915,8 @@
     "semantic_hash": ""
   },
   "tests/academic/upgrades.test.ts": {
-    "mtime": 1783449568.0118885,
-    "ast_hash": "b1bc0775ac09f7f233e39e32b6d979bd",
+    "mtime": 1783776999.4813337,
+    "ast_hash": "eb562b3db62f43023a8eed762b514a00",
     "semantic_hash": ""
   },
   "tests/accountant-profit-loss.test.ts": {
