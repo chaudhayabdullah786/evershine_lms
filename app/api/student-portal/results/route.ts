@@ -69,7 +69,7 @@ export async function GET() {
   })
 
   // ── Monitoring reports (daily 90-day window + declared monthly) ──────────
-  const [dailyMonitoring, monthlyMonitoring] = await Promise.all([
+  const [dailyMonitoring, monthlyMonitoring, taskResults] = await Promise.all([
     classSectionIds.length > 0 && activeYear
       ? prisma.dailyPerformanceScore.findMany({
           where: {
@@ -100,6 +100,20 @@ export async function GET() {
           take: 12,
         })
       : Promise.resolve([]),
+    prisma.taskResult.findMany({
+      where: { studentId: student.id },
+      include: {
+        task: {
+          include: {
+            class: { select: { name: true, section: true } },
+            classSection: { select: { className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+            subject: { select: { name: true, code: true } },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    }),
   ])
 
   const monitoringReports = {
@@ -204,5 +218,23 @@ export async function GET() {
     latestClassPosition: latest?.classPosition ?? null,
     latestTeacherRemarks: latest?.teacherRemarks ?? null,
     monitoringReports,
+    taskResults: taskResults.map((record) => ({
+      id: record.id,
+      taskId: record.taskId,
+      title: record.task.title,
+      type: record.task.type,
+      dueDate: record.task.dueDate,
+      maxMarks: record.task.maxMarks,
+      obtainedMarks: Number(record.obtainedMarks),
+      percentage: record.task.maxMarks > 0 ? Math.round((Number(record.obtainedMarks) / record.task.maxMarks) * 10000) / 100 : 0,
+      remarks: record.remarks,
+      subjectName: record.task.subject.name,
+      subjectCode: record.task.subject.code,
+      classLabel: record.task.classSection
+        ? `${record.task.classSection.className}-${record.task.classSection.sectionName}`
+        : `${record.task.class.name}${record.task.class.section ? `-${record.task.class.section}` : ''}`,
+      shiftName: record.task.classSection?.shift?.name ?? null,
+      updatedAt: record.updatedAt,
+    })),
   })
 }

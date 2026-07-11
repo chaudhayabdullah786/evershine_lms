@@ -52,6 +52,22 @@ type ChildAcademic = {
     records: Array<{ attendanceDate: string; status: string }>
   }
   results: Array<{ subjectName: string; percentage: number; grade: string; isPassed: boolean }>
+  taskResults: Array<{
+    id: string
+    taskId: string
+    title: string
+    type: string
+    dueDate: string | null
+    maxMarks: number
+    obtainedMarks: number
+    percentage: number
+    remarks: string | null
+    subjectName: string
+    subjectCode: string | null
+    classLabel: string
+    shiftName: string | null
+    updatedAt: string
+  }>
   overallPercentage: number | null
   timetable: Array<{
     dayOfWeek: number
@@ -381,6 +397,35 @@ export default function MyChildrenPage() {
                         </div>
                       ))
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ClipboardCheck className="w-5 h-5 text-violet-600" />
+                      Assignments & Task Marks
+                    </CardTitle>
+                    <CardDescription>Saved task marks for this child, including obtained marks, total marks, percentage, and teacher remarks.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {academic.taskResults.length === 0 ? (
+                      <p className="text-sm text-gray-500">No assignment or task marks have been published yet.</p>
+                    ) : academic.taskResults.map((task) => (
+                      <div key={task.id} className="flex flex-col gap-2 rounded border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-slate-900">{task.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {task.subjectName} · {task.classLabel}{task.shiftName ? <> · {task.shiftName}</> : null}{task.dueDate ? <> · Due {new Date(task.dueDate).toLocaleDateString('en-PK')}</> : null}
+                          </p>
+                          {task.remarks && <p className="mt-1 text-xs text-slate-600">Remarks: {task.remarks}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 sm:justify-end">
+                          <span className="font-semibold text-slate-900">{task.obtainedMarks}/{task.maxMarks}</span>
+                          <Badge variant={task.percentage >= 60 ? 'default' : 'destructive'}>{task.percentage.toFixed(1)}%</Badge>
+                        </div>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
 

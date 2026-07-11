@@ -10,7 +10,7 @@ export async function GET() {
   if (!session?.user) return errors.unauthorized()
   if (!['STUDENT', 'SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) return errors.forbidden()
 
-  let student = await prisma.student.findUnique({
+  const student = await prisma.student.findUnique({
     where: { userId: session.user.id },
     include: {
       campus: { select: { id: true, name: true } },
@@ -94,7 +94,9 @@ export async function GET() {
       })
     : []
 
-  const timetable = timetablesByEnrollment[0]?.slots ?? []
+  // Backward-compatible flat field used by older timetable widgets.
+  // Include every active enrollment so multi-shift students do not lose non-primary shift slots.
+  const timetable = timetablesByEnrollment.flatMap((record) => record.slots)
 
   return successResponse({
     student: {

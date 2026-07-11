@@ -353,10 +353,10 @@ function MonitoringCard({ results }: { results: ResultsData | undefined }) {
             </div>
           )}
         </div>
-      </Card>
+      </CardContent>
+    </Card>
     )
   }
-}
 
 // ── Results Tab Component ─────────────────────────────────────────────────────
 function ResultsTabContent({
@@ -537,10 +537,10 @@ function ResultsTabContent({
             })}
           </div>
         )}
-      </Card>
+      </CardContent>
+    </Card>
     )
   }
-}
 
 function StudentEnrollmentPageInner() {
   const { data: session, status } = useSession()

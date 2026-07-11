@@ -1420,19 +1420,22 @@ model ClassTask {
   description String?
   type        TaskType
   dueDate     DateTime?
-  maxMarks    Int       @default(100)
-  classId     String
-  subjectId   String
+  maxMarks       Int     @default(100)
+  classId        String
+  classSectionId String?
+  subjectId      String
   teacherId   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  class   Class        @relation(fields: [classId], references: [id])
-  subject Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher Teacher      @relation(fields: [teacherId], references: [id])
-  results TaskResult[]
+  class        Class         @relation(fields: [classId], references: [id])
+  classSection ClassSection? @relation(fields: [classSectionId], references: [id], onDelete: SetNull)
+  subject      Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher      Teacher       @relation(fields: [teacherId], references: [id])
+  results      TaskResult[]
 
   @@index([classId])
+  @@index([classSectionId])
   @@index([subjectId])
   @@index([teacherId])
 }
@@ -1672,6 +1675,7 @@ model ClassSection {
   examDateSheets           ExamDateSheet[]
   termResults              TermResult[]
   monthlyMonitoringReports MonthlyMonitoringReport[]
+  tasks                    ClassTask[]
 
   @@unique([campusId, batchId, shiftId, className, sectionName])
   @@index([campusId])

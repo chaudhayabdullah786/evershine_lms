@@ -93,12 +93,14 @@ describe('POST /api/teacher-portal/tasks', () => {
     expect(mockPrisma.classTask.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         classId: 'legacy-class-1',
+        classSectionId: 'section-1',
         subjectId: 'legacy-subject-1',
         teacherId: 'teacher-1',
       }),
       include: {
         class: { select: { name: true, section: true } },
-        subject: { select: { name: true } },
+        classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+        subject: { select: { name: true, code: true } },
       },
     })
   })

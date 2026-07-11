@@ -52,7 +52,7 @@ export async function GET(
 
   const enrollment = enrollments[0] ?? null
 
-  const [dailyMonitoring, declaredMonthly] = enrollments.length && activeYear
+  const [dailyMonitoring, declaredMonthly, taskResults] = enrollments.length && activeYear
     ? await Promise.all([
         prisma.dailyPerformanceScore.findMany({
           where: {
@@ -76,8 +76,22 @@ export async function GET(
           orderBy: [{ year: 'desc' }, { month: 'desc' }],
           take: 12,
         }),
+        prisma.taskResult.findMany({
+          where: { studentId },
+          include: {
+            task: {
+              include: {
+                class: { select: { name: true, section: true } },
+                classSection: { select: { className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+                subject: { select: { name: true, code: true } },
+              },
+            },
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: 100,
+        }),
       ])
-    : [[], []]
+    : [[], [], []]
 
   const attendanceRecords = enrollments.length
     ? await prisma.enrollmentAttendanceRecord.findMany({
@@ -185,6 +199,24 @@ export async function GET(
     enrollment,
     attendance: { records: attendanceRecords, summary: { ...attSummary, attendancePct } },
     results,
+    taskResults: taskResults.map((record) => ({
+      id: record.id,
+      taskId: record.taskId,
+      title: record.task.title,
+      type: record.task.type,
+      dueDate: record.task.dueDate,
+      maxMarks: record.task.maxMarks,
+      obtainedMarks: Number(record.obtainedMarks),
+      percentage: record.task.maxMarks > 0 ? Math.round((Number(record.obtainedMarks) / record.task.maxMarks) * 10000) / 100 : 0,
+      remarks: record.remarks,
+      subjectName: record.task.subject.name,
+      subjectCode: record.task.subject.code,
+      classLabel: record.task.classSection
+        ? `${record.task.classSection.className}-${record.task.classSection.sectionName}`
+        : `${record.task.class.name}${record.task.class.section ? `-${record.task.class.section}` : ''}`,
+      shiftName: record.task.classSection?.shift?.name ?? null,
+      updatedAt: record.updatedAt,
+    })),
     overallPercentage:
       results.length > 0
         ? Math.round((results.reduce((s, r) => s + r.percentage, 0) / results.length) * 100) / 100
