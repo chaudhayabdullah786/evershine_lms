@@ -28,6 +28,7 @@ type StudentRow = {
   obtainedMarks: number
   percentage: number
   performanceBatch: string
+  performanceBatchOverride?: string
   rank: number
 }
 type Report = {
@@ -47,11 +48,13 @@ const MONTHS = Array.from({ length: 12 }, (_, index) => ({
 function reportSignature(report: Report): string {
   return JSON.stringify({
     columns: report.columns,
-    students: report.students.map(({ studentId, courseMarks, customValues, remarks }) => ({
+    students: report.students.map(({ studentId, courseMarks, customValues, remarks, performanceBatch, performanceBatchOverride }) => ({
       studentId,
       courseMarks,
       customValues,
       remarks,
+      performanceBatch,
+      performanceBatchOverride,
     })),
   })
 }
@@ -70,7 +73,7 @@ function recalculateReport(report: Report): Report {
       totalMarks,
       obtainedMarks,
       percentage,
-      performanceBatch: derivePerformanceBatch(percentage),
+      performanceBatch: student.performanceBatchOverride || student.performanceBatch || derivePerformanceBatch(percentage),
       rank: 0,
     }
   })
@@ -149,11 +152,13 @@ export default function MonthlyMonitoringPage() {
         academicYearId,
         reportData: {
           columns: calculatedDraft.columns,
-          students: calculatedDraft.students.map(({ studentId, courseMarks, customValues, remarks }) => ({
+          students: calculatedDraft.students.map(({ studentId, courseMarks, customValues, remarks, performanceBatch, performanceBatchOverride }) => ({
             studentId,
             courseMarks,
             customValues,
             remarks,
+            performanceBatch,
+            performanceBatchOverride,
           })),
         },
       }),
@@ -249,6 +254,15 @@ export default function MonthlyMonitoringPage() {
     updateDraft((current) => ({
       ...current,
       students: current.students.map((student) => student.studentId === studentId ? { ...student, remarks } : student),
+    }))
+  }
+
+  const updatePerformanceBatchOverride = (studentId: string, performanceBatchOverride: string) => {
+    updateDraft((current) => ({
+      ...current,
+      students: current.students.map((student) => student.studentId === studentId
+        ? { ...student, performanceBatchOverride, performanceBatch: performanceBatchOverride }
+        : student),
     }))
   }
 
@@ -366,7 +380,25 @@ export default function MonthlyMonitoringPage() {
                           ) : <Input aria-label={`${student.name} ${column.label}`} disabled={calculatedDraft.declarationStatus === 'DECLARED'} value={student.customValues[column.id] ?? ''} onChange={(event) => updateCustomValue(student.studentId, column.id, event.target.value)} />}
                         </TableCell>
                       })}
-                      <TableCell>{student.totalMarks}</TableCell><TableCell>{student.obtainedMarks}</TableCell><TableCell className="font-semibold">{student.percentage.toFixed(2)}%</TableCell><TableCell><span className="rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-800">{student.performanceBatch}</span></TableCell><TableCell>{student.rank}</TableCell>
+                      <TableCell>{student.totalMarks}</TableCell><TableCell>{student.obtainedMarks}</TableCell><TableCell className="font-semibold">{student.percentage.toFixed(2)}%</TableCell>
+                      <TableCell>
+                        <Select
+                          disabled={calculatedDraft.declarationStatus === 'DECLARED'}
+                          value={student.performanceBatch}
+                          onValueChange={(val) => updatePerformanceBatchOverride(student.studentId, val)}
+                        >
+                          <SelectTrigger className="w-[170px] h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Ever Shine Group">Ever Shine Group</SelectItem>
+                            <SelectItem value="Quaid Group">Quaid Group</SelectItem>
+                            <SelectItem value="Iqbal Group">Iqbal Group</SelectItem>
+                            <SelectItem value="Improvement Group">Improvement Group</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{student.rank}</TableCell>
                       <TableCell><Input aria-label={`${student.name} remarks`} disabled={calculatedDraft.declarationStatus === 'DECLARED'} value={student.remarks} onChange={(event) => updateRemarks(student.studentId, event.target.value)} placeholder="Teacher remarks" /></TableCell>
                     </TableRow>
                   ))}

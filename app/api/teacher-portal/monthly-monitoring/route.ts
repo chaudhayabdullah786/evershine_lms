@@ -43,6 +43,7 @@ const monthlyStudentSchema = z.object({
   })).default({}),
   customValues: z.record(z.string(), z.string().max(500)).default({}),
   remarks: z.string().max(1000).default(''),
+  performanceBatch: z.string().optional(),
 })
 
 const monthlyDataSchema = z.object({
@@ -102,7 +103,7 @@ function calculateMonthlySnapshot(input: unknown, enrollments: Array<{ studentId
       totalMarks,
       obtainedMarks,
       percentage,
-      performanceBatch: derivePerformanceBatch(percentage),
+      performanceBatch: entry.performanceBatch || derivePerformanceBatch(percentage),
       rank: 0,
     }
   })

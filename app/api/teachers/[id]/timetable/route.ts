@@ -101,7 +101,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         academicYearId: activeYear.id,
         isPublished: true,
         ...(dayOfWeek !== undefined && { dayOfWeek: dayOfWeek + 1 }), // Schema: 1=Mon
-        ...(shift && { classSection: { shift: { code: shift } } }),
       },
       include: {
         classSection: {
@@ -153,7 +152,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     teacherId: id,
     isActive: true,
     ...(dayOfWeek !== undefined && { dayOfWeek }),
-    ...(shift && { shift }),
   }
 
   const legacySlots = await prisma.timetable.findMany({
