@@ -57,7 +57,8 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
-  const [profilePictureUrl, setProfilePictureUrl] = useState('')
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [profileImagePreview, setProfileImagePreview] = useState('')
   const [identitySaving, setIdentitySaving] = useState(false)
   const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
   const [identityNotice, setIdentityNotice] = useState<string | null>(null)
@@ -158,11 +159,33 @@ export default function SettingsPage() {
     setIdentityNotice(null)
     try {
       if (canManageIdentity) {
-        await fetchApi('/api/profile/me', {
+        const formData = new FormData()
+        if (displayName.trim()) {
+          formData.append('displayName', displayName.trim())
+        }
+        if (profileImageFile) {
+          formData.append('profileImage', profileImageFile)
+        }
+
+        const response = await fetch('/api/profile/me', {
           method: 'PATCH',
-          body: JSON.stringify({ displayName: displayName.trim() || undefined, profilePictureUrl: profilePictureUrl.trim() || null }),
+          body: formData,
         })
-        notify.success('Profile identity updated successfully')
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to update profile')
+        }
+
+        const result = await response.json()
+        if (result.success) {
+          notify.success('Profile updated successfully')
+          setProfileImageFile(null)
+          setProfileImagePreview('')
+          setDisplayName('')
+        } else {
+          throw new Error(result.error || 'Update failed')
+        }
       }
     } catch (err: any) {
       setIdentityNotice(err.message || 'Unable to update profile identity')
@@ -499,14 +522,55 @@ export default function SettingsPage() {
                     </div>
 
                     {(canManageIdentity || canRequestIdentity) && (
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-4">
                         <div className="space-y-1">
                           <Label className="text-xs font-bold text-gray-700">Display Name</Label>
                           <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your preferred display name" className="text-xs h-9 bg-white" />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold text-gray-700">Profile Picture URL</Label>
-                          <Input value={profilePictureUrl} onChange={(e) => setProfilePictureUrl(e.target.value)} placeholder="https://..." className="text-xs h-9 bg-white" />
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-gray-700">Profile Picture</Label>
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              {profileImagePreview ? (
+                                <img 
+                                  src={profileImagePreview} 
+                                  alt="Preview" 
+                                  className="w-20 h-20 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                />
+                              ) : (
+                                <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 border border-gray-200 flex items-center justify-center">
+                                  <UserCircle className="w-10 h-10 text-indigo-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      // Validate file size (max 5MB)
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        notify.error('Image must be less than 5MB')
+                                        return
+                                      }
+                                      setProfileImageFile(file)
+                                      const reader = new FileReader()
+                                      reader.onloadend = () => {
+                                        setProfileImagePreview(reader.result as string)
+                                      }
+                                      reader.readAsDataURL(file)
+                                    }
+                                  }}
+                                  className="text-xs h-9 bg-white cursor-pointer file:bg-indigo-600 file:text-white file:border-0 file:rounded file:px-3 file:py-1 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-indigo-700 transition-all"
+                                />
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, or GIF (Max 5MB)</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
