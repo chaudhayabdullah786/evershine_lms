@@ -38,6 +38,9 @@ interface SalarySlip {
   customFields: Array<{ label: string; value: number; isDeduction: boolean }> | null
   notes: string | null
   status: string
+  approvalStatus?: string
+  issuedById?: string | null
+  approvedById?: string | null
   createdAt: string
 }
 
@@ -292,6 +295,7 @@ function SlipRow({ slip }: { slip: SalarySlip }) {
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <Badge className={`text-xs font-bold border ${statusColor}`}>{slip.status}</Badge>
+          <Badge className="text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">{slip.approvalStatus ?? 'PENDING'}</Badge>
           <span className="text-sm font-black text-indigo-900">PKR {Number(slip.netSalary).toLocaleString()}</span>
           {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </div>
@@ -325,14 +329,30 @@ function SlipRow({ slip }: { slip: SalarySlip }) {
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-gray-100 gap-3">
                 <div className="text-xs text-gray-400">
                   {slip.bankName && <span>{slip.bankName} · {slip.accountNumber}</span>}
                   {slip.notes && <span className="ml-3 italic">{slip.notes}</span>}
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 text-indigo-700 border-indigo-200 hover:bg-indigo-50 text-xs h-8">
-                  <FileText className="w-3.5 h-3.5" /> View PDF
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 text-indigo-700 border-indigo-200 hover:bg-indigo-50 text-xs h-8">
+                    <FileText className="w-3.5 h-3.5" /> View PDF
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs h-8" onClick={async () => {
+                    try {
+                      await fetchApi('/api/salaries/authorize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ salarySlipId: slip.id, approverId: session?.user?.id, reason: 'Peer authorization approved' }),
+                      })
+                      notify.success('Salary authorized successfully')
+                    } catch (err: any) {
+                      notify.error(err?.message ?? 'Unable to authorize salary')
+                    }
+                  }}>
+                    Authorize
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>

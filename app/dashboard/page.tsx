@@ -135,6 +135,8 @@ export default function DashboardPage() {
 
   const leaveCount = leaveSummary?.pagination.total ?? 0
 
+  const [activityFeed, setActivityFeed] = useState<any[]>([])
+
   const { data: studentProfile, isLoading: isLoadingStudent } = useQuery<any>({
     queryKey: ['student-profile', session?.user?.id],
     queryFn: () => fetchApi<any>(`/api/students/profile`),
@@ -147,6 +149,22 @@ export default function DashboardPage() {
     enabled: role === 'TEACHER'
   })
   const teacherProfile = teacherProfileRaw ?? null
+
+  useEffect(() => {
+    const loadActivity = async () => {
+      try {
+        const response = await fetch('/api/activity-log')
+        const data = await response.json()
+        if (data?.success) {
+          setActivityFeed(Array.isArray(data.data) ? data.data : [])
+        }
+      } catch {
+        setActivityFeed([])
+      }
+    }
+
+    loadActivity()
+  }, [])
 
   const { data: teacherTimetable, isLoading: isLoadingTimetable } = useQuery<any>({
     queryKey: ['teacher-timetable', teacherProfile?.id],
@@ -250,6 +268,24 @@ export default function DashboardPage() {
         <p className="text-gray-500 mt-1">
           {new Date().toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Recent Activity</p>
+            <h2 className="text-lg font-black text-slate-900">Latest cross-module activity</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {activityFeed.length === 0 ? (
+            <p className="text-sm text-slate-500">No recent activity yet.</p>
+          ) : activityFeed.map((item) => (
+            <div key={item.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <span className="font-semibold text-slate-900">{item.entityType}</span> · {item.action} · {item.timestamp ? new Date(item.timestamp).toLocaleString() : '—'}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Student Welcome Banner & Quick Info */}

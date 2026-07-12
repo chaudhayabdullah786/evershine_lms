@@ -194,6 +194,9 @@ export async function POST(req: NextRequest) {
           customFields: data.customFields ? JSON.parse(JSON.stringify(data.customFields)) : null,
           notes: data.notes ?? null,
           generatedBy: session.user.id,
+          issuedById: session.user.id,
+          issuedAsRole: session.user.role,
+          approvalStatus: 'PENDING',
           status: 'ISSUED',
         },
       })
