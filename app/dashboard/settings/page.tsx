@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, fetchPaginatedApi } from '@/lib/api-client'
@@ -59,8 +59,6 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('')
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [profileImagePreview, setProfileImagePreview] = useState('')
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [profileError, setProfileError] = useState<string | null>(null)
   const [identitySaving, setIdentitySaving] = useState(false)
   const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
   const [identityNotice, setIdentityNotice] = useState<string | null>(null)
@@ -154,111 +152,41 @@ export default function SettingsPage() {
   const strengthScore = calculatePasswordStrength(newPasswordSelf)
   const strengthFeedback = getStrengthFeedback(strengthScore)
 
-  useEffect(() => {
-    let mounted = true
-    const loadProfile = async () => {
-      if (!session?.user?.id) {
-        if (mounted) setProfileLoading(false)
-        return
-      }
-
-      try {
-        const result = await fetch('/api/profile/me')
-        const json = await result.json()
-        if (!result.ok) {
-          throw new Error(json.error || 'Failed to load profile data')
-        }
-
-        const profile = json.data
-        if (!mounted) return
-        setDisplayName(profile.displayName ?? session?.user?.name ?? '')
-        setProfileImagePreview(profile.profilePictureUrl ?? '')
-      } catch (err: any) {
-        if (!mounted) return
-        setProfileError(err.message || 'Unable to load your profile details')
-      } finally {
-        if (mounted) setProfileLoading(false)
-      }
-    }
-
-    loadProfile()
-    return () => {
-      mounted = false
-    }
-  }, [session?.user?.id, session?.user?.name])
-
-  if (profileLoading) {
-    return (
-      <div className="max-w-5xl mx-auto py-12">
-        <div className="animate-pulse space-y-3">
-          <div className="h-6 w-48 rounded-lg bg-slate-200" />
-          <div className="h-48 rounded-3xl bg-slate-200" />
-        </div>
-      </div>
-    )
-  }
-
-  if (profileError) {
-    return (
-      <div className="max-w-5xl mx-auto py-12">
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-          <p className="font-semibold">Unable to load profile settings.</p>
-          <p>{profileError}</p>
-        </div>
-      </div>
-    )
-  }
-
   // Handle Save Profile Form (Fallback action)
   const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault()
     setIdentitySaving(true)
     setIdentityNotice(null)
-
-    if (!canManageIdentity) {
-      setIdentityNotice('You do not have permission to update this profile.')
-      setIdentitySaving(false)
-      return
-    }
-
-    if (!displayName.trim() && !profileImageFile) {
-      setIdentityNotice('Please enter a display name or select a profile image.')
-      setIdentitySaving(false)
-      return
-    }
-
     try {
-      const formData = new FormData()
-      if (displayName.trim()) {
-        formData.append('displayName', displayName.trim())
-      }
-      if (profileImageFile) {
-        formData.append('profileImage', profileImageFile)
-      }
+      if (canManageIdentity) {
+        const formData = new FormData()
+        if (displayName.trim()) {
+          formData.append('displayName', displayName.trim())
+        }
+        if (profileImageFile) {
+          formData.append('profileImage', profileImageFile)
+        }
 
-      const response = await fetch('/api/profile/me', {
-        method: 'PATCH',
-        body: formData,
-      })
+        const response = await fetch('/api/profile/me', {
+          method: 'PATCH',
+          body: formData,
+        })
 
-      const result = await response.json()
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update profile')
-      }
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update profile')
-      }
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to update profile')
+        }
 
-      notify.success('Profile updated successfully')
-      setIdentityNotice('Your profile has been updated successfully.')
-      setProfileImageFile(null)
-      if (result.data.profilePictureUrl) {
-        setProfileImagePreview(result.data.profilePictureUrl)
+        const result = await response.json()
+        if (result.success) {
+          notify.success('Profile updated successfully')
+          setProfileImageFile(null)
+          setProfileImagePreview('')
+          setDisplayName('')
+        } else {
+          throw new Error(result.error || 'Update failed')
+        }
       }
-      if (result.data.displayName) {
-        setDisplayName(result.data.displayName)
-      }
-      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
     } catch (err: any) {
       setIdentityNotice(err.message || 'Unable to update profile identity')
       notify.error('Unable to update profile identity')
@@ -620,11 +548,11 @@ export default function SettingsPage() {
                               <div className="relative">
                                 <Input
                                   type="file"
-                                  name="profileImage"
                                   accept="image/*"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0]
                                     if (file) {
+                                      // Validate file size (max 5MB)
                                       if (file.size > 5 * 1024 * 1024) {
                                         notify.error('Image must be less than 5MB')
                                         return
