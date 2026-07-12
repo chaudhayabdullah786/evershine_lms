@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
+import { errors, successResponse } from '@/lib/api-response'
 
 export async function GET() {
   try {
     const session = await auth()
     if (!session || session.user.role !== 'TEACHER') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      return errors.unauthorized()
     }
 
     const teacher = await prisma.teacher.findUnique({
@@ -31,15 +32,12 @@ export async function GET() {
     })
 
     if (!teacher) {
-      return NextResponse.json({ success: false, error: 'Teacher profile not found' }, { status: 404 })
+      return errors.notFound('Teacher profile')
     }
 
-    return NextResponse.json({
-      success: true,
-      data: teacher
-    })
+    return successResponse(teacher)
   } catch (error) {
     console.error('[TEACHER_PROFILE_GET]', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch teacher profile' }, { status: 500 })
+    return errors.internal()
   }
 }

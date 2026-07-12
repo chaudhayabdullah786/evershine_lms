@@ -67,18 +67,20 @@ function withLegacyClientHeader(options?: RequestInit): RequestInit {
   }
 }
 
-async function baseRequest(endpoint: string, options?: RequestInit): Promise<any> {
+async function baseRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
   const headers = {
-    ...options?.headers,
+    'Accept': 'application/json',
+    ...options.headers,
   } as Record<string, string>
 
-  if (!(options?.body instanceof FormData)) {
+  if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = headers['Content-Type'] ?? 'application/json'
   } else {
     delete headers['Content-Type']
   }
 
   const response = await fetch(endpoint, {
+    credentials: 'include',
     ...options,
     headers,
   })

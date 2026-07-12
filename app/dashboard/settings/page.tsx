@@ -163,13 +163,13 @@ export default function SettingsPage() {
       }
 
       try {
-        const result = await fetch('/api/profile/me')
+        const result = await fetch('/api/profile/me', { credentials: 'include' })
         const json = await result.json()
-        if (!result.ok) {
-          throw new Error(json.error || 'Failed to load profile data')
+        if (!result.ok || !json.success) {
+          throw new Error(json.error?.message ?? json.error ?? 'Failed to load profile data')
         }
 
-        const profile = json.data
+        const profile = json.data ?? { displayName: session?.user?.name ?? '', profilePictureUrl: '' }
         if (!mounted) return
         setDisplayName(profile.displayName ?? session?.user?.name ?? '')
         setProfileImagePreview(profile.profilePictureUrl ?? '')
@@ -239,14 +239,12 @@ export default function SettingsPage() {
       const response = await fetch('/api/profile/me', {
         method: 'PATCH',
         body: formData,
+        credentials: 'include',
       })
 
       const result = await response.json()
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update profile')
-      }
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update profile')
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message ?? result.error ?? 'Failed to update profile')
       }
 
       notify.success('Profile updated successfully')

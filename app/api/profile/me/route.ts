@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import cloudinary, { sanitizeCloudinaryError, uploadImageBufferToCloudinary } from '@/lib/cloudinary'
+import { errors } from '@/lib/api-response'
 
 export async function GET() {
   try {
     const session = await auth()
-    if (!session?.user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user) return errors.unauthorized()
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -23,10 +24,14 @@ export async function GET() {
       },
     })
 
+    if (!user) {
+      return errors.notFound('User')
+    }
+
     return NextResponse.json({ success: true, data: user })
   } catch (error) {
     console.error('[PROFILE_ME_GET]', error)
-    return NextResponse.json({ success: false, error: 'Failed to load profile' }, { status: 500 })
+    return errors.internal()
   }
 }
 
@@ -146,12 +151,7 @@ export async function PATCH(request: Request) {
       },
     })
 
-    const responsePayload: any = { success: true, data: user }
-    if (imageUploadWarning) {
-      responsePayload.warning = imageUploadWarning
-    }
-
-    return NextResponse.json(responsePayload)
+    return NextResponse.json({ success: true, data: user })
   } catch (error) {
     console.error('[PROFILE_ME_PATCH]', error)
     return NextResponse.json({ success: false, error: 'Failed to update profile' }, { status: 500 })
