@@ -217,6 +217,46 @@ export async function uploadProfileImageToCloudinary(
   })
 }
 
+export async function uploadImageBufferToCloudinary(
+  buffer: Buffer,
+  folder: string,
+  publicId: string
+): Promise<{ secureUrl: string; publicId: string }> {
+  getRequiredCloudinaryConfig()
+  assertAllowedImage(buffer)
+
+  if (buffer.length > 5 * 1024 * 1024) {
+    throw new Error('Image too large. Maximum allowed size is 5 MB.')
+  }
+
+  const safeFolder = normalizeFolderPath(folder)
+  const safePublicId = publicId.replace(/[^a-zA-Z0-9_\-]/g, '-').slice(0, 255)
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: safeFolder,
+        public_id: safePublicId,
+        resource_type: 'image',
+        quality: 'auto',
+        fetch_format: 'auto',
+        overwrite: true,
+        type: 'upload',
+        access_mode: 'public',
+      },
+      (error, result) => {
+        if (error || !result?.secure_url || !result.public_id) {
+          reject(error ?? new Error('Cloudinary upload returned no secure_url'))
+          return
+        }
+
+        resolve({ secureUrl: result.secure_url, publicId: result.public_id })
+      }
+    )
+    stream.end(buffer)
+  })
+}
+
 export async function uploadPaymentProofToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
   if (!isAllowedPaymentProof(buffer)) {
     throw new Error('Invalid payment proof format. Only JPG, PNG, and PDF are accepted.')
