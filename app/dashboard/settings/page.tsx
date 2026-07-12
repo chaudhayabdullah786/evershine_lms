@@ -59,11 +59,11 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('')
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [profileImagePreview, setProfileImagePreview] = useState('')
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [profileError, setProfileError] = useState<string | null>(null)
   const [identitySaving, setIdentitySaving] = useState(false)
   const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
   const [identityNotice, setIdentityNotice] = useState<string | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   // ─── Admin Management States ──────────────────────────────────────────────────
   const [adminSearch, setAdminSearch] = useState('')
@@ -208,55 +208,37 @@ export default function SettingsPage() {
       </div>
     )
   }
-
   // Handle Save Profile Form (Fallback action)
   const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault()
     setIdentitySaving(true)
     setIdentityNotice(null)
-
-    if (!canManageIdentity) {
-      setIdentityNotice('You do not have permission to update this profile.')
-      setIdentitySaving(false)
-      return
-    }
-
-    if (!displayName.trim() && !profileImageFile) {
-      setIdentityNotice('Please enter a display name or select a profile image.')
-      setIdentitySaving(false)
-      return
-    }
-
     try {
-      const formData = new FormData()
-      if (displayName.trim()) {
-        formData.append('displayName', displayName.trim())
-      }
-      if (profileImageFile) {
-        formData.append('profileImage', profileImageFile)
-      }
+      if (canManageIdentity) {
+        const formData = new FormData()
+        if (displayName.trim()) {
+          formData.append('displayName', displayName.trim())
+        }
+        if (profileImageFile) {
+          formData.append('profileImage', profileImageFile)
+        }
 
-      const response = await fetch('/api/profile/me', {
-        method: 'PATCH',
-        body: formData,
-        credentials: 'include',
-      })
+        const response = await fetch('/api/profile/me', {
+          method: 'PATCH',
+          body: formData,
+          credentials: 'include',
+        })
 
-      const result = await response.json()
-      if (!response.ok || !result.success) {
-        throw new Error(result.error?.message ?? result.error ?? 'Failed to update profile')
+        const result = await response.json()
+        if (result.success) {
+          notify.success('Profile updated successfully')
+          setProfileImageFile(null)
+          setProfileImagePreview('')
+          setDisplayName('')
+        } else {
+          throw new Error(result.error || 'Update failed')
+        }
       }
-
-      notify.success('Profile updated successfully')
-      setIdentityNotice('Your profile has been updated successfully.')
-      setProfileImageFile(null)
-      if (result.data.profilePictureUrl) {
-        setProfileImagePreview(result.data.profilePictureUrl)
-      }
-      if (result.data.displayName) {
-        setDisplayName(result.data.displayName)
-      }
-      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
     } catch (err: any) {
       setIdentityNotice(err.message || 'Unable to update profile identity')
       notify.error('Unable to update profile identity')
@@ -618,11 +600,11 @@ export default function SettingsPage() {
                               <div className="relative">
                                 <Input
                                   type="file"
-                                  name="profileImage"
                                   accept="image/*"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0]
                                     if (file) {
+                                      // Validate file size (max 5MB)
                                       if (file.size > 5 * 1024 * 1024) {
                                         notify.error('Image must be less than 5MB')
                                         return

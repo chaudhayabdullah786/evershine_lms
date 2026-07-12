@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import cloudinary, { sanitizeCloudinaryError, uploadImageBufferToCloudinary } from '@/lib/cloudinary'
+import cloudinary from '@/lib/cloudinary'
 import { errors } from '@/lib/api-response'
 
 export async function GET() {
@@ -43,29 +43,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    let formData: FormData
-    try {
-      formData = await request.formData()
-    } catch (err) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid form data. Please submit the profile form again.' },
-        { status: 400 }
-      )
-    }
-
+    const formData = await request.formData()
     const displayName = formData.get('displayName')?.toString()?.trim()
-    const profileImageField = formData.get('profileImage')
-    const profileImageFile = profileImageField && typeof (profileImageField as any)?.arrayBuffer === 'function' && typeof (profileImageField as any)?.size === 'number'
-      ? (profileImageField as File)
-      : null
+    const profileImageFile = formData.get('profileImage') as File | null
 
-    if (!displayName && !profileImageFile) {
-      return NextResponse.json(
-        { success: false, error: 'Please provide a display name or a profile image to update.' },
-        { status: 400 }
-      )
-    }
-
+    // Validate displayName if provided
     if (displayName !== undefined && displayName !== null && displayName !== '') {
       if (displayName.length < 2 || displayName.length > 80) {
         return NextResponse.json(
@@ -80,40 +62,50 @@ export async function PATCH(request: Request) {
 
     // Handle file upload if provided
     if (profileImageFile && profileImageFile.size > 0) {
-      if (profileImageFile.size > 5 * 1024 * 1024) {
-        return NextResponse.json(
-          { success: false, error: 'Profile picture must be smaller than 5 MB.' },
-          { status: 400 }
-        )
-      }
-
       try {
         const buffer = Buffer.from(await profileImageFile.arrayBuffer())
+
+        // Delete old image if it exists
         const currentUser = await prisma.user.findUnique({
           where: { id: session.user.id },
           select: { profilePicturePublicId: true },
         })
-        const existingPublicId = currentUser?.profilePicturePublicId ?? null
-        const uploadResult = await uploadImageBufferToCloudinary(
-          buffer,
-          'evershine-academy/profile-pictures',
-          `${session.user.id}-${Date.now()}`
-        )
 
-        profilePictureUrl = uploadResult.secureUrl
-        profilePicturePublicId = uploadResult.publicId
-
-        if (existingPublicId) {
-          cloudinary.uploader.destroy(existingPublicId).catch((delErr) => {
+        if (currentUser?.profilePicturePublicId) {
+          try {
+            await cloudinary.uploader.destroy(currentUser.profilePicturePublicId)
+          } catch (delErr) {
             console.warn('[PROFILE_PICTURE_DELETE_OLD]', delErr)
-          })
+          }
         }
-      } catch (uploadErr: unknown) {
-        const sanitized = sanitizeCloudinaryError(uploadErr)
-        console.error('[PROFILE_PICTURE_UPLOAD]', sanitized)
-        const message = sanitized.message || 'Failed to upload profile picture. Please verify the image and try again.'
+
+        // Upload new image
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'evershine-academy/profile-pictures',
+              resource_type: 'auto',
+              width: 400,
+              height: 400,
+              crop: 'fill',
+              quality: 'auto',
+              fetch_format: 'auto',
+            },
+            (error, result) => {
+              if (error) reject(error)
+              else resolve(result)
+            }
+          )
+          stream.end(buffer)
+        })
+
+        const result = uploadResult as any
+        profilePictureUrl = result.secure_url
+        profilePicturePublicId = result.public_id
+      } catch (uploadErr) {
+        console.error('[PROFILE_PICTURE_UPLOAD]', uploadErr)
         return NextResponse.json(
-          { success: false, error: message },
+          { success: false, error: 'Failed to upload profile picture. Please try again.' },
           { status: 500 }
         )
       }
