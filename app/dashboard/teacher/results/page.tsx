@@ -77,7 +77,7 @@ export default function TeacherResultsListPage() {
     mutationFn: (id: string) =>
       fetchApi(`/api/teacher-portal/results/${id}/declare`, { method: 'POST' }),
     onSuccess: () => {
-      notify.success('Result declared — student notified')
+      notify.success('Result declared successfully — student notified')
       qc.invalidateQueries({ queryKey: ['teacher-results-list'] })
     },
     onError: (e: Error) => notify.error(e.message),
