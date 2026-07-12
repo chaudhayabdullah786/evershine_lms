@@ -1100,8 +1100,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/declare/route.ts": {
-    "mtime": 1783858827.2545989,
-    "ast_hash": "e31be2f4ca9d53645f8cfeb6edca1cde",
+    "mtime": 1783862702.9279273,
+    "ast_hash": "d2c042843b39326ea97132d19a7363e9",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/performance-batch/route.ts": {
@@ -1575,8 +1575,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grade-entry/page.tsx": {
-    "mtime": 1783858081.9087439,
-    "ast_hash": "a0216512a8ab7a9c3da2b4db6ca9b067",
+    "mtime": 1783862702.9283032,
+    "ast_hash": "aff6af42ad351fabcfc258cda38f06af",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grading/page.tsx": {
@@ -1605,8 +1605,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/results/page.tsx": {
-    "mtime": 1783859040.1108994,
-    "ast_hash": "5f583accb87535b754c8a0eaccf9519b",
+    "mtime": 1783862702.9284675,
+    "ast_hash": "e3285711ab52ec75fda9c1682e41ba96",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/salary/page.tsx": {
@@ -3920,8 +3920,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-results-workflow.test.ts": {
-    "mtime": 1783859534.541614,
-    "ast_hash": "664b18396e313c6c3e290ecc2dd46550",
+    "mtime": 1783862609.8406324,
+    "ast_hash": "12da6c5794adec3c77654137aae90cf4",
     "semantic_hash": ""
   },
   "app/api/notifications/counts/route.ts": {
