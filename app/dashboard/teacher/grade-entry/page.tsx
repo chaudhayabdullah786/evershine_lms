@@ -250,7 +250,7 @@ function TeacherResultEntryInner() {
     mutationFn: (resultId: string) =>
       fetchApi(`/api/teacher-portal/results/${resultId}/declare`, { method: 'POST' }),
     onSuccess: () => {
-      notify.success('Result declared — students notified')
+      notify.success('Result declared successfully — student notified')
       setShowDeclareDialog(false)
       qc.invalidateQueries({ queryKey: ['existing-result'] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })

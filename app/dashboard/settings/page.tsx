@@ -33,6 +33,8 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN'
+  const canManageIdentity = ['SUPER_ADMIN', 'ACCOUNTANT', 'ADMIN', 'GUARDIAN'].includes(session?.user?.role ?? '')
+  const canRequestIdentity = session?.user?.role === 'STUDENT'
 
   const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'admins'>('profile')
 
@@ -54,6 +56,11 @@ export default function SettingsPage() {
   const [confirmPasswordSelf, setConfirmPasswordSelf] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [profilePictureUrl, setProfilePictureUrl] = useState('')
+  const [identitySaving, setIdentitySaving] = useState(false)
+  const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
+  const [identityNotice, setIdentityNotice] = useState<string | null>(null)
 
   // ─── Admin Management States ──────────────────────────────────────────────────
   const [adminSearch, setAdminSearch] = useState('')
@@ -145,9 +152,45 @@ export default function SettingsPage() {
   const strengthFeedback = getStrengthFeedback(strengthScore)
 
   // Handle Save Profile Form (Fallback action)
-  const handleSavePersonal = (e: React.FormEvent) => {
+  const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault()
-    notify.success('Profile settings are secure and up-to-date.')
+    setIdentitySaving(true)
+    setIdentityNotice(null)
+    try {
+      if (canManageIdentity) {
+        await fetchApi('/api/profile/me', {
+          method: 'PATCH',
+          body: JSON.stringify({ displayName: displayName.trim() || undefined, profilePictureUrl: profilePictureUrl.trim() || null }),
+        })
+        notify.success('Profile identity updated successfully')
+      }
+    } catch (err: any) {
+      setIdentityNotice(err.message || 'Unable to update profile identity')
+      notify.error('Unable to update profile identity')
+    } finally {
+      setIdentitySaving(false)
+    }
+  }
+
+  const handleIdentityRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIdentityRequestSaving(true)
+    setIdentityNotice(null)
+    try {
+      if (canRequestIdentity) {
+        await fetchApi('/api/profile/requests', {
+          method: 'POST',
+          body: JSON.stringify({ requestedField: 'displayName', proposedValue: displayName.trim() || undefined, reason: 'Requested profile update' }),
+        })
+        setIdentityNotice('Your request has been submitted for review by a Super Admin.')
+        notify.success('Profile change requested')
+      }
+    } catch (err: any) {
+      setIdentityNotice(err.message || 'Unable to request profile update')
+      notify.error('Unable to request profile update')
+    } finally {
+      setIdentityRequestSaving(false)
+    }
   }
 
   // Handle Password Update Form
@@ -455,9 +498,35 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    <Button type="submit" className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold px-5 transition-all">
-                      Save Changes
-                    </Button>
+                    {(canManageIdentity || canRequestIdentity) && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-bold text-gray-700">Display Name</Label>
+                          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your preferred display name" className="text-xs h-9 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-bold text-gray-700">Profile Picture URL</Label>
+                          <Input value={profilePictureUrl} onChange={(e) => setProfilePictureUrl(e.target.value)} placeholder="https://..." className="text-xs h-9 bg-white" />
+                        </div>
+                      </div>
+                    )}
+
+                    {identityNotice && (
+                      <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">{identityNotice}</div>
+                    )}
+
+                    <div className="flex flex-wrap gap-3">
+                      <Button type="submit" disabled={identitySaving} className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold px-5 transition-all">
+                        {identitySaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {canRequestIdentity ? 'Submit Request' : 'Save Changes'}
+                      </Button>
+                      {canRequestIdentity && (
+                        <Button type="button" variant="outline" disabled={identityRequestSaving} onClick={handleIdentityRequest} className="text-xs h-9 font-bold px-5">
+                          {identityRequestSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Request Approval
+                        </Button>
+                      )}
+                    </div>
                   </form>
                 </CardContent>
               </Card>
