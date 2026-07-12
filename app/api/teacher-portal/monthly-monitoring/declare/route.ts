@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 import { dispatchBulkNotification, getStudentUserIdsForSection } from '@/lib/notifications/dispatch'
 import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (report.declarationStatus === 'DECLARED') return errors.badRequest('Monthly monitoring report is already declared.')
     if (session.user.role === 'TEACHER') {
       const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
-      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId, teacherId: teacher.id }, select: { id: true } })
+      const assigned = teacher && await teacherCanAccessClassSection(teacher.id, classSectionId, academicYearId)
       if (!assigned) return errors.forbidden('You are not assigned to this class section.')
     }
     const declaredAt = new Date()

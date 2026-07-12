@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export async function GET(
   _req: NextRequest,
@@ -26,21 +27,35 @@ export async function GET(
 
     const { classSectionId } = await params
 
-    const offerings = await prisma.subjectOffering.findMany({
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, classSectionId)
+    if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
+
+    const include = {
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+    }
+
+    const assignedOfferings = await prisma.subjectOffering.findMany({
       where: {
         classSectionId,
         teacherId: teacher.id,
       },
-      include: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
+      include,
+      orderBy: { subject: { name: 'asc' } },
     })
+
+    const offerings = assignedOfferings.length > 0
+      ? assignedOfferings
+      : await prisma.subjectOffering.findMany({
+          where: { classSectionId },
+          include,
+          orderBy: { subject: { name: 'asc' } },
+        })
 
     return successResponse(offerings)
   } catch (err) {

@@ -12,6 +12,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 import {
   dispatchBulkNotification,
   getStudentUserIdsForSection,
@@ -44,10 +45,8 @@ export async function POST(
 
     if (!termResult) return errors.notFound('Result')
 
-    const teachingSection = await prisma.subjectOffering.findFirst({
-      where: { classSectionId: termResult.classSectionId, teacherId: teacher.id },
-    })
-    if (!teachingSection) return errors.forbidden()
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, termResult.classSectionId)
+    if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
     if (termResult.declarationStatus === 'DECLARED') {
       return errors.badRequest('Result is already declared')

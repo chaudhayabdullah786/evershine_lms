@@ -31,11 +31,12 @@ describe('teacher result workflow', () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: 'user-teacher-1', role: 'TEACHER' } })
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-1' })
+    mockPrisma.subjectOffering.findMany.mockResolvedValue([{ id: 'offering-1', classSectionId: 'section-1' }])
   })
 
   it('rejects saving marks for subject offerings not assigned to the teacher', async () => {
     mockPrisma.studentEnrollment.findFirst.mockResolvedValue({ id: 'enrollment-1' })
-    mockPrisma.subjectOffering.findMany.mockResolvedValue([{ id: 'offering-allowed' }])
+    mockPrisma.subjectOffering.findMany.mockResolvedValue([{ id: 'offering-allowed', classSectionId: 'section-1' }])
 
     const request = new Request('http://localhost/api/teacher-portal/results', {
       method: 'POST',

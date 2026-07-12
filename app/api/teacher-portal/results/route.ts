@@ -15,6 +15,7 @@ import type { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { derivePerformanceBatch, deriveGrade, deriveResultStatus } from '@/lib/academic/result-utils'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
+import { getTeacherClassSectionIds, teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 // ── Input validation ──────────────────────────────────────────────────────────
 
@@ -70,19 +71,17 @@ export async function GET(req: NextRequest) {
     const examSessionId = searchParams.get('examSessionId')
     const status = searchParams.get('status')
 
-    const offerings = await prisma.subjectOffering.findMany({
-      where: { teacherId: teacher.id },
-      select: { classSectionId: true },
-      distinct: ['classSectionId'],
-    })
-    const allowedSectionIds = offerings.map((o) => o.classSectionId)
+    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id)
+    if (allowedSectionIds.length === 0) return successResponse([])
+    if (classSectionId && !allowedSectionIds.includes(classSectionId)) {
+      return errors.forbidden('You are not assigned to this class section')
+    }
 
     const results = await prisma.termResult.findMany({
       where: {
-        ...(classSectionId ? { classSectionId } : {}),
+        classSectionId: { in: classSectionId ? [classSectionId] : allowedSectionIds },
         ...(examSessionId ? { examSessionId } : {}),
         ...(status ? { declarationStatus: status as 'DRAFT' | 'DECLARED' } : {}),
-        ...(allowedSectionIds ? { classSectionId: { in: allowedSectionIds } } : {}),
       },
       include: {
         student: {
@@ -157,17 +156,31 @@ export async function POST(req: NextRequest) {
       return errors.badRequest('Selected student is not actively enrolled in this class section.')
     }
 
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, classSectionId)
+    if (!canAccessSection) {
+      return errors.forbidden('You are not assigned to this class section.')
+    }
+
     const offeringIds = [...new Set(normalizedSubjectResults.map((sr) => sr.subjectOfferingId))]
-    const assignedOfferings = await prisma.subjectOffering.findMany({
+    const teacherAssignedOfferings = await prisma.subjectOffering.findMany({
+      where: { classSectionId, teacherId: teacher.id },
+      select: { id: true },
+    })
+    const teacherAssignedOfferingIds = new Set(teacherAssignedOfferings.map((offering) => offering.id))
+    const validOfferings = await prisma.subjectOffering.findMany({
       where: {
         id: { in: offeringIds },
         classSectionId,
-        teacherId: teacher.id,
+        ...(teacherAssignedOfferings.length > 0 ? { teacherId: teacher.id } : {}),
       },
       select: { id: true },
     })
-    if (assignedOfferings.length !== offeringIds.length) {
-      return errors.forbidden('One or more selected subjects are not assigned to you for this section.')
+    if (validOfferings.length !== offeringIds.length) {
+      return errors.forbidden(
+        teacherAssignedOfferingIds.size > 0
+          ? 'One or more selected subjects are not assigned to you for this section.'
+          : 'One or more selected subjects do not belong to this section.'
+      )
     }
 
     // Compute aggregates from provided subject results

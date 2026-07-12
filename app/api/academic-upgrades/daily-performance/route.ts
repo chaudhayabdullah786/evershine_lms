@@ -15,6 +15,7 @@ import { submitDailyPerformanceSchema } from '@/lib/validation/academic-upgrades
 import { prisma } from '@/lib/prisma'
 import type { Role } from '@prisma/client'
 import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -38,14 +39,14 @@ export async function GET(request: NextRequest) {
         })
         if (!offering) return errors.notFound('Subject offering')
 
-        // Ensure teacher owns this offering if they are a teacher
+        // Ensure teacher can access this offering's class section.
         if (role === 'TEACHER') {
           const teacher = await prisma.teacher.findUnique({
             where: { userId: session.user.id },
             select: { id: true },
           })
-          if (!teacher || offering.teacherId !== teacher.id) {
-            return errors.forbidden('Only the assigned teacher can view these scores')
+          if (!teacher || !(await teacherCanAccessClassSection(teacher.id, offering.classSectionId, offering.academicYearId))) {
+            return errors.forbidden('Only an assigned teacher can view these scores')
           }
         }
 
@@ -146,11 +147,13 @@ export async function POST(request: NextRequest) {
       })
       if (!teacher) return errors.forbidden('Your teacher profile is not available')
 
-      const offering = await prisma.subjectOffering.findFirst({
-        where: { id: parsed.data.subjectOfferingId, teacherId: teacher.id },
-        select: { id: true },
+      const offering = await prisma.subjectOffering.findUnique({
+        where: { id: parsed.data.subjectOfferingId },
+        select: { id: true, classSectionId: true, academicYearId: true },
       })
-      if (!offering) return errors.forbidden('Only the assigned teacher can save these scores')
+      if (!offering || !(await teacherCanAccessClassSection(teacher.id, offering.classSectionId, offering.academicYearId))) {
+        return errors.forbidden('Only an assigned teacher can save these scores')
+      }
     }
 
     const payload: SubmitDailyPerformanceInput = {
