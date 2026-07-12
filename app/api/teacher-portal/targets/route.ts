@@ -22,6 +22,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { z } from 'zod'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 // ─── Validation Schemas ─────────────────────────────────────────────────────
 
@@ -64,14 +65,9 @@ async function verifyAccess(
   })
   if (!teacher) return { authorised: false }
 
-  const offeringCount = await prisma.subjectOffering.count({
-    where: {
-      teacherId: teacher.id,
-      classSectionId,
-    },
-  })
+  const authorised = await teacherCanAccessClassSection(teacher.id, classSectionId)
 
-  return { authorised: offeringCount > 0, teacherId: teacher.id }
+  return { authorised, teacherId: teacher.id }
 }
 
 // ─── GET Handler ────────────────────────────────────────────────────────────

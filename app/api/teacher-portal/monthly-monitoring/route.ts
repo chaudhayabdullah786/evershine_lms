@@ -14,7 +14,8 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { derivePerformanceBatch } from '@/lib/academic/result-utils'
 import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
-import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
+import { decodeMonitoringRemarks, stripCourseNameFromMonitoringRemarks } from '@/lib/academic/monitoring'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,11 +61,9 @@ function parseLocalDate(value: string): Date | null {
 }
 
 function stripCourseNameFromRemarks(remarks: string | null, courseName: string): string {
-  const trimmed = remarks?.trim() ?? ''
-  if (!trimmed) return ''
-  const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return trimmed.replace(new RegExp(`^${escapedCourseName}\\s*:\\s*`, 'i'), '').trim()
+  return stripCourseNameFromMonitoringRemarks(remarks, courseName)
 }
+
 
 function calculateMonthlySnapshot(input: unknown, enrollments: Array<{ studentId: string; student: { firstName: string; lastName: string; fatherName: string | null; rollNumber: string | null } }>, classSectionId: string) {
   const parsed = monthlyDataSchema.safeParse(input)
@@ -189,14 +188,23 @@ export async function GET(req: NextRequest) {
     })
 
     // 2. Get all SubjectOfferings for this section
-    const offerings = await prisma.subjectOffering.findMany({
+    if (teacherId) {
+      const canAccessSection = await teacherCanAccessClassSection(teacherId, classSectionId, academicYearId)
+      if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
+    }
+
+    const assignedOfferings = await prisma.subjectOffering.findMany({
       where: { classSectionId, academicYearId, ...(teacherId ? { teacherId } : {}) },
       include: { subject: { select: { name: true, code: true } } },
       orderBy: { subject: { name: 'asc' } },
     })
-    if (teacherId && offerings.length === 0) {
-      return errors.forbidden('You are not assigned to a subject in this class section')
-    }
+    const offerings = assignedOfferings.length > 0
+      ? assignedOfferings
+      : await prisma.subjectOffering.findMany({
+          where: { classSectionId, academicYearId },
+          include: { subject: { select: { name: true, code: true } } },
+          orderBy: { subject: { name: 'asc' } },
+        })
 
     if (type === 'monthly') {
       const snapshot = await monitoringModel.findUnique({
@@ -397,7 +405,7 @@ export async function POST(req: NextRequest) {
     if (!enrollments.length) return errors.badRequest('No active students are enrolled in this section.')
     if (session.user.role === 'TEACHER') {
       const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
-      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId: parsed.data.classSectionId, academicYearId: parsed.data.academicYearId, teacherId: teacher.id }, select: { id: true } })
+      const assigned = teacher && await teacherCanAccessClassSection(teacher.id, parsed.data.classSectionId, parsed.data.academicYearId)
       if (!assigned) return errors.forbidden('You are not assigned to this class section.')
     }
     let reportData: ReturnType<typeof calculateMonthlySnapshot>

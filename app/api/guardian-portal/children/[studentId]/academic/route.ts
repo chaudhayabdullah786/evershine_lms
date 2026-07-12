@@ -5,6 +5,7 @@ import { assertGuardianAccessToStudent } from '@/lib/academic/guardian'
 import { getActiveAcademicYear, calculateWeightedPercentage } from '@/lib/academic/engine'
 import { mapGradeLetter } from '@/lib/academic/grades'
 import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
 
 export const dynamic = 'force-dynamic'
 
@@ -226,12 +227,21 @@ export async function GET(
     monitoringReports: {
       daily: dailyMonitoring.map((entry) => {
         const assessment = entry as typeof entry & { grade?: string | null; highlight?: string | null }
-        return {
-          date: entry.date,
-          courseName: entry.subjectOffering.subject.name,
-          remarks: entry.remarks,
+        const courseName = entry.subjectOffering.subject.name
+        const formatted = toDailyMonitoringPortalEntry({
+          rawRemarks: entry.remarks,
+          score: Number(entry.score),
+          maxScore: entry.subjectOffering.maxDailyScore,
+          courseName,
           grade: assessment.grade,
           highlight: assessment.highlight,
+        })
+        return {
+          date: entry.date,
+          courseName,
+          remarks: formatted.remarks,
+          grade: formatted.grade,
+          highlight: formatted.highlight,
         }
       }),
       monthly: declaredMonthly.flatMap((report) => {

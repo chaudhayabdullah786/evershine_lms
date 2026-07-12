@@ -345,7 +345,7 @@ export class AcademicUpgradesService {
         : { ...slot, isOverridden: false }
     })
 
-    return { title: sheet.title, version: sheet.version, slots }
+    return { title: sheet.title, version: sheet.version, examSessionId: sheet.examSessionId, slots }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
