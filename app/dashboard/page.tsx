@@ -404,11 +404,13 @@ export default function DashboardPage() {
                 <span className="text-xs text-gray-500 font-medium">Assigned Classes</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {teacherProfile?.classes && teacherProfile.classes.length > 0 ? (
-                    teacherProfile.classes.map((c: any) => (
-                      <span key={c.classId} className="inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        {c.class.name} {c.isClassTeacher ? '👑' : ''}
-                      </span>
-                    ))
+                    teacherProfile.classes
+                      .filter((c: any) => c?.class)
+                      .map((c: any) => (
+                        <span key={c.classId ?? c.class?.id ?? Math.random().toString()} className="inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {c.class?.name ?? 'Unknown class'} {c.isClassTeacher ? '👑' : ''}
+                        </span>
+                      ))
                   ) : (
                     <span className="text-xs text-gray-400 font-medium italic">No classes assigned</span>
                   )}

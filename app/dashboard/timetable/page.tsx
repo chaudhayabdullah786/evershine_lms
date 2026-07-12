@@ -152,7 +152,7 @@ export default function TimetablePage() {
   // so that the API shift-filter works correctly for night/evening shifts.
   const teacherShift = (
     teacherProfile?.timetableSlots?.[0]?.classSection?.shift?.code
-    ?? teacherProfile?.classes?.[0]?.class?.shift
+    ?? teacherProfile?.classes?.find((assignment: any) => assignment?.class?.shift)?.class?.shift
     ?? undefined
   ) as SessionShift | undefined
 
@@ -172,7 +172,7 @@ export default function TimetablePage() {
         // Do not pass shift for teachers to fetch all shifts dynamically
         return fetchApi<any>(`/api/teachers/${targetTeacherId}/timetable`)
       }
-      return Promise.resolve({ data: [] })
+      return Promise.resolve([])
     },
     enabled: !!(targetClassId || targetTeacherId),
   })

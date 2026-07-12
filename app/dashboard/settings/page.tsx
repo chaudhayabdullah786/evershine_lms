@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, fetchPaginatedApi } from '@/lib/api-client'
@@ -62,6 +62,8 @@ export default function SettingsPage() {
   const [identitySaving, setIdentitySaving] = useState(false)
   const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
   const [identityNotice, setIdentityNotice] = useState<string | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   // ─── Admin Management States ──────────────────────────────────────────────────
   const [adminSearch, setAdminSearch] = useState('')
@@ -152,6 +154,60 @@ export default function SettingsPage() {
   const strengthScore = calculatePasswordStrength(newPasswordSelf)
   const strengthFeedback = getStrengthFeedback(strengthScore)
 
+  useEffect(() => {
+    let mounted = true
+    const loadProfile = async () => {
+      if (!session?.user?.id) {
+        if (mounted) setProfileLoading(false)
+        return
+      }
+
+      try {
+        const result = await fetch('/api/profile/me', { credentials: 'include' })
+        const json = await result.json()
+        if (!result.ok || !json.success) {
+          throw new Error(json.error?.message ?? json.error ?? 'Failed to load profile data')
+        }
+
+        const profile = json.data ?? { displayName: session?.user?.name ?? '', profilePictureUrl: '' }
+        if (!mounted) return
+        setDisplayName(profile.displayName ?? session?.user?.name ?? '')
+        setProfileImagePreview(profile.profilePictureUrl ?? '')
+      } catch (err: any) {
+        if (!mounted) return
+        setProfileError(err.message || 'Unable to load your profile details')
+      } finally {
+        if (mounted) setProfileLoading(false)
+      }
+    }
+
+    loadProfile()
+    return () => {
+      mounted = false
+    }
+  }, [session?.user?.id, session?.user?.name])
+
+  if (profileLoading) {
+    return (
+      <div className="max-w-5xl mx-auto py-12">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 w-48 rounded-lg bg-slate-200" />
+          <div className="h-48 rounded-3xl bg-slate-200" />
+        </div>
+      </div>
+    )
+  }
+
+  if (profileError) {
+    return (
+      <div className="max-w-5xl mx-auto py-12">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          <p className="font-semibold">Unable to load profile settings.</p>
+          <p>{profileError}</p>
+        </div>
+      </div>
+    )
+  }
   // Handle Save Profile Form (Fallback action)
   const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,12 +226,8 @@ export default function SettingsPage() {
         const response = await fetch('/api/profile/me', {
           method: 'PATCH',
           body: formData,
+          credentials: 'include',
         })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to update profile')
-        }
 
         const result = await response.json()
         if (result.success) {
