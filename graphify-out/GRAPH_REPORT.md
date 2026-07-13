@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3541 nodes · 9647 edges · 205 communities (174 shown, 31 thin omitted)
+- 3541 nodes · 9647 edges · 210 communities (177 shown, 33 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e3155560`
+- Built from commit: `c24c91a5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -179,6 +179,11 @@
 - [[_COMMUNITY_Community 163|Community 163]]
 - [[_COMMUNITY_Community 164|Community 164]]
 - [[_COMMUNITY_Community 165|Community 165]]
+- [[_COMMUNITY_Community 166|Community 166]]
+- [[_COMMUNITY_Community 167|Community 167]]
+- [[_COMMUNITY_Community 168|Community 168]]
+- [[_COMMUNITY_Community 169|Community 169]]
+- [[_COMMUNITY_Community 170|Community 170]]
 - [[_COMMUNITY_Community 173|Community 173]]
 - [[_COMMUNITY_Community 174|Community 174]]
 - [[_COMMUNITY_Community 175|Community 175]]
@@ -237,23 +242,23 @@
 - 1-file cycle: `lib/cloudinary.ts -> lib/cloudinary.ts`
 - 1-file cycle: `components/ui/sonner.tsx -> components/ui/sonner.tsx`
 
-## Communities (205 total, 31 thin omitted)
+## Communities (210 total, 33 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.05
-Nodes (71): ASSUMABLE_ROLES, RoleAssumption, DateSheetResponse, DateSheetSlot, EMPTY_SLOT, ExamSession, Offering, Section (+63 more)
+Nodes (70): ASSUMABLE_ROLES, RoleAssumption, DateSheetResponse, DateSheetSlot, EMPTY_SLOT, ExamSession, Offering, Section (+62 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.04
-Nodes (87): AdmissionRequest, Announcement, EMPTY_FORM, ROLE_BADGE, AttendanceStatus, STATUS_ACTIVE, STATUS_OPTS, StudentAttendanceRow (+79 more)
+Cohesion: 0.05
+Nodes (80): AdmissionRequest, Announcement, AnnouncementForm(), AnnouncementsPage(), EMPTY_FORM, getRoleBadge(), ROLE_BADGE, AttendanceStatus (+72 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.13
 Nodes (11): Batch, Campus, CreateStudentFormValues, House, QueryResult, SectionData, Alert, AlertDescription (+3 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.06
-Nodes (36): dependencies, @auth/prisma-adapter, browser-image-compression, class-variance-authority, clsx, date-fns, dotenv, exceljs (+28 more)
+Cohesion: 0.05
+Nodes (40): dependencies, @auth/prisma-adapter, browser-image-compression, class-variance-authority, clsx, date-fns, dotenv, exceljs (+32 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
@@ -265,7 +270,7 @@ Nodes (48): 10.1 Key design concerns, 10.2 Recommended refinements before develo
 
 ### Community 6 - "Community 6"
 Cohesion: 0.05
-Nodes (75): createSubjectSchema, GET(), POST(), POST(), PATCH(), patchSchema, POST(), POST() (+67 more)
+Nodes (67): createSubjectSchema, GET(), POST(), POST(), PATCH(), patchSchema, POST(), POST() (+59 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.09
@@ -296,8 +301,8 @@ Cohesion: 0.03
 Nodes (21): guardianFeedbackSchema, POST(), reviewSchema, requestSchema, schema, FeedbackPayloadSchema, BUILD_ID, buildId (+13 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.09
-Nodes (22): tsconfig-paths, compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInterop, incremental, isolatedModules, jsx (+14 more)
+Cohesion: 0.12
+Nodes (17): compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInterop, incremental, isolatedModules, jsx, lib (+9 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.16
@@ -305,23 +310,23 @@ Nodes (8): ErrorPage(), isChunkError(), AcademyLogo(), AcademyLogoProps, Academy
 
 ### Community 16 - "Community 16"
 Cohesion: 0.05
-Nodes (37): AnnouncementForm(), AnnouncementsPage(), getRoleBadge(), AttendanceStatus, RosterRow, SectionAttendancePage(), STATUS_BTNS, ClassesPage() (+29 more)
+Nodes (38): ATTENDANCE_BADGE, AttendanceRecord, ENROLLMENT_BADGE, FEE_BADGE, FeeInvoice, StudentDetail, AttendanceStatus, BulkApiResponse (+30 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.09
 Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.05
-Nodes (58): AttendancePage(), AttendanceSection, OverdueItem, PerformanceSection, ReportRow, Student, Teacher, Campus (+50 more)
+Cohesion: 0.04
+Nodes (61): AttendancePage(), AttendanceSection, OverdueItem, PerformanceSection, ReportRow, Student, Teacher, Campus (+53 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.29
 Nodes (5): JWT, Session, User, { auth }, config
 
 ### Community 20 - "Community 20"
-Cohesion: 0.10
-Nodes (21): devDependencies, eslint, eslint-config-next, jsdom, playwright, @playwright/test, prisma, sharp (+13 more)
+Cohesion: 0.12
+Nodes (17): devDependencies, eslint, eslint-config-next, jsdom, playwright, @playwright/test, prisma, sharp (+9 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.15
@@ -340,12 +345,12 @@ Cohesion: 0.12
 Nodes (27): AttendanceReportData, AttendanceSection, buildMetaRows(), downloadAttendanceReportExcel(), downloadFeesMasterExcel(), downloadFeesReportExcel(), downloadPerformanceReportExcel(), downloadReportAsExcel() (+19 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.04
-Nodes (88): AccountantExpensesPage(), EXPENSE_CATEGORIES, ExpenseRecord, PAYMENT_METHODS, IssueInvoiceTab(), AccountantDashboardPage(), ExpenseRecord, AccountantReportsPage() (+80 more)
+Cohesion: 0.05
+Nodes (67): AccountantExpensesPage(), EXPENSE_CATEGORIES, ExpenseRecord, PAYMENT_METHODS, IssueInvoiceTab(), AccountantDashboardPage(), ExpenseRecord, AccountantReportsPage() (+59 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.10
-Nodes (16): AcademyMemoriesProps, MediaItem, SHIFTS, ScrollReveal(), ScrollRevealProps, ContactFormData, FAQ, GalleryImage (+8 more)
+Cohesion: 0.12
+Nodes (12): AcademyMemoriesProps, MediaItem, ContactFormData, GalleryImage, ProgramJourneyItem, SeoConfig, SocialLinks, StudentApplicationData (+4 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.11
@@ -388,8 +393,8 @@ Cohesion: 0.28
 Nodes (8): BankAccountItem, FeeItem, GenerateChallanPage(), MONTHS, parseBankAccounts(), PRESET_FEE_ITEMS, renderBankAccountsTable(), StudentSearchResult
 
 ### Community 38 - "Community 38"
-Cohesion: 0.11
-Nodes (12): CAMPUSES, CampusShowcaseProps, featureVariants, CTASectionProps, pillVariants, VALUES, cardVariants, containerVariants (+4 more)
+Cohesion: 0.12
+Nodes (11): CAMPUSES, CampusShowcaseProps, featureVariants, CTASectionProps, pillVariants, VALUES, cardVariants, containerVariants (+3 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.06
@@ -488,8 +493,8 @@ Cohesion: 0.18
 Nodes (12): DELETE(), GET(), PATCH(), patchSchema, createResultSchema, GET(), POST(), subjectResultSchema (+4 more)
 
 ### Community 63 - "Community 63"
-Cohesion: 0.03
-Nodes (64): PATCH(), GET(), DELETE(), customFieldSchema, DELETE(), GET(), PATCH(), updateSalarySlipSchema (+56 more)
+Cohesion: 0.04
+Nodes (58): PATCH(), GET(), DELETE(), customFieldSchema, DELETE(), GET(), PATCH(), updateSalarySlipSchema (+50 more)
 
 ### Community 64 - "Community 64"
 Cohesion: 0.20
@@ -500,8 +505,8 @@ Cohesion: 0.10
 Nodes (22): BUILD_ID_PATH, buildId, copyRecursive(), fs, path, PUBLIC_DST, PUBLIC_SRC, ROOT (+14 more)
 
 ### Community 66 - "Community 66"
-Cohesion: 0.24
-Nodes (7): metadata, RootLayout(), Providers(), PWARegister(), Toaster(), queryClient, sonner
+Cohesion: 0.36
+Nodes (5): metadata, RootLayout(), PWARegister(), Toaster(), sonner
 
 ### Community 67 - "Community 67"
 Cohesion: 0.22
@@ -568,16 +573,16 @@ Cohesion: 0.20
 Nodes (4): Inquiry, LeadCounts, StaffApp, Tab
 
 ### Community 84 - "Community 84"
-Cohesion: 0.22
-Nodes (6): ContactFormSchema, FormData, PROGRAMS, QUICK_LINKS, SiteFooterProps, ContactInfo
+Cohesion: 0.40
+Nodes (4): PROGRAMS, QUICK_LINKS, SiteFooterProps, ContactInfo
 
 ### Community 85 - "Community 85"
 Cohesion: 0.22
 Nodes (9): BADGE_COLORS, cardVariants, containerVariants, getVisibleUpdates(), HomepageUpdates(), ICON_MAP, PRIORITY_ACCENT, PRIORITY_ORDER (+1 more)
 
 ### Community 86 - "Community 86"
-Cohesion: 0.20
-Nodes (5): SectionHeadingProps, cardVariants, containerVariants, ICON_MAP, FeatureCard
+Cohesion: 0.29
+Nodes (4): cardVariants, containerVariants, ICON_MAP, FeatureCard
 
 ### Community 87 - "Community 87"
 Cohesion: 0.25
@@ -632,8 +637,8 @@ Cohesion: 0.12
 Nodes (14): NotFound(), requirements, ResetForm, resetSchema, strengthConfig, ArcLineBrand(), ArcLineBrandProps, ArcLineBrandVariant (+6 more)
 
 ### Community 100 - "Community 100"
-Cohesion: 0.08
-Nodes (32): GET(), POST(), submitScore(), POST(), DELETE(), PATCH(), RouteParams, errorResponseConflicts() (+24 more)
+Cohesion: 0.09
+Nodes (30): GET(), POST(), submitScore(), DELETE(), PATCH(), RouteParams, errorResponseConflicts(), GET() (+22 more)
 
 ### Community 101 - "Community 101"
 Cohesion: 0.25
@@ -660,8 +665,8 @@ Cohesion: 0.43
 Nodes (6): ALLOWED_ROLES, DELETE(), GET(), LegacySession, POST(), requireLegacyAccess()
 
 ### Community 108 - "Community 108"
-Cohesion: 0.07
-Nodes (39): GET(), POST(), GET(), POST(), POST(), GET(), GET(), POST() (+31 more)
+Cohesion: 0.08
+Nodes (36): GET(), POST(), GET(), POST(), GET(), GET(), POST(), POST() (+28 more)
 
 ### Community 109 - "Community 109"
 Cohesion: 0.31
@@ -844,8 +849,8 @@ Cohesion: 0.60
 Nodes (4): Badge(), BadgeProps, formatStatus(), getStatusBadge()
 
 ### Community 161 - "Community 161"
-Cohesion: 0.13
-Nodes (17): POST(), bulkItemSchema, bulkSchema, POST(), GET(), POST(), GET(), POST() (+9 more)
+Cohesion: 0.06
+Nodes (36): POST(), POST(), POST(), POST(), ADMIN_ROLES, feePolicySchema, GET(), PATCH() (+28 more)
 
 ### Community 163 - "Community 163"
 Cohesion: 0.22
@@ -858,6 +863,18 @@ Nodes (6): DeclaredResultPayload, errorMentionsColumn(), POST(), publishResult()
 ### Community 165 - "Community 165"
 Cohesion: 0.40
 Nodes (3): FormData, Props, TeacherApplicationSchema
+
+### Community 166 - "Community 166"
+Cohesion: 0.08
+Nodes (25): AttendanceStatus, RosterRow, SectionAttendancePage(), STATUS_BTNS, ClassesPage(), ComplaintsPage(), FeesManagementPage(), LeaveApplicationPayload (+17 more)
+
+### Community 167 - "Community 167"
+Cohesion: 0.15
+Nodes (8): ContactFormSchema, FormData, SHIFTS, ScrollReveal(), ScrollRevealProps, SectionHeadingProps, FAQ, ProgramLevel
+
+### Community 169 - "Community 169"
+Cohesion: 0.67
+Nodes (3): tsconfig-paths, paths, @/*
 
 ### Community 173 - "Community 173"
 Cohesion: 0.50
@@ -890,22 +907,22 @@ Nodes (9): GET(), parseType(), monitoringStatusCriteria(), BuildStudentMonitorin
 ## Knowledge Gaps
 - **1415 isolated node(s):** `ApiFieldError`, `INITIAL_ADMISSION_FORM_DATA`, `AdmissionFormData`, `createSubjectSchema`, `patchSchema` (+1410 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `successResponse()` connect `Community 63` to `Community 6`, `Community 8`, `Community 9`, `Community 139`, `Community 142`, `Community 147`, `Community 150`, `Community 23`, `Community 152`, `Community 153`, `Community 155`, `Community 31`, `Community 32`, `Community 161`, `Community 33`, `Community 36`, `Community 164`, `Community 39`, `Community 41`, `Community 44`, `Community 48`, `Community 51`, `Community 181`, `Community 55`, `Community 57`, `Community 61`, `Community 62`, `Community 194`, `Community 67`, `Community 69`, `Community 71`, `Community 72`, `Community 75`, `Community 82`, `Community 88`, `Community 89`, `Community 90`, `Community 100`, `Community 104`, `Community 108`, `Community 109`, `Community 110`, `Community 115`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
-- **Why does `AcademyLogo()` connect `Community 15` to `Community 0`, `Community 35`, `Community 99`, `Community 18`, `Community 84`, `Community 25`, `Community 191`?**
+  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `Community 3` to `Community 9`, `Community 66`, `Community 59`?**
   _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `createdResponse()` connect `Community 6` to `Community 139`, `Community 13`, `Community 142`, `Community 147`, `Community 23`, `Community 153`, `Community 155`, `Community 31`, `Community 32`, `Community 161`, `Community 33`, `Community 36`, `Community 41`, `Community 42`, `Community 44`, `Community 49`, `Community 51`, `Community 181`, `Community 56`, `Community 57`, `Community 61`, `Community 62`, `Community 63`, `Community 69`, `Community 71`, `Community 88`, `Community 100`, `Community 104`, `Community 108`, `Community 118`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `AcademyLogo()` connect `Community 15` to `Community 99`, `Community 35`, `Community 18`, `Community 84`, `Community 25`, `Community 191`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
 - **What connects `ApiFieldError`, `INITIAL_ADMISSION_FORM_DATA`, `AdmissionFormData` to the rest of the system?**
   _1415 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.046371976647206006 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04672103295956507 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.04201680672268908 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.047440308622667085 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.13071895424836602 - nodes in this community are weakly interconnected._
