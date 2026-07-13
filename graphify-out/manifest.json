@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/page.tsx": {
-    "mtime": 1783884297.0221078,
-    "ast_hash": "34bc295fac49c5be9f35aa07234e290f",
+    "mtime": 1783943739.9117184,
+    "ast_hash": "0c06d96230a32804e3089aefe6ab52d6",
     "semantic_hash": ""
   },
   "app/dashboard/policies/page.tsx": {
@@ -1575,8 +1575,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grade-entry/page.tsx": {
-    "mtime": 1783863053.0615842,
-    "ast_hash": "aff6af42ad351fabcfc258cda38f06af",
+    "mtime": 1783944087.0344527,
+    "ast_hash": "f4427e7c21399f26372050e773338560",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grading/page.tsx": {
@@ -1695,8 +1695,8 @@
     "semantic_hash": ""
   },
   "app/login/page.tsx": {
-    "mtime": 1783920212.6103754,
-    "ast_hash": "c8a356b45eee57565d723960d77e6f9c",
+    "mtime": 1783943445.125629,
+    "ast_hash": "85a9071ed0e809c1b5c5db19da0f6a92",
     "semantic_hash": ""
   },
   "app/not-found.tsx": {
@@ -2625,8 +2625,8 @@
     "semantic_hash": ""
   },
   "middleware.ts": {
-    "mtime": 1782497245.985371,
-    "ast_hash": "0472c0e9feb51b74cb774a543a4fd834",
+    "mtime": 1783943838.366947,
+    "ast_hash": "b97d256ca046221a16578f6ac145065a",
     "semantic_hash": ""
   },
   "next.config.ts": {

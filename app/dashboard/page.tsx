@@ -109,13 +109,21 @@ export default function DashboardPage() {
   const role = session?.user?.role as string | undefined
   const isAdminOrAbove = role === 'SUPER_ADMIN' || role === 'ADMIN'
   const isAccountant = role === 'ACCOUNTANT'
+  const roleHomePath =
+    role === 'TEACHER'
+      ? '/dashboard/teacher'
+      : role === 'PARENT' || role === 'GUARDIAN'
+        ? '/dashboard/my-children'
+        : null
 
-  // WHY: Guardians/parents have no use for the admin dashboard — redirect to children portal
+  // WHY: Role-specific workspaces must not render the generic dashboard first.
+  // The generic page loads cross-module widgets; teachers/guardians have dedicated
+  // portals and should be redirected before those widgets execute.
   useEffect(() => {
-    if (role === 'PARENT' || role === 'GUARDIAN') {
-      router.replace('/dashboard/my-children')
+    if (roleHomePath) {
+      router.replace(roleHomePath)
     }
-  }, [role, router])
+  }, [roleHomePath, router])
   const isFinanceStaff = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(role || '')
   const isTeacher = role === 'TEACHER'
 
@@ -124,7 +132,7 @@ export default function DashboardPage() {
     queryFn: () => fetchApi<DashboardData>('/api/dashboard'),
     refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
-    enabled: role !== 'STUDENT' // Don't fetch admin metrics for students
+    enabled: isAdminOrAbove || isAccountant
   })
 
   const { data: leaveSummary } = useQuery<PaginatedResult<{ id: string }>>({
@@ -146,12 +154,14 @@ export default function DashboardPage() {
   const { data: teacherProfileRaw, isLoading: isLoadingTeacher } = useQuery<any>({
     queryKey: ['teacher-profile', session?.user?.id],
     queryFn: () => fetchApi<any>(`/api/teachers/profile`),
-    enabled: role === 'TEACHER'
+    enabled: role === 'TEACHER' && !roleHomePath
   })
   const teacherProfile = teacherProfileRaw ?? null
 
   useEffect(() => {
     const loadActivity = async () => {
+      if (!session?.user || roleHomePath) return
+
       try {
         const response = await fetch('/api/activity-log')
         const data = await response.json()
@@ -164,7 +174,7 @@ export default function DashboardPage() {
     }
 
     loadActivity()
-  }, [])
+  }, [session?.user, roleHomePath])
 
   const { data: teacherTimetable, isLoading: isLoadingTimetable } = useQuery<any>({
     queryKey: ['teacher-timetable', teacherProfile?.id],
@@ -195,7 +205,7 @@ export default function DashboardPage() {
   const { data: overdueFees } = useQuery<any>({
     queryKey: ['overdue-fees'],
     queryFn: () => fetchPaginatedApi<any>('/api/fees?status=OVERDUE&limit=1'),
-    enabled: isStudentOrGuardian
+    enabled: isStudentOrGuardian && !roleHomePath
   })
   const hasOverdueFee = overdueFees?.data && overdueFees.data.length > 0
   const firstOverdueFee = overdueFees?.data?.[0]
@@ -250,6 +260,17 @@ export default function DashboardPage() {
       </div>
     </div>
   )
+
+  if (roleHomePath) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-sm text-slate-500">
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span>Opening your workspace…</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -406,8 +427,8 @@ export default function DashboardPage() {
                   {teacherProfile?.classes && teacherProfile.classes.length > 0 ? (
                     teacherProfile.classes
                       .filter((c: any) => c?.class)
-                      .map((c: any) => (
-                        <span key={c.classId ?? c.class?.id ?? Math.random().toString()} className="inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      .map((c: any, index: number) => (
+                        <span key={c.classId ?? c.class?.id ?? `teacher-class-${index}`} className="inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
                           {c.class?.name ?? 'Unknown class'} {c.isClassTeacher ? '👑' : ''}
                         </span>
                       ))

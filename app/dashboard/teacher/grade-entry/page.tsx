@@ -77,6 +77,17 @@ function getEntryStatus(entry: SubjectEntry) {
   return 'Marked'
 }
 
+function parseCustomFields(raw: unknown): CustomField[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (field): field is CustomField =>
+      typeof field === 'object' &&
+      field !== null &&
+      typeof (field as CustomField).label === 'string' &&
+      typeof (field as CustomField).value === 'string'
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 // WHY: useSearchParams() requires a Suspense boundary in Next.js App Router.
@@ -142,7 +153,7 @@ function TeacherResultEntryInner() {
     declarationStatus?: 'DECLARED' | string
     performanceBatch?: string
     teacherRemarks?: string | null
-    customFields?: CustomField[] | null
+    customFields?: unknown
     subjectResults?: ResultSubject[]
   }
 
@@ -307,6 +318,7 @@ function TeacherResultEntryInner() {
 
   const isEditing = !!resultId
   const isDeclared = existingResult?.declarationStatus === 'DECLARED'
+  const existingCustomFields = parseCustomFields(existingResult?.customFields)
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -635,7 +647,7 @@ function TeacherResultEntryInner() {
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Existing custom fields */}
-            {(existingResult.customFields as CustomField[] | null)?.map((f, i) => (
+            {existingCustomFields.map((f, i) => (
               <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
                 <span className="text-sm font-medium text-slate-700 flex-1">{f.label}</span>
                 <span className="text-sm text-slate-500">{f.value}</span>
