@@ -30,38 +30,13 @@ export async function GET(req: NextRequest) {
     const allowedSectionIds = await getTeacherClassSectionIds(teacher.id, activeYear.id)
     if (allowedSectionIds.length === 0) return successResponse([])
 
-    const assignedOfferings = await prisma.subjectOffering.findMany({
+    const offerings = await prisma.subjectOffering.findMany({
       where: {
-        teacherId: teacher.id,
         academicYearId: activeYear.id,
-      },
-      include: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        classSection: {
-          select: {
-            id: true,
-            className: true,
-            sectionName: true,
-          },
-        },
-      },
-      orderBy: [
-        { classSection: { className: 'asc' } },
-        { classSection: { sectionName: 'asc' } },
-        { subject: { name: 'asc' } },
-      ],
-    })
-
-    const offerings = assignedOfferings.length > 0 ? assignedOfferings : await prisma.subjectOffering.findMany({
-      where: {
-        classSectionId: { in: allowedSectionIds },
-        academicYearId: activeYear.id,
+        OR: [
+          { teacherId: teacher.id },
+          { classSectionId: { in: allowedSectionIds } },
+        ],
       },
       include: {
         subject: {
