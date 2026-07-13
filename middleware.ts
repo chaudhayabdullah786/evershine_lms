@@ -24,13 +24,25 @@ import { authConfig } from '@/lib/auth.config'
 // is used exclusively for session decoding, not for actual login flows.
 const { auth } = NextAuth(authConfig)
 
+function getRoleHome(role?: string | null) {
+  switch (role) {
+    case 'TEACHER':
+      return '/dashboard/teacher'
+    case 'PARENT':
+    case 'GUARDIAN':
+      return '/dashboard/my-children'
+    default:
+      return '/dashboard'
+  }
+}
+
 export default auth((req) => {
   const { nextUrl, auth: session } = req
   const isAuthenticated = !!session
+  const role = session?.user?.role as string | undefined
 
   const isProtectedRoute = nextUrl.pathname.startsWith('/dashboard')
   const isAuthRoute      = nextUrl.pathname === '/login'
-  const isApiRoute       = nextUrl.pathname.startsWith('/api')
 
   // ── Guard: unauthenticated user hitting a protected route ──────────────────
   if (isProtectedRoute && !isAuthenticated) {
@@ -44,7 +56,14 @@ export default auth((req) => {
   // If they already have a valid session, send them to the dashboard.
   // This prevents a confusing blank login form for logged-in users.
   if (isAuthRoute && isAuthenticated) {
-    return Response.redirect(new URL('/dashboard', nextUrl.origin))
+    return Response.redirect(new URL(getRoleHome(role), nextUrl.origin))
+  }
+
+  if (isProtectedRoute && isAuthenticated && nextUrl.pathname === '/dashboard') {
+    const roleHome = getRoleHome(role)
+    if (roleHome !== '/dashboard') {
+      return Response.redirect(new URL(roleHome, nextUrl.origin))
+    }
   }
 
   // All other routes (public landing, API, static): pass through unchanged.
