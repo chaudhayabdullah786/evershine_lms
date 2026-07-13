@@ -17,11 +17,12 @@
  * On activate, ALL old `evershine-lms-*` caches are deleted.
  */
 
-// WHY __BUILD_ID__ placeholder: scripts/postbuild-sync.js replaces this token
-// with the real Next.js BUILD_ID after every build. Never edit this manually.
-// TRADEOFF: version change forces users to re-download brand/assets once per
-// deploy — acceptable cost to guarantee fresh content after every deployment.
-const CACHE_VERSION = '__BUILD_ID__';
+// The registration URL includes ?v=<BUILD_ID>. This works even when a host
+// serves public/sw.js directly instead of the postbuild standalone copy.
+// postbuild-sync.js also replaces the exact fallback declaration below so the
+// worker remains correctly versioned when opened without a query string.
+const BUILD_FALLBACK = '__BUILD_ID__';
+const CACHE_VERSION = new URL(self.location.href).searchParams.get('v') || BUILD_FALLBACK;
 const CACHE_PREFIX  = 'evershine-lms-';
 
 // WHY single cache name: pages cache was defined but never written to, causing

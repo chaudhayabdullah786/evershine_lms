@@ -123,11 +123,17 @@ syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
 // version for this specific build — not a generic placeholder string.
 const buildId = fs.readFileSync(BUILD_ID, 'utf8').trim()
 const SW_PLACEHOLDER = '__BUILD_ID__'
+const SW_VERSION_DECLARATION = `const BUILD_FALLBACK = '${SW_PLACEHOLDER}';`
+const injectedVersionDeclaration = `const BUILD_FALLBACK = '${buildId}';`
 const standaloneSW = path.join(PUBLIC_DST, 'sw.js')
 if (fs.existsSync(standaloneSW)) {
   const swContent = fs.readFileSync(standaloneSW, 'utf8')
-  if (swContent.includes(SW_PLACEHOLDER)) {
-    fs.writeFileSync(standaloneSW, swContent.replace(SW_PLACEHOLDER, buildId), 'utf8')
+  if (swContent.includes(SW_VERSION_DECLARATION)) {
+    fs.writeFileSync(
+      standaloneSW,
+      swContent.replace(SW_VERSION_DECLARATION, injectedVersionDeclaration),
+      'utf8',
+    )
     console.log(`[SERVER] OK  sw.js cache version injected: ${buildId}`)
   } else {
     // Already injected (e.g. postbuild-sync already ran and we're doing a hot restart).

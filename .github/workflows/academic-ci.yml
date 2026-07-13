@@ -25,8 +25,8 @@ jobs:
         # WHY: generate only needs the schema file; no real DB connection required
         run: npx prisma generate
 
-      - name: Academic engine unit tests
-        run: npm run test:academic
+      - name: Full unit and API contract tests
+        run: npm test
 
   # ── Job 2: Build verification (no database required) ────────────────────────
   build:
@@ -67,6 +67,9 @@ jobs:
           RAYON_NUM_THREADS: '1'
           TOKIO_WORKER_THREADS: '1'
         run: npm run build
+
+      - name: Verify deployment artifact
+        run: npm run verify:deployment
 
   # ── Job 3: API smoke tests (real MySQL DB required) ─────────────────────────
   api-smoke:
@@ -145,6 +148,9 @@ jobs:
           done
           echo "Server failed to start within 120 s"
           exit 1
+
+      - name: Verify runtime HTML and static assets
+        run: npm run verify:runtime-assets -- --base-url=http://localhost:5000
 
       - name: Install Playwright
         run: npx playwright install --with-deps chromium

@@ -42,6 +42,14 @@ import { Providers } from "@/components/providers";
 import { SessionProvider } from "next-auth/react";
 import { PWARegister } from "@/components/providers/PWARegister";
 
+// Hostinger replaces the active standalone bundle during each deployment.
+// Static HTML cached by an edge for a previous build can therefore reference
+// chunk hashes that no longer exist in the new bundle. Rendering document
+// routes dynamically makes Next.js emit private/no-store cache headers while
+// keeping content-hashed /_next/static assets immutable and cacheable.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={cn("h-full")} suppressHydrationWarning data-scroll-behavior="smooth">
