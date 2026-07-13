@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, Loader2, Plus, Save, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Download, Loader2, Plus, Save, Trash2, MessageCircle, HelpCircle } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
 import { derivePerformanceBatch } from '@/lib/academic/result-utils'
 import { downloadMonitoringExcel, type MonitoringStudentRow } from '@/lib/excel/monitoring-report'
@@ -117,6 +118,7 @@ function groupCount(report: Report, group: string): number {
 
 export default function MonthlyMonitoringPage() {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [academicYearId, setAcademicYearId] = useState('')
   const [sectionId, setSectionId] = useState('')
   const [month, setMonth] = useState(new Date().getMonth() + 1)
@@ -171,6 +173,39 @@ export default function MonthlyMonitoringPage() {
   const isDirty = Boolean(calculatedDraft && reportSignature(calculatedDraft) !== savedSignature)
   const selectedSection = sections.find((section) => section.id === sectionId)
 
+  const handleWhatsAppShare = () => {
+    if (!dailyQuery.data?.dailyEntries || dailyQuery.data.dailyEntries.length === 0) return
+
+    const entries = dailyQuery.data.dailyEntries
+    const dateStr = dailyDate
+    const sectionName = selectedSection ? `${selectedSection.className} — ${selectedSection.sectionName}` : 'Section'
+
+    let message = `*EVERSHINE ACADEMY*\n`
+    message += `*Daily Academic Monitoring Report*\n`
+    message += `----------------------------------\n`
+    message += `*Class & Section:* ${sectionName}\n`
+    message += `*Date:* ${dateStr}\n\n`
+    message += `*Student Performance Summary:*\n`
+
+    entries.forEach((entry) => {
+      const roll = entry.rollNumber ? `Roll ${entry.rollNumber}` : `S.No ${entry.serial}`
+      const highlightEmoji = entry.highlight === 'STAR_OF_THE_DAY' ? ' ⭐' : entry.highlight === 'POOR' ? ' ⚠️' : ''
+      const gradeText = entry.grade ? ` (Grade: ${entry.grade})` : ''
+      
+      message += `• *${entry.name}* (${roll}):\n`
+      message += `  Subject: ${entry.courseName}${gradeText}${highlightEmoji}\n`
+      if (entry.remarks) {
+        message += `  Remarks: _${entry.remarks}_\n`
+      }
+    })
+
+    message += `----------------------------------\n`
+    message += `Generated via Evershine Academy LMS.`
+
+    const encodedText = encodeURIComponent(message)
+    window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank')
+  }
+
   const persistDraft = async () => {
     if (!calculatedDraft) throw new Error('Select a section before saving the report.')
     return fetchApi('/api/teacher-portal/monthly-monitoring', {
@@ -211,6 +246,18 @@ export default function MonthlyMonitoringPage() {
     }),
     onSuccess: async () => {
       notify.success('Monthly monitoring report declared and published.')
+      await queryClient.invalidateQueries({ queryKey: ['monthly-monitoring-editor'] })
+    },
+    onError: (error: Error) => notify.error(error.message),
+  })
+
+  const revertDeclaration = useMutation({
+    mutationFn: () => fetchApi('/api/teacher-portal/monthly-monitoring/declare', {
+      method: 'DELETE',
+      body: JSON.stringify({ classSectionId: sectionId, month, year, academicYearId }),
+    }),
+    onSuccess: async () => {
+      notify.success('Monthly monitoring report reverted to draft.')
       await queryClient.invalidateQueries({ queryKey: ['monthly-monitoring-editor'] })
     },
     onError: (error: Error) => notify.error(error.message),
@@ -350,6 +397,17 @@ export default function MonthlyMonitoringPage() {
               Declare & publish
             </Button>
           )}
+          {reportMode === 'monthly' && calculatedDraft?.declarationStatus === 'DECLARED' && (
+            <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => revertDeclaration.mutate()} disabled={revertDeclaration.isPending}>
+              {revertDeclaration.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Revert to Draft
+            </Button>
+          )}
+          {reportMode === 'daily' && sectionId && (
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold" onClick={() => router.push(`/dashboard/teacher/daily-scores?sectionId=${sectionId}&date=${dailyDate}`)}>
+              Edit Daily Scores
+            </Button>
+          )}
         </div>
       </div>
 
@@ -383,12 +441,30 @@ export default function MonthlyMonitoringPage() {
         dailyQuery.isLoading ? (
           <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle>{selectedSection?.className} — {selectedSection?.sectionName} · {dailyDate}</CardTitle>
-              <CardDescription>Daily report format: Serial Number, Roll Number, Student Name, Course Name, Remarks, Highlight, and teacher-assigned Grade.</CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto p-0">
+          <div className="space-y-6">
+            <Card className="border-indigo-100 bg-indigo-50/50 shadow-sm">
+              <CardContent className="p-4 flex gap-3 text-sm text-indigo-950">
+                <HelpCircle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-indigo-900">Daily Monitoring Instructions & Guide</p>
+                  <p className="text-indigo-800/90 text-xs">
+                    This section displays the aggregated daily scores, grades, highlights (e.g. Star of the Day), and comments entered by teachers for each student.
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 mt-2 text-indigo-800/80 text-xs">
+                    <li>If you need to make changes, correct errors, or input new daily scores, click the <strong className="text-indigo-900">Edit Daily Scores</strong> button in the top right to go directly to the evaluation sheet.</li>
+                    <li>To save a digital copy or share offline, use the <strong className="text-indigo-900">Download Excel</strong> option below.</li>
+                    <li>Use <strong className="text-indigo-900">Share via WhatsApp</strong> to instantly share student performance reports with parent groups or campus coordinators.</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>{selectedSection?.className} — {selectedSection?.sectionName} · {dailyDate}</CardTitle>
+                <CardDescription>Daily report format: Serial Number, Roll Number, Student Name, Course Name, Remarks, Highlight, and teacher-assigned Grade.</CardDescription>
+              </CardHeader>
+              <CardContent className="overflow-x-auto p-0">
               {(dailyQuery.data?.dailyEntries ?? []).length === 0 ? (
                 <div className="py-16 text-center text-sm text-slate-500">No daily monitoring entries found for this date. Use Daily Scores to save student grades and remarks first.</div>
               ) : (
@@ -415,6 +491,7 @@ export default function MonthlyMonitoringPage() {
               )}
             </CardContent>
           </Card>
+          </div>
         )
       ) : query.isLoading || !calculatedDraft ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -502,29 +579,41 @@ export default function MonthlyMonitoringPage() {
       )}
 
       {((reportMode === 'monthly' && calculatedDraft) || (reportMode === 'daily' && dailyExportRows.length > 0)) && (
-        <Button
-          variant="outline"
-          onClick={async () => {
-            try {
-              await downloadMonitoringExcel({
-                type: reportMode,
-                classSectionLabel: `${selectedSection?.className ?? ''} - ${selectedSection?.sectionName ?? ''}`,
-                dateLabel: reportMode === 'monthly' ? `${MONTHS[month - 1].label} ${year}` : dailyDate,
-                academicYear: years.find((record) => record.id === academicYearId)?.name ?? '',
-                teacherName: 'Assigned instructor',
-                subjects: reportMode === 'monthly'
-                  ? calculatedDraft!.columns.filter((column) => column.type === 'COURSE').map((column) => ({ id: column.id, name: column.label, code: '' }))
-                  : dailyQuery.data?.subjects ?? [],
-                students: reportMode === 'monthly' ? exportRows : dailyExportRows,
-              })
-              notify.success('Excel report downloaded.')
-            } catch (error) {
-              notify.error(error instanceof Error ? error.message : 'Unable to generate the Excel report.')
-            }
-          }}
-        >
-          <Download className="mr-2 h-4 w-4" />Download Excel
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await downloadMonitoringExcel({
+                  type: reportMode,
+                  classSectionLabel: `${selectedSection?.className ?? ''} - ${selectedSection?.sectionName ?? ''}`,
+                  dateLabel: reportMode === 'monthly' ? `${MONTHS[month - 1].label} ${year}` : dailyDate,
+                  academicYear: years.find((record) => record.id === academicYearId)?.name ?? '',
+                  teacherName: 'Assigned instructor',
+                  subjects: reportMode === 'monthly'
+                    ? calculatedDraft!.columns.filter((column) => column.type === 'COURSE').map((column) => ({ id: column.id, name: column.label, code: '' }))
+                    : dailyQuery.data?.subjects ?? [],
+                  students: reportMode === 'monthly' ? exportRows : dailyExportRows,
+                })
+                notify.success('Excel report downloaded.')
+              } catch (error) {
+                notify.error(error instanceof Error ? error.message : 'Unable to generate the Excel report.')
+              }
+            }}
+          >
+            <Download className="mr-2 h-4 w-4" />Download Excel
+          </Button>
+
+          {reportMode === 'daily' && dailyExportRows.length > 0 && (
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-2"
+              onClick={handleWhatsAppShare}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Share via WhatsApp
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )
