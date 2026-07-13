@@ -8,7 +8,9 @@ import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
 
 export const dynamic = 'force-dynamic'
 
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 /**
  * GET /api/student-portal/results
@@ -91,7 +93,7 @@ export async function GET() {
         })
       : Promise.resolve([]),
     classSectionIds.length > 0 && activeYear
-      ? monitoringModel.findMany({
+      ? monitoringModel().findMany({
           where: {
             classSectionId: { in: classSectionIds },
             academicYearId: activeYear.id,

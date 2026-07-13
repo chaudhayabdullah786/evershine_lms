@@ -11,7 +11,9 @@ import {
 
 export type MonitoringReportKind = 'daily' | 'monthly' | 'yearly'
 
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 type BuildStudentMonitoringOptions = {
   type: MonitoringReportKind
@@ -96,7 +98,7 @@ export async function buildStudentMonitoringReport(studentId: string, options: B
   // visible in either student or guardian portal, and classmate rows are
   // removed by the mapper before the response is returned.
   if (options.type === 'monthly') {
-    const report = await monitoringModel.findMany({
+    const report = await monitoringModel().findMany({
       where: {
         classSectionId: enrollment.classSectionId,
         academicYearId: enrollment.academicYearId,

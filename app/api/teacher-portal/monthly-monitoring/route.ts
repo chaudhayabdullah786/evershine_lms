@@ -20,7 +20,9 @@ import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 export const dynamic = 'force-dynamic'
 
 // Kept narrow while the local generated Prisma client is refreshed during deploy.
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 const saveSchema = z.object({
   classSectionId: z.string().min(1),
@@ -207,7 +209,7 @@ export async function GET(req: NextRequest) {
         })
 
     if (type === 'monthly') {
-      const snapshot = await monitoringModel.findUnique({
+      const snapshot = await monitoringModel().findUnique({
         where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } },
         select: { reportData: true, declarationStatus: true, declaredAt: true },
       })
@@ -410,7 +412,7 @@ export async function POST(req: NextRequest) {
     }
     let reportData: ReturnType<typeof calculateMonthlySnapshot>
     try { reportData = calculateMonthlySnapshot(parsed.data.reportData, enrollments, parsed.data.classSectionId) } catch (error) { return errors.badRequest(error instanceof Error ? error.message : 'Invalid monthly report data.') }
-    const existingReport = await monitoringModel.findUnique({
+    const existingReport = await monitoringModel().findUnique({
       where: {
         classSectionId_month_year_academicYearId: {
           classSectionId: parsed.data.classSectionId,
@@ -423,7 +425,7 @@ export async function POST(req: NextRequest) {
     if (existingReport?.declarationStatus === 'DECLARED') {
       return errors.badRequest('Declared monthly monitoring reports are locked and cannot be edited.')
     }
-    const report = await monitoringModel.upsert({
+    const report = await monitoringModel().upsert({
       where: {
         classSectionId_month_year_academicYearId: {
           classSectionId: parsed.data.classSectionId,

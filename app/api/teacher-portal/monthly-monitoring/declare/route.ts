@@ -8,7 +8,9 @@ import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export const dynamic = 'force-dynamic'
 
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +23,7 @@ export async function POST(request: NextRequest) {
     const year = Number(body.year)
     const academicYearId = String(body.academicYearId ?? '')
     if (!classSectionId || !academicYearId || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) return errors.badRequest('classSectionId, academicYearId, month, and year are required.')
-    const report = await monitoringModel.findUnique({ where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } } })
+    const report = await monitoringModel().findUnique({ where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } } })
     if (!report) return errors.notFound('Monthly monitoring report')
     if (report.declarationStatus === 'DECLARED') return errors.badRequest('Monthly monitoring report is already declared.')
     if (session.user.role === 'TEACHER') {
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
       if (!assigned) return errors.forbidden('You are not assigned to this class section.')
     }
     const declaredAt = new Date()
-    const updateResult = await monitoringModel.updateMany({
+    const updateResult = await monitoringModel().updateMany({
       where: { id: report.id, declarationStatus: 'DRAFT' },
       data: { declarationStatus: 'DECLARED', declaredAt, declaredById: session.user.id },
     })
