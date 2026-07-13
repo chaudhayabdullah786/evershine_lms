@@ -101,6 +101,8 @@ const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
 console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
 
 const SW_PLACEHOLDER = '__BUILD_ID__'
+const SW_VERSION_DECLARATION = `const BUILD_FALLBACK = '${SW_PLACEHOLDER}';`
+const injectedVersionDeclaration = `const BUILD_FALLBACK = '${buildId}';`
 // TRADEOFF: Only the standalone output copy is injected. public/sw.js retains
 // the placeholder so future builds always have a clean starting point.
 const swTargets = [
@@ -113,13 +115,13 @@ for (const swPath of swTargets) {
     continue
   }
   const content = fs.readFileSync(swPath, 'utf8')
-  if (!content.includes(SW_PLACEHOLDER)) {
-    console.error(`[postbuild] ERROR: __BUILD_ID__ placeholder NOT found in ${swPath}`)
+  if (!content.includes(SW_VERSION_DECLARATION)) {
+    console.error(`[postbuild] ERROR: service-worker BUILD_ID declaration not found in ${swPath}`)
     console.error('[postbuild] This usually means public/sw.js was previously mutated by a build.')
-    console.error('[postbuild] Restore the placeholder: const CACHE_VERSION = \'__BUILD_ID__\';')
+    console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
     process.exit(1)
   }
-  fs.writeFileSync(swPath, content.replace(SW_PLACEHOLDER, buildId), 'utf8')
+  fs.writeFileSync(swPath, content.replace(SW_VERSION_DECLARATION, injectedVersionDeclaration), 'utf8')
   console.log(`[postbuild] OK  sw.js cache version set → ${path.relative(ROOT, swPath)}`)
 }
 
@@ -127,13 +129,16 @@ for (const swPath of swTargets) {
 const srcSwPath = path.join(PUBLIC_SRC, 'sw.js')
 if (fs.existsSync(srcSwPath)) {
   const srcContent = fs.readFileSync(srcSwPath, 'utf8')
-  if (!srcContent.includes(SW_PLACEHOLDER)) {
+  if (!srcContent.includes(SW_VERSION_DECLARATION)) {
     console.error('[postbuild] CRITICAL: public/sw.js source file has lost its __BUILD_ID__ placeholder!')
     console.error('[postbuild] Future builds will produce a service worker stuck on the same old cache.')
-    console.error('[postbuild] Restore: const CACHE_VERSION = \'__BUILD_ID__\'; in public/sw.js')
+    console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
     process.exit(1)
   }
   console.log('[postbuild] OK  public/sw.js source placeholder intact.')
 }
+
+const { verifyDeploymentArtifact } = require('./verify-deployment-artifact')
+verifyDeploymentArtifact(ROOT)
 
 console.log('[postbuild] Done. Standalone build is deployment-ready.')
