@@ -270,6 +270,7 @@ model User {
   profileChangeRequests    ProfileChangeRequest[]    @relation("ProfileChangeRequestsUser")
   requestedProfileChanges  ProfileChangeRequest[]    @relation("ProfileChangeRequestsRequester")
   reviewedProfileChanges   ProfileChangeRequest[]    @relation("ProfileChangeRequestsReviewer")
+  attendanceImports        AttendanceImportLog[]
 
   @@index([email])
   @@index([role])
@@ -2533,4 +2534,18 @@ model StaffApplicationRequest {
   @@index([applicantType])
   @@index([cnic])
   @@index([createdAt])
+}
+
+model AttendanceImportLog {
+  id           String   @id @default(cuid())
+  fileName     String
+  importType   String   // "STAFF" | "STUDENT"
+  totalRows    Int
+  successRows  Int
+  failedRows   Int
+  errorLog     Json?    // Array of { row: number, errors: string[] }
+  importedById String
+  createdAt    DateTime @default(now())
+
+  importedBy   User     @relation(fields: [importedById], references: [id])
 }
