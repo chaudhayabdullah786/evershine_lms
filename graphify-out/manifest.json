@@ -2635,8 +2635,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783920110.1742482,
-    "ast_hash": "9e203c38b85e6397f40a876c5a708787",
+    "mtime": 1783925858.0943086,
+    "ast_hash": "961782d3891273e6316c465b7c0e8347",
     "semantic_hash": ""
   },
   "playwright.config.ts": {
