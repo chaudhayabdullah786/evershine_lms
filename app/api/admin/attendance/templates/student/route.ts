@@ -8,8 +8,10 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   const role = session.user.role as Role
-  if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
-    return errors.forbidden('Only admins can access attendance templates')
+  // WHY: Teachers also need to download the student template to fill
+  // it with biometric data before using the teacher import endpoint.
+  if (role !== 'SUPER_ADMIN' && role !== 'ADMIN' && role !== 'TEACHER') {
+    return errors.forbidden('Only Teachers and Admins can access attendance templates')
   }
 
   // Create workbook and worksheet
