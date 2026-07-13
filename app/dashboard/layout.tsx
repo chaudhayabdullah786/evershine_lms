@@ -46,6 +46,7 @@ import {
   AlertCircle,
   Archive,
   CheckCheck,
+  UploadCloud,
 } from 'lucide-react'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { ArcLineBrand } from '@/components/ArcLineBrand'
@@ -94,6 +95,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Staff Salaries',  href: '/dashboard/salaries',     icon: Banknote,        roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
   { name: 'Attendance', href: '/dashboard/attendance/sections', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Staff Attendance', href: '/dashboard/teachers/attendance', icon: UserCheck, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { name: 'Biometric Import', href: '/dashboard/admin/attendance-import', icon: UploadCloud, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Class Attendance (Legacy)', href: '/dashboard/attendance/legacy', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'ADMIN'], legacy: true },
   { name: 'Exams',           href: '/dashboard/exams',        icon: BookOpen,        roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
   { name: 'Results',         href: '/dashboard/results',      icon: BarChart2,       roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
@@ -119,6 +121,7 @@ const NAV_ITEMS: NavItem[] = [
 const TEACHER_NAV_ITEMS: NavItem[] = [
   { name: 'My Students',        href: '/dashboard/teacher/students',          icon: Users },
   { name: 'Student Attendance', href: '/dashboard/teacher/attendance',        icon: ClipboardCheck },
+  { name: 'Import Attendance',  href: '/dashboard/teacher/attendance-import', icon: UploadCloud },
   { name: 'My Announcements',   href: '/dashboard/teacher/announcements',     icon: Megaphone },
   { name: 'Tasks & Marks',      href: '/dashboard/teacher/tasks',             icon: ClipboardList },
   { name: 'Daily Scores',       href: '/dashboard/teacher/daily-scores',      icon: Target },
