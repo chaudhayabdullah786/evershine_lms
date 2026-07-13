@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // required for Hostinger and other non-Vercel Node.js hosts.
   output: "standalone",
 
+  // Hostinger keeps another package-lock.json above the checked-out build
+  // directory. Pin tracing to this app so standalone/server.js is emitted in
+  // this project's .next/standalone directory instead of a parent workspace.
+  outputFileTracingRoot: process.cwd(),
+
   // Prisma needs to remain as a server external package in standalone mode
   // so the generated client can find the correct engine binary at runtime.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/client"],
