@@ -69,76 +69,116 @@ function syncDir(src, dst, label) {
   console.log(`[postbuild] OK  ${label} — ${count} files`)
 }
 
-if (!fs.existsSync(STANDALONE)) {
-  console.error('[postbuild] ERROR: .next/standalone not found.')
-  console.error('[postbuild] Ensure next.config.ts has output: "standalone"')
-  process.exit(1)
-}
+async function generateSocialShareImage() {
+  try {
+    const sharp = require('sharp')
+    const logoPath = path.join(PUBLIC_SRC, 'brand', 'logo-crest.png')
+    const socialShareDir = path.join(PUBLIC_SRC, 'assets', 'images')
+    const socialSharePath = path.join(socialShareDir, 'evershine-social-share.jpg')
 
-console.log('[postbuild] Syncing assets into standalone output...')
-syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
-syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
+    if (!fs.existsSync(logoPath)) {
+      console.warn(`[postbuild] WARNING: Logo not found at ${logoPath}. Skipping social-share image generation.`)
+      return
+    }
 
-// ── Inject BUILD_ID into sw.js ───────────────────────────────────────────────
-// WHY: public/sw.js ships with `const CACHE_VERSION = '__BUILD_ID__'` as a
-// placeholder. If we deployed without replacing it, ALL deployments would share
-// the same cache name and old caches would never be evicted.
-//
-// CRITICAL: We inject ONLY into the standalone OUTPUT copy of sw.js, never into
-// the source-tracked public/sw.js. Mutating the source file consumes the
-// placeholder — on the next build it is already gone, injection silently skips,
-// and the SW is stuck on an old cache version. Users see stale UI after deploys.
-//
-// We read the real Next.js BUILD_ID (a content hash Next.js generates per build)
-// and write it only into the standalone copy so the SW cache key is unique per
-// deployment. The source file always retains the __BUILD_ID__ placeholder.
-const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
-if (!fs.existsSync(BUILD_ID_PATH)) {
-  console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot inject cache version into sw.js.')
-  process.exit(1)
-}
-const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
-console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
+    if (!fs.existsSync(socialShareDir)) {
+      fs.mkdirSync(socialShareDir, { recursive: true })
+    }
 
-const SW_PLACEHOLDER = '__BUILD_ID__'
-const SW_VERSION_DECLARATION = `const BUILD_FALLBACK = '${SW_PLACEHOLDER}';`
-const injectedVersionDeclaration = `const BUILD_FALLBACK = '${buildId}';`
-// TRADEOFF: Only the standalone output copy is injected. public/sw.js retains
-// the placeholder so future builds always have a clean starting point.
-const swTargets = [
-  path.join(PUBLIC_DST, 'sw.js'),  // standalone/public/sw.js (served in production)
-  // NOT public/sw.js — mutating the source file destroys the placeholder for future builds.
-]
-for (const swPath of swTargets) {
-  if (!fs.existsSync(swPath)) {
-    console.warn(`[postbuild] SKIP sw.js injection: not found at ${swPath}`)
-    continue
+    const backgroundSvg = `
+    <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="630" fill="#0F4C81" />
+      <defs>
+        <radialGradient id="grad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e3a5f" stop-opacity="0.6" />
+          <stop offset="100%" stop-color="#0F4C81" stop-opacity="1" />
+        </radialGradient>
+      </defs>
+      <rect width="1200" height="630" fill="url(#grad)" />
+    </svg>
+    `
+
+    console.log('[postbuild] Generating evershine-social-share.jpg (1200x630)...')
+    const logoBuffer = await sharp(logoPath)
+      .resize({ width: 400 })
+      .toBuffer()
+
+    await sharp(Buffer.from(backgroundSvg))
+      .composite([{ input: logoBuffer, gravity: 'center' }])
+      .jpeg({ quality: 90 })
+      .toFile(socialSharePath)
+
+    console.log(`[postbuild] OK  evershine-social-share.jpg created → public/assets/images/evershine-social-share.jpg`)
+  } catch (err) {
+    console.error('[postbuild] ERROR generating social-share image:', err)
   }
-  const content = fs.readFileSync(swPath, 'utf8')
-  if (!content.includes(SW_VERSION_DECLARATION)) {
-    console.error(`[postbuild] ERROR: service-worker BUILD_ID declaration not found in ${swPath}`)
-    console.error('[postbuild] This usually means public/sw.js was previously mutated by a build.')
-    console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
+}
+
+async function run() {
+  if (!fs.existsSync(STANDALONE)) {
+    console.error('[postbuild] ERROR: .next/standalone not found.')
+    console.error('[postbuild] Ensure next.config.ts has output: "standalone"')
     process.exit(1)
   }
-  fs.writeFileSync(swPath, content.replace(SW_VERSION_DECLARATION, injectedVersionDeclaration), 'utf8')
-  console.log(`[postbuild] OK  sw.js cache version set → ${path.relative(ROOT, swPath)}`)
-}
 
-// Verify source sw.js still has the placeholder for future builds.
-const srcSwPath = path.join(PUBLIC_SRC, 'sw.js')
-if (fs.existsSync(srcSwPath)) {
-  const srcContent = fs.readFileSync(srcSwPath, 'utf8')
-  if (!srcContent.includes(SW_VERSION_DECLARATION)) {
-    console.error('[postbuild] CRITICAL: public/sw.js source file has lost its __BUILD_ID__ placeholder!')
-    console.error('[postbuild] Future builds will produce a service worker stuck on the same old cache.')
-    console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
+  // Generate the social share image first so it gets copied automatically to standalone
+  await generateSocialShareImage()
+
+  console.log('[postbuild] Syncing assets into standalone output...')
+  syncDir(STATIC_SRC, STATIC_DST, '.next/static → standalone/.next/static')
+  syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
+
+  // ── Inject BUILD_ID into sw.js ───────────────────────────────────────────────
+  const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
+  if (!fs.existsSync(BUILD_ID_PATH)) {
+    console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot inject cache version into sw.js.')
     process.exit(1)
   }
-  console.log('[postbuild] OK  public/sw.js source placeholder intact.')
+  const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
+  console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
+
+  const SW_PLACEHOLDER = '__BUILD_ID__'
+  const SW_VERSION_DECLARATION = `const BUILD_FALLBACK = '${SW_PLACEHOLDER}';`
+  const injectedVersionDeclaration = `const BUILD_FALLBACK = '${buildId}';`
+  const swTargets = [
+    path.join(PUBLIC_DST, 'sw.js'),
+  ]
+  for (const swPath of swTargets) {
+    if (!fs.existsSync(swPath)) {
+      console.warn(`[postbuild] SKIP sw.js injection: not found at ${swPath}`)
+      continue
+    }
+    const content = fs.readFileSync(swPath, 'utf8')
+    if (!content.includes(SW_VERSION_DECLARATION)) {
+      console.error(`[postbuild] ERROR: service-worker BUILD_ID declaration not found in ${swPath}`)
+      console.error('[postbuild] This usually means public/sw.js was previously mutated by a build.')
+      console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
+      process.exit(1)
+    }
+    fs.writeFileSync(swPath, content.replace(SW_VERSION_DECLARATION, injectedVersionDeclaration), 'utf8')
+    console.log(`[postbuild] OK  sw.js cache version set → ${path.relative(ROOT, swPath)}`)
+  }
+
+  const srcSwPath = path.join(PUBLIC_SRC, 'sw.js')
+  if (fs.existsSync(srcSwPath)) {
+    const srcContent = fs.readFileSync(srcSwPath, 'utf8')
+    if (!srcContent.includes(SW_VERSION_DECLARATION)) {
+      console.error('[postbuild] CRITICAL: public/sw.js source file has lost its __BUILD_ID__ placeholder!')
+      console.error('[postbuild] Future builds will produce a service worker stuck on the same old cache.')
+      console.error(`[postbuild] Restore: ${SW_VERSION_DECLARATION}`)
+      process.exit(1)
+    }
+    console.log('[postbuild] OK  public/sw.js source placeholder intact.')
+  }
+
+  const { verifyDeploymentArtifact } = require('./verify-deployment-artifact')
+  verifyDeploymentArtifact(ROOT)
+
+  console.log('[postbuild] Done. Standalone build is deployment-ready.')
 }
 
-const { verifyDeploymentArtifact } = require('./verify-deployment-artifact')
-verifyDeploymentArtifact(ROOT)
+run().catch(err => {
+  console.error('[postbuild] Unexpected build error:', err)
+  process.exit(1)
+})
 
-console.log('[postbuild] Done. Standalone build is deployment-ready.')
