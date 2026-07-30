@@ -78,23 +78,55 @@ describe('teacher-portal/my-students', () => {
     expect(studentFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          AND: expect.arrayContaining([
-            expect.objectContaining({
-              OR: expect.arrayContaining([
-                expect.objectContaining({
+          AND: [
+            {
+              OR: [
+                { classId: { in: [] } },
+                {
                   enrollments: {
                     some: {
                       classSectionId: { in: ['section-1'] },
                       status: 'ACTIVE',
                     },
                   },
-                }),
-              ]),
-            }),
-          ]),
+                },
+              ],
+            },
+          ],
+        }),
+        select: expect.objectContaining({
+          enrollments: expect.objectContaining({
+            where: {
+              status: 'ACTIVE',
+              classSectionId: { in: ['section-1'] },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          }),
         }),
       })
     )
+  })
+
+  it('returns an empty result for a section outside the teacher scope', async () => {
+    authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
+    teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
+    classTeacherFindManyMock.mockResolvedValue([{ classId: 'legacy-class-1' }])
+    subjectTeacherFindManyMock.mockResolvedValue([])
+    subjectOfferingFindManyMock.mockResolvedValue([{ classSectionId: 'section-1' }])
+    timetableSlotFindManyMock.mockResolvedValue([])
+
+    const response = await GET(
+      new Request(
+        'http://localhost/api/teacher-portal/my-students?classSectionId=other-section&limit=10'
+      ) as unknown as NextRequest
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.pagination.total).toBe(0)
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(studentFindManyMock).not.toHaveBeenCalled()
   })
 
   it('includes timetable-based assignments when resolving teacher student scope', async () => {

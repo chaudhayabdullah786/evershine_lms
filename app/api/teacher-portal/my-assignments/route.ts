@@ -115,7 +115,20 @@ export async function GET(request: NextRequest) {
   const classSections = await prisma.classSection.findMany({
     where: {
       id: { in: allowedSectionIds },
-      isActive: true,
+      // Preserve access to migrated sections that are still operational by
+      // virtue of active enrollments. The teacher scope above remains the
+      // authorization boundary, so this does not widen access.
+      OR: [
+        { isActive: true },
+        {
+          enrollments: {
+            some: {
+              academicYearId: activeYear.id,
+              status: 'ACTIVE',
+            },
+          },
+        },
+      ],
     },
     select: {
       id: true,
@@ -126,7 +139,16 @@ export async function GET(request: NextRequest) {
       shift: { select: { code: true, name: true } },
       campus: { select: { name: true, code: true } },
       batch: { select: { name: true } },
-      _count: { select: { enrollments: true } },
+      _count: {
+        select: {
+          enrollments: {
+            where: {
+              academicYearId: activeYear.id,
+              status: 'ACTIVE',
+            },
+          },
+        },
+      },
     },
     orderBy: [
       { className: 'asc' },
@@ -134,14 +156,14 @@ export async function GET(request: NextRequest) {
     ],
   })
 
-  const activeSectionIds = classSections.map((section) => section.id)
+  const visibleSectionIds = classSections.map((section) => section.id)
 
   // Direct subject offerings assigned to this teacher.
   const offerings = await prisma.subjectOffering.findMany({
     where: {
       teacherId,
       academicYearId: activeYear.id,
-      classSectionId: { in: activeSectionIds },
+      classSectionId: { in: visibleSectionIds },
     },
     select: {
       id: true,
@@ -155,7 +177,7 @@ export async function GET(request: NextRequest) {
     where: {
       teacherId,
       academicYearId: activeYear.id,
-      classSectionId: { in: activeSectionIds },
+      classSectionId: { in: visibleSectionIds },
       isPublished: true,
     },
     select: {
@@ -169,7 +191,7 @@ export async function GET(request: NextRequest) {
   })
 
   const subjectsBySection = new Map<string, { names: string[]; codes: string[] }>()
-  for (const sectionId of activeSectionIds) {
+  for (const sectionId of visibleSectionIds) {
     subjectsBySection.set(sectionId, { names: [], codes: [] })
   }
 

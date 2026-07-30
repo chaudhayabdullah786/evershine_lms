@@ -113,7 +113,32 @@ describe('teacher-portal/my-assignments', () => {
     expect(getTeacherClassSectionIdsMock).toHaveBeenCalledWith('teacher-1', 'year-1')
     expect(classSectionFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: { in: ['sec-1', 'sec-2'] }, isActive: true },
+        where: {
+          id: { in: ['sec-1', 'sec-2'] },
+          OR: [
+            { isActive: true },
+            {
+              enrollments: {
+                some: {
+                  academicYearId: 'year-1',
+                  status: 'ACTIVE',
+                },
+              },
+            },
+          ],
+        },
+        select: expect.objectContaining({
+          _count: {
+            select: {
+              enrollments: {
+                where: {
+                  academicYearId: 'year-1',
+                  status: 'ACTIVE',
+                },
+              },
+            },
+          },
+        }),
       })
     )
     expect(json.data.teacher).toMatchObject({
