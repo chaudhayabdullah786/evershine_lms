@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -47,12 +46,25 @@ interface Student {
   batch:  { id: string; name: string; code: string; academicYear: string }
   class:  { id: string; name: string; section: string; grade: number } | null
   house:  { id: string; name: string; color: string } | null
+  enrollments?: Array<{
+    id: string
+    rollNumber: string
+    status: string
+    classSection: {
+      id: string
+      className: string
+      sectionName: string
+      shift: { name: string; code: string } | null
+    }
+  }>
 }
 
 interface ClassRecord {
   id: string
   name: string
   section: string
+  classSectionId: string | null
+  legacyClassId: string | null
   batchId: string
   campusId: string
 }
@@ -68,6 +80,43 @@ const ENROLLMENT_STYLES: Record<string, string> = {
 }
 
 const GENDER_ICON: Record<string, string> = { MALE: '♂', FEMALE: '♀' }
+
+export function appendTeacherStudentClassScope(
+  params: URLSearchParams,
+  classFilter: string,
+  classes: ClassRecord[]
+) {
+  if (!classFilter) return
+
+  const selectedClass = classes.find((entry) => entry.id === classFilter)
+  if (selectedClass?.classSectionId) {
+    params.set('classSectionId', selectedClass.classSectionId)
+    return
+  }
+
+  params.set('classId', selectedClass?.legacyClassId ?? classFilter)
+}
+
+export function getStudentClassLabel(student: Student): string {
+  if (student.class?.name) return student.class.name
+
+  const section = student.enrollments?.[0]?.classSection
+  if (!section) return 'Unassigned'
+
+  const shift = section.shift?.name || section.shift?.code
+  return `${section.className} (${section.sectionName})${shift ? ` · ${shift}` : ''}`
+}
+
+export function getStudentRollNumber(student: Student): string | null {
+  return student.enrollments?.[0]?.rollNumber ?? student.rollNumber
+}
+
+export function getClassOptionLabel(classRecord: ClassRecord): string {
+  const sectionSuffix = `(${classRecord.section})`
+  return classRecord.name.trim().endsWith(sectionSuffix)
+    ? classRecord.name
+    : `${classRecord.name} ${sectionSuffix}`
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -141,7 +190,7 @@ function RequestAdminDialog({ student, open, onClose }: RequestDialogProps) {
         {student && (
           <div className="py-1 px-3 bg-gray-50 rounded-lg border text-sm space-y-0.5">
             <p className="font-semibold text-gray-900">{student.firstName} {student.lastName}</p>
-            <p className="text-gray-500 text-xs">{student.registrationNumber} · {student.class?.name ?? 'No class'} · {student.campus.code}</p>
+            <p className="text-gray-500 text-xs">{student.registrationNumber} · {getStudentClassLabel(student)} · {student.campus.code}</p>
           </div>
         )}
 
@@ -236,8 +285,8 @@ function StudentDetailDialog({ student, open, onClose, onRequestAction }: Studen
           {/* Grid: Academic & Campus Info */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Reg. No" value={student.registrationNumber} mono />
-            <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Roll No" value={student.rollNumber ?? '—'} mono />
-            <InfoRow icon={<GraduationCap className="w-3.5 h-3.5" />} label="Class" value={student.class ? `${student.class.name} (${student.class.section})` : '—'} />
+            <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Roll No" value={getStudentRollNumber(student) ?? '—'} mono />
+            <InfoRow icon={<GraduationCap className="w-3.5 h-3.5" />} label="Class" value={getStudentClassLabel(student)} />
             <InfoRow icon={<Users className="w-3.5 h-3.5" />} label="Batch" value={`${student.batch.name} (${student.batch.code})`} />
             <InfoRow icon={<Building2 className="w-3.5 h-3.5" />} label="Campus" value={`${student.campus.name} — ${student.campus.city}`} />
             <InfoRow icon={<CalendarDays className="w-3.5 h-3.5" />} label="Academic Year" value={student.academicYear} />
@@ -317,7 +366,7 @@ export default function TeacherMyStudentsPage() {
   params.set('page', String(page))
   params.set('limit', String(limit))
   if (search)           params.set('search', search)
-  if (classFilter)      params.set('classId', classFilter)
+  appendTeacherStudentClassScope(params, classFilter, classes)
   if (enrollmentFilter) params.set('enrollmentStatus', enrollmentFilter)
 
   const { data, isLoading } = useQuery({
@@ -431,7 +480,7 @@ export default function TeacherMyStudentsPage() {
                 <SelectItem value="_all">All Classes</SelectItem>
                 {classes.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.section})
+                    {getClassOptionLabel(c)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -542,23 +591,27 @@ export default function TeacherMyStudentsPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
-                  <div>
+                <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div className="min-w-0">
                     <span className="text-gray-400 text-[10px] block uppercase">Reg / Roll</span>
-                    <span className="font-mono text-gray-800 font-medium">{student.registrationNumber}</span>
-                    {student.rollNumber && <span className="text-gray-400 ml-1">(#{student.rollNumber})</span>}
+                    <span className="font-mono text-gray-800 font-medium break-all leading-tight block">{student.registrationNumber}</span>
+                    {getStudentRollNumber(student) && (
+                      <span className="text-gray-400 block break-all leading-tight">
+                        Roll #{getStudentRollNumber(student)}
+                      </span>
+                    )}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-gray-400 text-[10px] block uppercase">Class</span>
-                    <span className="font-medium text-gray-800 truncate block">
-                      {student.class ? student.class.name : 'Unassigned'}
+                    <span className="font-medium text-gray-800 line-clamp-2 leading-tight block">
+                      {getStudentClassLabel(student)}
                     </span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-gray-400 text-[10px] block uppercase">Campus</span>
                     <span className="font-semibold text-indigo-600">{student.campus.code}</span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-gray-400 text-[10px] block uppercase">Batch</span>
                     <span className="text-gray-700 truncate block">{student.batch.code}</span>
                   </div>
@@ -659,15 +712,15 @@ export default function TeacherMyStudentsPage() {
                     {/* Roll / Reg */}
                     <TableCell>
                       <p className="font-mono text-xs text-gray-600">{student.registrationNumber}</p>
-                      {student.rollNumber && (
-                        <p className="text-[10px] text-gray-400">Roll #{student.rollNumber}</p>
+                      {getStudentRollNumber(student) && (
+                        <p className="text-[10px] text-gray-400">Roll #{getStudentRollNumber(student)}</p>
                       )}
                     </TableCell>
 
                     {/* Class & Batch */}
                     <TableCell>
                       <p className="text-sm font-medium text-gray-800">
-                        {student.class ? student.class.name : <span className="text-gray-400 text-xs">Unassigned</span>}
+                        {getStudentClassLabel(student)}
                       </p>
                       <p className="text-[11px] text-gray-400">{student.batch.name} · {student.batch.code}</p>
                     </TableCell>
