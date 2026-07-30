@@ -493,7 +493,8 @@ function TeacherResultEntryInner() {
                 <span>{pendingEntries.length} subject(s) are pending. Drafts can be saved, but students will not see this result until every subject is marked, Absent, or N/A.</span>
               </div>
             )}
-            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 px-1">
+            {/* Subject Entries Header (Desktop) */}
+            <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 px-1">
               <span className="col-span-3">Subject</span>
               <span className="col-span-2 text-center">Total</span>
               <span className="col-span-2 text-center">Obtained</span>
@@ -502,60 +503,134 @@ function TeacherResultEntryInner() {
               <span className="col-span-1 text-center">Status</span>
               <span className="col-span-2">Remarks</span>
             </div>
-            <Separator />
+            <Separator className="hidden sm:block" />
+
+            {/* Subject Entries List */}
             {subjectEntries.map((entry, idx) => (
-              <div key={entry.subjectOfferingId} className="grid grid-cols-12 gap-2 items-center">
-                <span className="col-span-3 text-sm font-medium text-slate-700 truncate">{entry.subjectName}</span>
-                <div className="col-span-2">
-                  <Input
-                    type="number" min={1} className="h-8 text-center text-xs"
-                    value={entry.totalMarks}
-                    disabled={isDeclared}
-                    onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
-                  />
+              <div key={entry.subjectOfferingId}>
+                {/* Mobile View Card (< sm) */}
+                <div className="block sm:hidden p-3.5 rounded-xl border border-slate-200/80 bg-white space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-slate-900">{entry.subjectName}</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold'
+                        : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }
+                    >
+                      {getEntryStatus(entry)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Total Marks</Label>
+                      <Input
+                        type="number" min={1} className="h-10 text-center text-xs font-semibold border-slate-200"
+                        value={entry.totalMarks}
+                        disabled={isDeclared}
+                        onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Obtained Marks</Label>
+                      <Input
+                        type="number" min={0} max={entry.totalMarks}
+                        placeholder="Pending" className="h-10 text-center text-xs font-semibold border-slate-200"
+                        value={entry.obtainedMarks}
+                        disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
+                        onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 font-medium cursor-pointer">
+                        <Checkbox
+                          checked={entry.isAbsent}
+                          disabled={isDeclared}
+                          onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
+                        />
+                        Absent
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 font-medium cursor-pointer">
+                        <Checkbox
+                          checked={entry.isNotApplicable}
+                          disabled={isDeclared}
+                          onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
+                        />
+                        N/A
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Input
+                      placeholder="Optional remark..." className="h-9 text-xs border-slate-200"
+                      value={entry.remarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number" min={0} max={entry.totalMarks}
-                    placeholder="Pending" className="h-8 text-center text-xs"
-                    value={entry.obtainedMarks}
-                    disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
-                    onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Checkbox
-                    checked={entry.isAbsent}
-                    disabled={isDeclared}
-                    onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Checkbox
-                    checked={entry.isNotApplicable}
-                    disabled={isDeclared}
-                    onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Badge
-                    variant="outline"
-                    className={
-                      getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                    }
-                  >
-                    {getEntryStatus(entry)}
-                  </Badge>
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    placeholder="Optional remark" className="h-8 text-xs"
-                    value={entry.remarks}
-                    disabled={isDeclared}
-                    onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
-                  />
+
+                {/* Desktop View Row (>= sm) */}
+                <div className="hidden sm:grid grid-cols-12 gap-2 items-center py-1.5">
+                  <span className="col-span-3 text-sm font-semibold text-slate-800 truncate">{entry.subjectName}</span>
+                  <div className="col-span-2">
+                    <Input
+                      type="number" min={1} className="h-9 text-center text-xs font-semibold border-slate-200"
+                      value={entry.totalMarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number" min={0} max={entry.totalMarks}
+                      placeholder="Pending" className="h-9 text-center text-xs font-semibold border-slate-200"
+                      value={entry.obtainedMarks}
+                      disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
+                      onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Checkbox
+                      checked={entry.isAbsent}
+                      disabled={isDeclared}
+                      onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Checkbox
+                      checked={entry.isNotApplicable}
+                      disabled={isDeclared}
+                      onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Badge
+                      variant="outline"
+                      className={
+                        getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold'
+                        : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }
+                    >
+                      {getEntryStatus(entry)}
+                    </Badge>
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      placeholder="Optional remark" className="h-9 text-xs border-slate-200"
+                      value={entry.remarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
