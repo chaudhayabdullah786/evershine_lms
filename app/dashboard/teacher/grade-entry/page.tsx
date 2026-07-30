@@ -128,14 +128,18 @@ function TeacherResultEntryInner() {
     enabled: !!classSectionId,
   })
 
-  const { data: sectionOfferings = [] } = useQuery<SubjectOffering[]>({
+  const { data: sectionOfferings } = useQuery<SubjectOffering[]>({
     queryKey: ['section-offerings', classSectionId],
     queryFn: () => fetchApi<SubjectOffering[]>(`/api/teacher-portal/sections/${classSectionId}/offerings`),
     enabled: !!classSectionId && !resultId,
   })
 
   useEffect(() => {
-    if (!classSectionId || resultId) return
+    // Keep the loading state as undefined. A destructuring fallback such as
+    // `data: sectionOfferings = []` creates a new array on every render while
+    // the query is pending; because this effect updates state, that produces a
+    // maximum-update-depth loop immediately after a section is selected.
+    if (!classSectionId || resultId || !sectionOfferings) return
     setSubjectEntries(sectionOfferings.map((o) => ({
       subjectOfferingId: o.id,
       subjectName: o.subject.name,
@@ -475,7 +479,7 @@ function TeacherResultEntryInner() {
             )}
           </CardHeader>
           <CardContent className="space-y-3">
-            {sectionOfferings.length === 0 && !isEditing && (
+            {sectionOfferings?.length === 0 && !isEditing && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>No assigned subject offerings were found for this section. Ask administration to assign subjects to your teacher profile before entering results.</span>
