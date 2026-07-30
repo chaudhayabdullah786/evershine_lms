@@ -65,22 +65,53 @@ function legacyClassMatchesSection(
     return false
   }
 
-  const legacyName = normalizeScopeText(legacy.name)
-  const sectionClassName = normalizeScopeText(section.className)
   const legacySection = normalizeScopeText(legacy.section)
   const sectionName = normalizeScopeText(section.sectionName)
+  const legacyName = normalizeScopeText(legacy.name)
 
-  const classNameMatches =
-    legacyName === sectionClassName ||
-    legacyName.startsWith(sectionClassName) ||
-    sectionClassName.startsWith(legacyName)
-
+  // `Class.name` is a legacy display label and is not a stable foreign key.
+  // In production it can be "Class 11 - A", "XI A", or a batch-specific
+  // label while ClassSection.className has a different naming convention.
+  // The stable cross-engine identity is campus + grade + section, with batch
+  // and shift used above to narrow the match whenever they are available.
   const sectionMatches =
     !legacySection ||
     legacySection === sectionName ||
     legacyName.split(' ').includes(sectionName)
 
-  return classNameMatches && sectionMatches
+  return sectionMatches
+}
+
+function selectUnambiguousLegacySectionMatches(
+  legacy: {
+    name: string
+    section: string | null
+  },
+  candidates: Array<{
+    id: string
+    className: string
+    sectionName: string
+  }>
+): string[] {
+  if (candidates.length === 1) return [candidates[0].id]
+  if (candidates.length === 0) return []
+
+  // Multiple sections can share the same grade/section when the legacy
+  // database drifted. Use the old display name only as a tie-breaker; never
+  // widen a teacher's scope when the association remains ambiguous.
+  const legacyName = normalizeScopeText(legacy.name)
+  const nameMatches = candidates.filter((section) => {
+    const className = normalizeScopeText(section.className)
+    const fullSectionName = normalizeScopeText(`${section.className} ${section.sectionName}`)
+    return (
+      legacyName === className ||
+      legacyName === fullSectionName ||
+      legacyName.startsWith(className) ||
+      className.startsWith(legacyName)
+    )
+  })
+
+  return nameMatches.length === 1 ? [nameMatches[0].id] : []
 }
 
 function mapLegacyClassesToSections(
@@ -105,21 +136,24 @@ function mapLegacyClassesToSections(
   const mapped = new Set<string>()
 
   for (const legacy of legacyClasses) {
+    // Prefer the most precise identifiers first. Each lower tier exists for
+    // documented migration drift between legacy Class and ClassSection rows.
+    // `selectUnambiguousLegacySectionMatches` keeps the fallback least-privilege.
     const strictMatches = classSections.filter((section) =>
       legacyClassMatchesSection(legacy, section, 'strict')
     )
-    const shiftMatches = strictMatches.length > 0
-      ? strictMatches
-      : classSections.filter((section) =>
-          legacyClassMatchesSection(legacy, section, 'ignore-batch')
-        )
-    const fallbackMatches = shiftMatches.length > 0
-      ? shiftMatches
-      : classSections.filter((section) =>
-          legacyClassMatchesSection(legacy, section, 'ignore-batch-shift')
-        )
+    const shiftMatches = classSections.filter((section) =>
+      legacyClassMatchesSection(legacy, section, 'ignore-batch')
+    )
+    const fallbackMatches = classSections.filter((section) =>
+      legacyClassMatchesSection(legacy, section, 'ignore-batch-shift')
+    )
 
-    fallbackMatches.forEach((section) => mapped.add(section.id))
+    const mappedIds = [strictMatches, shiftMatches, fallbackMatches]
+      .map((candidates) => selectUnambiguousLegacySectionMatches(legacy, candidates))
+      .find((sectionIds) => sectionIds.length > 0) ?? []
+
+    mappedIds.forEach((sectionId) => mapped.add(sectionId))
   }
 
   return Array.from(mapped)

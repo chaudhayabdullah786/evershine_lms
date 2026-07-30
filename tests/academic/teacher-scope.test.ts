@@ -114,6 +114,79 @@ describe('teacher section resolution', () => {
     expect(result).toEqual(['section-11a-current'])
   })
 
+  it('maps legacy assignments by stable identifiers when display names differ between engines', async () => {
+    classTeacherFindMany
+      .mockResolvedValueOnce([{ classId: 'legacy-class-1' }])
+      .mockResolvedValueOnce([{ classId: 'legacy-class-1' }])
+    classFindMany.mockResolvedValue([
+      {
+        id: 'legacy-class-1',
+        name: 'XI-A Morning Cohort',
+        grade: 11,
+        section: 'A',
+        campusId: 'campus-1',
+        batchId: 'legacy-batch',
+        shift: 'MORNING',
+      },
+    ])
+    classSectionFindMany.mockResolvedValue([
+      {
+        id: 'section-11a-current',
+        className: 'Senior Secondary',
+        sectionName: 'A',
+        grade: 11,
+        campusId: 'campus-1',
+        batchId: 'current-batch',
+        shift: { code: 'MORNING_SHIFT' },
+      },
+    ])
+
+    const result = await getTeacherClassSectionIds('teacher-1')
+
+    expect(result).toEqual(['section-11a-current'])
+  })
+
+  it('does not grant an ambiguous legacy assignment to multiple sections', async () => {
+    classTeacherFindMany
+      .mockResolvedValueOnce([{ classId: 'legacy-class-1' }])
+      .mockResolvedValueOnce([{ classId: 'legacy-class-1' }])
+    classFindMany.mockResolvedValue([
+      {
+        id: 'legacy-class-1',
+        name: 'XI-A',
+        grade: 11,
+        section: 'A',
+        campusId: 'campus-1',
+        batchId: 'legacy-batch',
+        shift: 'MORNING',
+      },
+    ])
+    classSectionFindMany.mockResolvedValue([
+      {
+        id: 'section-11a-one',
+        className: 'Senior Secondary East',
+        sectionName: 'A',
+        grade: 11,
+        campusId: 'campus-1',
+        batchId: 'batch-1',
+        shift: { code: 'EVENING' },
+      },
+      {
+        id: 'section-11a-two',
+        className: 'Senior Secondary West',
+        sectionName: 'A',
+        grade: 11,
+        campusId: 'campus-1',
+        batchId: 'batch-2',
+        shift: { code: 'NIGHT' },
+      },
+    ])
+
+    const result = await getTeacherClassSectionIds('teacher-1')
+
+    expect(result).toEqual([])
+  })
+
   it('keeps sections with teacher-owned draft results visible for declaration', async () => {
     termResultFindMany.mockResolvedValue([{ classSectionId: 'section-from-draft' }])
 
