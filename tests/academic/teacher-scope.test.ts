@@ -9,6 +9,7 @@ const {
   termResultFindMany,
   classFindMany,
   classSectionFindMany,
+  studentEnrollmentFindMany,
 } = vi.hoisted(() => ({
   subjectOfferingFindMany: vi.fn(),
   timetableSlotFindMany: vi.fn(),
@@ -18,6 +19,7 @@ const {
   termResultFindMany: vi.fn(),
   classFindMany: vi.fn(),
   classSectionFindMany: vi.fn(),
+  studentEnrollmentFindMany: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -30,6 +32,7 @@ vi.mock('@/lib/prisma', () => ({
     termResult: { findMany: termResultFindMany },
     class: { findMany: classFindMany },
     classSection: { findMany: classSectionFindMany },
+    studentEnrollment: { findMany: studentEnrollmentFindMany },
   },
 }))
 
@@ -50,6 +53,7 @@ describe('teacher section resolution', () => {
     termResultFindMany.mockResolvedValue([])
     classFindMany.mockResolvedValue([])
     classSectionFindMany.mockResolvedValue([])
+    studentEnrollmentFindMany.mockResolvedValue([])
   })
 
   it('includes published timetable slots as valid teacher section assignments', async () => {
@@ -112,6 +116,48 @@ describe('teacher section resolution', () => {
     const result = await getTeacherClassSectionIds('teacher-1')
 
     expect(result).toEqual(['section-11a-current'])
+  })
+
+  it('keeps an inactive migrated legacy class in scope when it is assigned for the active year', async () => {
+    classTeacherFindMany
+      .mockResolvedValueOnce([{ classId: 'legacy-class-current' }])
+      .mockResolvedValueOnce([{ classId: 'legacy-class-current' }])
+    classFindMany.mockResolvedValue([
+      {
+        id: 'legacy-class-current',
+        name: 'Class 10 - Jun',
+        grade: 10,
+        section: 'Jun',
+        campusId: 'campus-1',
+        batchId: 'legacy-batch',
+        shift: 'MORNING',
+        isActive: false,
+      },
+    ])
+    classSectionFindMany.mockResolvedValue([
+      {
+        id: 'section-10-jun',
+        className: 'Class 10',
+        sectionName: 'Jun',
+        grade: 10,
+        campusId: 'campus-1',
+        batchId: 'current-batch',
+        shift: { code: 'MORNING_SHIFT' },
+      },
+    ])
+
+    const result = await getTeacherClassSectionIds('teacher-1')
+
+    expect(result).toEqual(['section-10-jun'])
+    expect(classFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: { in: ['legacy-class-current'] },
+        OR: expect.arrayContaining([
+          { isActive: true },
+          { id: { in: ['legacy-class-current'] } },
+        ]),
+      }),
+    }))
   })
 
   it('maps legacy assignments by stable identifiers when display names differ between engines', async () => {
