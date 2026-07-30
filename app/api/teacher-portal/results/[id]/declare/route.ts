@@ -131,7 +131,11 @@ export async function POST(
 
     const termResult = await prisma.termResult.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        classSectionId: true,
+        examSessionId: true,
+        declarationStatus: true,
         classSection: { select: { className: true, sectionName: true } },
         student: { select: { firstName: true, lastName: true } },
       },

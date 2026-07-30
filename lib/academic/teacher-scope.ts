@@ -16,6 +16,13 @@ function normalizeScopeText(value: string | null | undefined): string {
     .trim()
 }
 
+function normalizeShiftKey(value: string | null | undefined): string {
+  return (value ?? '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '')
+    .replace(/SHIFT$/, '')
+}
+
 function legacyClassMatchesSection(
   legacy: {
     name: string
@@ -32,12 +39,31 @@ function legacyClassMatchesSection(
     campusId: string
     batchId: string
     shift: { code: string } | null
-  }
+  },
+  strictness: 'strict' | 'ignore-batch' | 'ignore-batch-shift' = 'strict'
 ): boolean {
   if (legacy.campusId !== section.campusId) return false
   if (legacy.grade && section.grade && legacy.grade !== section.grade) return false
-  if (legacy.batchId && section.batchId && legacy.batchId !== section.batchId) return false
-  if (legacy.shift && section.shift?.code && legacy.shift !== section.shift.code) return false
+
+  if (
+    strictness === 'strict' &&
+    legacy.batchId &&
+    section.batchId &&
+    legacy.batchId !== section.batchId
+  ) {
+    return false
+  }
+
+  const legacyShift = normalizeShiftKey(legacy.shift)
+  const sectionShift = normalizeShiftKey(section.shift?.code)
+  if (
+    strictness !== 'ignore-batch-shift' &&
+    legacyShift &&
+    sectionShift &&
+    legacyShift !== sectionShift
+  ) {
+    return false
+  }
 
   const legacyName = normalizeScopeText(legacy.name)
   const sectionClassName = normalizeScopeText(section.className)
@@ -55,6 +81,48 @@ function legacyClassMatchesSection(
     legacyName.split(' ').includes(sectionName)
 
   return classNameMatches && sectionMatches
+}
+
+function mapLegacyClassesToSections(
+  legacyClasses: Array<{
+    name: string
+    grade: number
+    section: string | null
+    campusId: string
+    batchId: string | null
+    shift: string
+  }>,
+  classSections: Array<{
+    id: string
+    className: string
+    sectionName: string
+    grade: number | null
+    campusId: string
+    batchId: string
+    shift: { code: string } | null
+  }>
+): string[] {
+  const mapped = new Set<string>()
+
+  for (const legacy of legacyClasses) {
+    const strictMatches = classSections.filter((section) =>
+      legacyClassMatchesSection(legacy, section, 'strict')
+    )
+    const shiftMatches = strictMatches.length > 0
+      ? strictMatches
+      : classSections.filter((section) =>
+          legacyClassMatchesSection(legacy, section, 'ignore-batch')
+        )
+    const fallbackMatches = shiftMatches.length > 0
+      ? shiftMatches
+      : classSections.filter((section) =>
+          legacyClassMatchesSection(legacy, section, 'ignore-batch-shift')
+        )
+
+    fallbackMatches.forEach((section) => mapped.add(section.id))
+  }
+
+  return Array.from(mapped)
 }
 
 /** Class sections the teacher is assigned to through new engine or legacy mappings. */
@@ -77,7 +145,15 @@ export async function getTeacherClassSectionIds(
   const yearId = academicYearId ?? activeYear?.id
   const yearLabel = activeYear?.name ?? academicYearId
 
-  const [subjectOfferings, timetableSlots, classTeacherRows, subjectTeacherRows, classTasks] = await Promise.all([
+  const [
+    subjectOfferings,
+    timetableSlots,
+    activeClassTeacherRows,
+    allClassTeacherRows,
+    subjectTeacherRows,
+    classTasks,
+    teacherOwnedResults,
+  ] = await Promise.all([
     prisma.subjectOffering?.findMany?.({
       where: { teacherId, ...(yearId ? { academicYearId: yearId } : {}) },
       select: { classSectionId: true },
@@ -95,6 +171,10 @@ export async function getTeacherClassSectionIds(
       },
       select: { classId: true },
     }) ?? [],
+    prisma.classTeacher?.findMany?.({
+      where: { teacherId },
+      select: { classId: true },
+    }) ?? [],
     prisma.subjectTeacher?.findMany?.({
       where: { teacherId },
       select: { subject: { select: { classId: true } } },
@@ -103,7 +183,16 @@ export async function getTeacherClassSectionIds(
       where: { teacherId },
       select: { classId: true, classSectionId: true },
     }) ?? [],
+    prisma.termResult?.findMany?.({
+      where: { teacherId },
+      select: { classSectionId: true },
+      distinct: ['classSectionId'],
+    }) ?? [],
   ])
+
+  const classTeacherRows = activeClassTeacherRows.length > 0
+    ? activeClassTeacherRows
+    : allClassTeacherRows
 
   const legacyClassIds = Array.from(new Set([
     ...classTeacherRows.map((row) => row.classId),
@@ -152,14 +241,13 @@ export async function getTeacherClassSectionIds(
       : Promise.resolve([]),
   ])
 
-  const legacyMappedSectionIds = classSections.filter((section) =>
-    legacyClasses.some((legacy) => legacyClassMatchesSection(legacy, section))
-  ).map((section) => section.id)
+  const legacyMappedSectionIds = mapLegacyClassesToSections(legacyClasses, classSections)
 
   return Array.from(new Set([
     ...subjectOfferings.map((row) => row.classSectionId),
     ...timetableSlots.map((row) => row.classSectionId),
     ...classTasks.flatMap((row) => row.classSectionId ? [row.classSectionId] : []),
+    ...teacherOwnedResults.map((row) => row.classSectionId),
     ...legacyMappedSectionIds,
     ...enrollmentMappedSections.map((row) => row.classSectionId),
   ]))
