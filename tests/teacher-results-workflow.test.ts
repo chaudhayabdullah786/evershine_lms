@@ -22,7 +22,7 @@ vi.mock('@/lib/notifications/dispatch', () => ({
   dispatchBulkNotification: mockDispatchBulkNotification,
 }))
 
-import { POST as saveTeacherResult } from '../app/api/teacher-portal/results/route'
+import { GET as listTeacherResults, POST as saveTeacherResult } from '../app/api/teacher-portal/results/route'
 import { POST as declareTeacherResult } from '../app/api/teacher-portal/results/[id]/declare/route'
 
 describe('teacher result workflow', () => {
@@ -218,5 +218,47 @@ describe('teacher result workflow', () => {
     expect(mockPrisma.termResult.update).toHaveBeenNthCalledWith(2, expect.objectContaining({
       data: expect.not.objectContaining({ declaredById: expect.anything() }),
     }))
+  })
+
+  it('lists teacher results when an older production schema lacks optional declaredAt metadata', async () => {
+    mockPrisma.subjectOffering.findMany.mockResolvedValue([])
+    mockPrisma.termResult.findMany
+      .mockResolvedValueOnce([{ classSectionId: 'section-1' }])
+      .mockRejectedValueOnce({ code: 'P2022', meta: { column: 'declaredAt' } })
+      .mockResolvedValueOnce([{
+        id: 'result-1',
+        studentId: 'student-1',
+        classSectionId: 'section-1',
+        examSessionId: 'exam-1',
+        declarationStatus: 'DRAFT',
+        overallPercentage: 55,
+        grade: 'D',
+        performanceBatch: 'Iqbal',
+        classPosition: null,
+        teacherRemarks: null,
+        student: {
+          id: 'student-1',
+          firstName: 'Rizwan',
+          lastName: 'Ali',
+          fatherName: 'Nazeer Ahmad',
+          rollNumber: '2100',
+          registrationNumber: 'ESA/2026/001',
+        },
+        classSection: { className: 'Class 10', sectionName: 'Jun' },
+        subjectResults: [],
+      }])
+
+    const response = await listTeacherResults(
+      new Request('http://localhost/api/teacher-portal/results') as never
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data).toHaveLength(1)
+    expect(json.data[0]).toMatchObject({
+      id: 'result-1',
+      declaredAt: null,
+    })
   })
 })

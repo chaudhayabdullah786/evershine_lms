@@ -52,6 +52,64 @@ const createResultSchema = z.object({
   subjectResults: z.array(subjectResultSchema).min(1),
 })
 
+function errorMentionsColumn(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  const withMeta = error as {
+    code?: string
+    meta?: { column?: unknown; field_name?: unknown; target?: unknown }
+    message?: string
+  }
+  const metaValues = [
+    withMeta.meta?.column,
+    withMeta.meta?.field_name,
+    withMeta.meta?.target,
+  ].filter(Boolean).map(String)
+
+  return (
+    withMeta.code === 'P2022' && metaValues.some((value) => value.includes(columnName))
+  ) || String(withMeta.message ?? '').includes(columnName)
+}
+
+const termResultListSelect = {
+  id: true,
+  studentId: true,
+  classSectionId: true,
+  examSessionId: true,
+  declarationStatus: true,
+  overallPercentage: true,
+  grade: true,
+  performanceBatch: true,
+  classPosition: true,
+  teacherRemarks: true,
+  declaredAt: true,
+  student: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      fatherName: true,
+      rollNumber: true,
+      registrationNumber: true,
+    },
+  },
+  classSection: {
+    select: { className: true, sectionName: true },
+  },
+  subjectResults: {
+    include: {
+      subjectOffering: {
+        include: { subject: { select: { name: true, code: true } } },
+      },
+    },
+  },
+} satisfies Prisma.TermResultSelect
+
+const legacySafeTermResultListSelect = {
+  ...termResultListSelect,
+  declaredAt: false,
+} satisfies Prisma.TermResultSelect
+
 // ── GET Handler ───────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -77,39 +135,33 @@ export async function GET(req: NextRequest) {
       return errors.forbidden('You are not assigned to this class section')
     }
 
-    const results = await prisma.termResult.findMany({
-      where: {
-        classSectionId: { in: classSectionId ? [classSectionId] : allowedSectionIds },
-        ...(examSessionId ? { examSessionId } : {}),
-        ...(status ? { declarationStatus: status as 'DRAFT' | 'DECLARED' } : {}),
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            fatherName: true,
-            rollNumber: true,
-            registrationNumber: true,
-          },
-        },
-        classSection: {
-          select: { className: true, sectionName: true },
-        },
-        subjectResults: {
-          include: {
-            subjectOffering: {
-              include: { subject: { select: { name: true, code: true } } },
-            },
-          },
-        },
-        declaredBy: {
-          select: { id: true, email: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const where: Prisma.TermResultWhereInput = {
+      classSectionId: { in: classSectionId ? [classSectionId] : allowedSectionIds },
+      ...(examSessionId ? { examSessionId } : {}),
+      ...(status ? { declarationStatus: status as 'DRAFT' | 'DECLARED' } : {}),
+    }
+    const orderBy = { createdAt: 'desc' } satisfies Prisma.TermResultOrderByWithRelationInput
+
+    let results
+    try {
+      results = await prisma.termResult.findMany({
+        where,
+        select: termResultListSelect,
+        orderBy,
+      })
+    } catch (error) {
+      if (!errorMentionsColumn(error, 'declaredAt') && !errorMentionsColumn(error, 'declaredById')) {
+        throw error
+      }
+
+      console.warn('[TEACHER_RESULTS_GET_SCHEMA_FALLBACK]', error)
+      const legacyResults = await prisma.termResult.findMany({
+        where,
+        select: legacySafeTermResultListSelect,
+        orderBy,
+      })
+      results = legacyResults.map((result) => ({ ...result, declaredAt: null }))
+    }
 
     return successResponse(results)
   } catch (err) {

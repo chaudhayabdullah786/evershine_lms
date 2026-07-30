@@ -247,6 +247,12 @@ export default function TeacherAttendancePage() {
             </ol>
           </div>
         </div>
+        <div className="mt-3 rounded-lg border border-blue-200 bg-white/70 p-3 text-xs text-blue-900">
+          <p className="font-semibold">Holiday and approved leave rule</p>
+          <p className="mt-1">
+            Teachers do not approve student holidays or leave requests. Admin and Super Admin approve them. When a student has an approved leave or the date is an official holiday, use <strong>Excused</strong> instead of Absent. Pending requests should not be treated as approved leave.
+          </p>
+        </div>
       </div>
 
       {/* Section + Date selector */}
