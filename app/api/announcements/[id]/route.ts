@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { checkPermission } from '@/lib/rbac'
+import { checkPermission, normalizeRole } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
 import type { Role } from '@prisma/client'
 import { z } from 'zod'
@@ -15,7 +15,7 @@ import { z } from 'zod'
 const updateSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   content: z.string().min(5).optional(),
-  targetRole: z.string().nullable().optional(),
+  targetRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'ACCOUNTANT', 'GUARDIAN']).nullable().optional(),
   expiresAt: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 })
@@ -24,7 +24,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   const params = await props.params
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!checkPermission(session.user.role as Role, 'announcements', 'read')) return errors.forbidden()
+  const role = normalizeRole(session.user.role)
+  if (!role || !checkPermission(role, 'announcements', 'read')) return errors.forbidden()
 
   const a = await prisma.announcement.findUnique({ where: { id: params.id } })
   if (!a) return errors.notFound('Announcement')
@@ -35,13 +36,14 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   const params = await props.params
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!checkPermission(session.user.role as Role, 'announcements', 'update')) return errors.forbidden()
+  const role = normalizeRole(session.user.role)
+  if (!role || !checkPermission(role, 'announcements', 'update')) return errors.forbidden()
 
   const a = await prisma.announcement.findUnique({ where: { id: params.id }, select: { id: true, createdBy: true } })
   if (!a) return errors.notFound('Announcement')
 
   // Only the creator or SUPER_ADMIN can edit
-  if (session.user.role !== 'SUPER_ADMIN' && a.createdBy !== session.user.id) {
+  if (role !== 'SUPER_ADMIN' && a.createdBy !== session.user.id) {
     return errors.forbidden()
   }
 
@@ -59,7 +61,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       where: { id: params.id },
       data: {
         ...rest,
-        ...(targetRole !== undefined && { targetRole: (targetRole as any) ?? null }),
+        ...(targetRole !== undefined && { targetRole: (targetRole as Role | null) ?? null }),
         ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
       },
     })
@@ -82,12 +84,13 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   const params = await props.params
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!checkPermission(session.user.role as Role, 'announcements', 'delete')) return errors.forbidden()
+  const role = normalizeRole(session.user.role)
+  if (!role || !checkPermission(role, 'announcements', 'delete')) return errors.forbidden()
 
   const a = await prisma.announcement.findUnique({ where: { id: params.id }, select: { id: true, createdBy: true } })
   if (!a) return errors.notFound('Announcement')
 
-  if (session.user.role !== 'SUPER_ADMIN' && a.createdBy !== session.user.id) {
+  if (role !== 'SUPER_ADMIN' && a.createdBy !== session.user.id) {
     return errors.forbidden()
   }
 
