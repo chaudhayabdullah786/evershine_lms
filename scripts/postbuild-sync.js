@@ -27,6 +27,7 @@
 
 const path = require('path')
 const fs   = require('fs')
+const childProcess = require('child_process')
 
 const ROOT       = path.resolve(__dirname, '..')
 const STANDALONE = path.join(ROOT, '.next', 'standalone')
@@ -34,6 +35,40 @@ const STATIC_SRC = path.join(ROOT, '.next', 'static')
 const STATIC_DST = path.join(STANDALONE, '.next', 'static')
 const PUBLIC_SRC = path.join(ROOT, 'public')
 const PUBLIC_DST = path.join(STANDALONE, 'public')
+
+function resolveBuildRevision() {
+  const configuredRevision = [
+    process.env.APP_GIT_SHA,
+    process.env.GIT_COMMIT_SHA,
+    process.env.GITHUB_SHA,
+  ].find((value) => typeof value === 'string' && /^[0-9a-f]{7,64}$/i.test(value.trim()))
+
+  if (configuredRevision) return configuredRevision.trim()
+
+  try {
+    return childProcess.execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim()
+  } catch {
+    // ZIP deployments may not contain .git. Build identity remains available
+    // through BUILD_ID, and operators can optionally provide APP_GIT_SHA.
+    return null
+  }
+}
+
+function writeBuildMetadata(buildId) {
+  const metadata = {
+    buildId,
+    revision: resolveBuildRevision(),
+    builtAt: new Date().toISOString(),
+  }
+  const metadataPath = path.join(PUBLIC_SRC, 'build-info.json')
+  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8')
+  console.log(
+    `[postbuild] Build metadata written revision=${metadata.revision ?? 'unavailable'} build=${buildId}`,
+  )
+}
 
 function copyRecursive(src, dst) {
   const entries = fs.readdirSync(src, { withFileTypes: true })
@@ -121,6 +156,14 @@ async function run() {
     process.exit(1)
   }
 
+  const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
+  if (!fs.existsSync(BUILD_ID_PATH)) {
+    console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot create deployment metadata.')
+    process.exit(1)
+  }
+  const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
+  writeBuildMetadata(buildId)
+
   // Generate the social share image first so it gets copied automatically to standalone
   await generateSocialShareImage()
 
@@ -129,12 +172,6 @@ async function run() {
   syncDir(PUBLIC_SRC, PUBLIC_DST, 'public/     → standalone/public/')
 
   // ── Inject BUILD_ID into sw.js ───────────────────────────────────────────────
-  const BUILD_ID_PATH = path.join(ROOT, '.next', 'BUILD_ID')
-  if (!fs.existsSync(BUILD_ID_PATH)) {
-    console.error('[postbuild] ERROR: .next/BUILD_ID not found. Cannot inject cache version into sw.js.')
-    process.exit(1)
-  }
-  const buildId = fs.readFileSync(BUILD_ID_PATH, 'utf8').trim()
   console.log(`[postbuild] Injecting BUILD_ID into sw.js: ${buildId}`)
 
   const SW_PLACEHOLDER = '__BUILD_ID__'
@@ -181,4 +218,3 @@ run().catch(err => {
   console.error('[postbuild] Unexpected build error:', err)
   process.exit(1)
 })
-

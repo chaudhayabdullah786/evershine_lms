@@ -358,11 +358,11 @@ DATABASE_URL="mysql://USER:PASS@localhost:3306/DBNAME"
 
 # ── Auth ──────────────────────────────────────────────────────────────────
 NEXTAUTH_SECRET="<openssl rand -hex 32>"
-NEXTAUTH_URL="https://evershineacademy.com"
+NEXTAUTH_URL="https://evershineacadmey.com"
 
 # ── App ─────────────────────────────────────────────────────────────────
 NODE_ENV="production"
-NEXT_PUBLIC_APP_URL="https://evershineacademy.com"
+NEXT_PUBLIC_APP_URL="https://evershineacadmey.com"
 NEXT_PUBLIC_APP_NAME="Evershaheen Academy LMS"
 NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY="true"
 
@@ -415,15 +415,15 @@ UPSTASH_REDIS_REST_TOKEN=
 | Start command | `npm run start` |
 | Root directory | `/` (repo root) |
 | Auto-deploy branch | `main` |
-| Public domain | `evershineacademy.com` and `www.evershineacademy.com` |
+| Public domain | `evershineacadmey.com` and `www.evershineacadmey.com` |
 
 `postinstall` already runs `prisma generate` — required for build.
 
 Before declaring a deploy successful, verify the domain is serving this Node.js app, not a parked/default Hostinger document root:
 
 ```bash
-curl -fsS https://evershineacademy.com/api/version
-curl -fsS https://evershineacademy.com/api/health
+curl -fsS https://evershineacadmey.com/api/version
+curl -fsS https://evershineacadmey.com/api/health
 ```
 
 Both endpoints must return JSON from this repository. A Hostinger `403 Forbidden`, `/lander` redirect, parked page, or non-JSON response means DNS/app binding is wrong even if the GitHub deploy hook fired.
@@ -627,7 +627,7 @@ Use alongside [`docs/ACADEMIC_SMOKE_TEST.md`](./ACADEMIC_SMOKE_TEST.md).
 | Emails not sent | SMTP / DNS | Verify SPF/DKIM; test with simple nodemailer script |
 | Uploads 404 after deploy | Ephemeral filesystem | Ensure uploads on persistent disk path; not rebuilt away |
 | 502 / timeout on PDF | Memory limit | Reduce concurrent exports; upgrade plan if needed |
-| Login works locally, fails prod | `NEXTAUTH_URL` http vs https or wrong domain | Must match `https://evershineacademy.com` exactly |
+| Login works locally, fails prod | `NEXTAUTH_URL` http vs https or wrong domain | Must match `https://evershineacadmey.com` exactly |
 | PR merged but production unchanged | Hostinger watching wrong branch/domain or serving parked document root | Set auto-deploy branch to `main`; verify `/api/version` build ID changes |
 | Broken/blank UI after deploy | Missing standalone static assets or stale service worker | Confirm postbuild/server static sync logs; clear Hostinger/CDN cache; unregister old service worker once |
 | Student admission returns `SCHEMA_OUT_OF_DATE` | MySQL schema missing fields used by current app | Run reviewed MySQL migration after DB backup |
