@@ -1,20 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { notify } from '@/lib/notify'
 import {
-  CheckCircle, XCircle, Clock, CalendarDays, User, MailQuestion
+  CheckCircle, XCircle, Clock, CalendarDays, User, ShieldCheck
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 
 interface StudentLeave {
   id: string
@@ -37,46 +31,14 @@ interface StudentLeave {
 }
 
 export default function TeacherStudentLeavesPage() {
-  const queryClient = useQueryClient()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === 'TEACHER'
-
-  const [reviewDialog, setReviewDialog] = useState<{ isOpen: boolean, leaveId: string | null, action: 'APPROVED' | 'REJECTED' | null }>({
-    isOpen: false, leaveId: null, action: null
-  })
-  const [remarks, setRemarks] = useState('')
 
   const { data: leaves = [], isLoading } = useQuery({
     queryKey: ['teacher-student-leaves'],
     queryFn: () => fetchApi<StudentLeave[]>('/api/teacher-portal/student-leaves'),
     enabled: isTeacher
   })
-
-  const reviewMutation = useMutation({
-    mutationFn: (data: { id: string, status: 'APPROVED' | 'REJECTED', remarks: string }) => 
-      fetchApi(`/api/teacher-portal/student-leaves/${data.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: data.status, remarks: data.remarks }),
-      }),
-    onSuccess: () => {
-      notify.success('Leave request updated successfully')
-      queryClient.invalidateQueries({ queryKey: ['teacher-student-leaves'] })
-      setReviewDialog({ isOpen: false, leaveId: null, action: null })
-      setRemarks('')
-    },
-    onError: (err: any) => {
-      notify.error(err.message || 'Failed to update leave request')
-    }
-  })
-
-  const handleReview = () => {
-    if (!reviewDialog.leaveId || !reviewDialog.action) return
-    reviewMutation.mutate({
-      id: reviewDialog.leaveId,
-      status: reviewDialog.action,
-      remarks
-    })
-  }
 
   if (!isTeacher) return <div className="p-8 text-center text-gray-500">Access Restricted</div>
 
@@ -87,8 +49,36 @@ export default function TeacherStudentLeavesPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Student Leaves</h1>
-        <p className="text-gray-500">Review and manage leave applications from students in your homeroom class.</p>
+        <p className="text-gray-500">
+          Review leave applications for assigned students. Approval decisions are handled by Admin and Super Admin.
+        </p>
       </div>
+
+      <Card className="border-indigo-100 bg-indigo-50/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base text-indigo-950">
+            <ShieldCheck className="h-5 w-5 text-indigo-600" />
+            Teacher attendance guidance
+          </CardTitle>
+          <CardDescription className="text-indigo-900/80">
+            Pending leave requests do not change attendance automatically. Mark attendance from the attendance module according to the final approved leave or holiday status shown by administration.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 text-sm text-indigo-950 sm:grid-cols-3">
+          <div className="rounded-xl border border-indigo-100 bg-white/70 p-3">
+            <p className="font-semibold">Pending</p>
+            <p className="mt-1 text-xs text-indigo-900/75">Wait for admin review before treating it as approved leave.</p>
+          </div>
+          <div className="rounded-xl border border-indigo-100 bg-white/70 p-3">
+            <p className="font-semibold">Approved</p>
+            <p className="mt-1 text-xs text-indigo-900/75">Use the approved status when recording attendance for the covered dates.</p>
+          </div>
+          <div className="rounded-xl border border-indigo-100 bg-white/70 p-3">
+            <p className="font-semibold">Holiday missing?</p>
+            <p className="mt-1 text-xs text-indigo-900/75">Ask the admin office to publish or correct the holiday before final attendance review.</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         <section>
@@ -134,20 +124,8 @@ export default function TeacherStudentLeavesPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => setReviewDialog({ isOpen: true, leaveId: leave.id, action: 'REJECTED' })}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" /> Reject
-                      </Button>
-                      <Button 
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        onClick={() => setReviewDialog({ isOpen: true, leaveId: leave.id, action: 'APPROVED' })}
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" /> Approve
-                      </Button>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                      Pending admin review. Teachers can review the request here; approval or rejection is restricted to Admin and Super Admin.
                     </div>
                   </div>
                 </Card>
@@ -178,13 +156,18 @@ export default function TeacherStudentLeavesPage() {
                     </div>
                     {leave.remarks && (
                       <p className="text-xs text-gray-500 mt-1.5 italic">
-                        " {leave.remarks} "
+                        &ldquo;{leave.remarks}&rdquo;
                       </p>
                     )}
                   </div>
-                  <div className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${
                     leave.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                   }`}>
+                    {leave.status === 'APPROVED' ? (
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
                     {leave.status}
                   </div>
                 </div>
@@ -193,38 +176,6 @@ export default function TeacherStudentLeavesPage() {
           </Card>
         </section>
       </div>
-
-      <Dialog open={reviewDialog.isOpen} onOpenChange={(open) => !open && setReviewDialog({ isOpen: false, leaveId: null, action: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {reviewDialog.action === 'APPROVED' ? 'Approve Leave Request' : 'Reject Leave Request'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Optional Remarks for Student</Label>
-              <Textarea 
-                placeholder="E.g., Please ensure you catch up on missed assignments."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialog({ isOpen: false, leaveId: null, action: null })}>
-              Cancel
-            </Button>
-            <Button 
-              className={reviewDialog.action === 'APPROVED' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-              onClick={handleReview}
-              disabled={reviewMutation.isPending}
-            >
-              {reviewMutation.isPending ? 'Saving...' : `Confirm ${reviewDialog.action === 'APPROVED' ? 'Approval' : 'Rejection'}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
