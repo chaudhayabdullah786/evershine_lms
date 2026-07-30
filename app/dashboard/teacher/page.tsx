@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
@@ -209,15 +210,26 @@ function MyShiftsSummary() {
   const { data: session } = useSession()
 
   const { data: assignmentsRaw, isLoading } = useQuery<{
+    teacher?: {
+      id: string
+      name: string
+      email: string
+      employeeId: string
+      profilePicture: string | null
+    }
     shifts: Array<{
       code: string
       label: string
       sections: Array<{
+        classSectionId?: string
         className: string
         sectionName: string
         subject: string
+        subjectCode?: string
         studentCount: number
         deliveryMode: string
+        campusName?: string
+        batchName?: string
       }>
     }>
     totalSections: number
@@ -231,6 +243,12 @@ function MyShiftsSummary() {
   })
 
   const assignments = assignmentsRaw
+  const teacherInitials = assignments?.teacher?.name
+    ?.split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'T'
 
   if (isLoading) {
     return (
@@ -248,15 +266,35 @@ function MyShiftsSummary() {
   return (
     <Card className="rounded-2xl sm:rounded-[24px] border border-slate-200 bg-white/90 shadow-sm overflow-hidden">
       <div className="p-4 sm:p-6 space-y-4">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-slate-500 font-semibold">My Teaching Profile</p>
-            <p className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
-              {assignments.totalSections} class section{assignments.totalSections !== 1 ? 's' : ''} · {assignments.totalStudents} student{assignments.totalStudents !== 1 ? 's' : ''}
-            </p>
-            {assignments.academicYear && (
-              <p className="mt-0.5 text-xs text-slate-500">{assignments.academicYear}</p>
-            )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm shrink-0">
+              {assignments.teacher?.profilePicture ? (
+                <Image
+                  src={assignments.teacher.profilePicture}
+                  alt={`${assignments.teacher.name} profile`}
+                  fill
+                  sizes="56px"
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-900 text-sm font-bold text-white">
+                  {teacherInitials}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-slate-500 font-semibold">My Teaching Profile</p>
+              <p className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
+                {assignments.totalSections} class section{assignments.totalSections !== 1 ? 's' : ''} · {assignments.totalStudents} student{assignments.totalStudents !== 1 ? 's' : ''}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                {assignments.teacher?.name && <span>{assignments.teacher.name}</span>}
+                {assignments.teacher?.employeeId && <span>Employee ID: {assignments.teacher.employeeId}</span>}
+                {assignments.academicYear && <span>{assignments.academicYear}</span>}
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {assignments.activeShifts.map((code) => (
@@ -282,6 +320,11 @@ function MyShiftsSummary() {
                     <span className="font-medium text-slate-900">{sec.className}-{sec.sectionName}</span>
                     <span className="text-slate-400">·</span>
                     <span className="truncate max-w-[120px]">{sec.subject}</span>
+                    {sec.batchName && (
+                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                        {sec.batchName}
+                      </span>
+                    )}
                     {sec.deliveryMode !== 'PHYSICAL' && (
                       <span className="text-[9px] bg-cyan-100 text-cyan-700 px-1 py-0.5 rounded">
                         {sec.deliveryMode === 'ONLINE' ? '💻' : '🔄'}
