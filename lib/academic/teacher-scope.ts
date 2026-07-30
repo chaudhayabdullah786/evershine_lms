@@ -228,6 +228,15 @@ export async function getTeacherClassSectionIds(
     ? activeClassTeacherRows
     : allClassTeacherRows
 
+  // Attendance deliberately continues to show a teacher's current
+  // ClassTeacher assignments even when the legacy Class record was marked
+  // inactive during migration to ClassSection. Keep those explicit current
+  // assignments in scope as well; otherwise attendance and every
+  // ClassSection-based teacher workflow disagree about the same teacher.
+  const currentClassTeacherIds = Array.from(new Set(
+    activeClassTeacherRows.map((row) => row.classId)
+  ))
+
   const legacyClassIds = Array.from(new Set([
     ...classTeacherRows.map((row) => row.classId),
     ...subjectTeacherRows.map((row) => row.subject.classId),
@@ -236,7 +245,18 @@ export async function getTeacherClassSectionIds(
 
   const legacyClasses = legacyClassIds.length
     ? await prisma.class?.findMany?.({
-        where: { id: { in: legacyClassIds }, isActive: true },
+        where: {
+          id: { in: legacyClassIds },
+          // Do not revive arbitrary historical classes. An inactive legacy
+          // row is considered only when it has a current ClassTeacher
+          // assignment; it still must map to an active ClassSection below.
+          OR: [
+            { isActive: true },
+            ...(currentClassTeacherIds.length
+              ? [{ id: { in: currentClassTeacherIds } }]
+              : []),
+          ],
+        },
         select: {
           id: true,
           name: true,
