@@ -31,6 +31,8 @@ function verifyDeploymentArtifact(root = path.resolve(__dirname, '..')) {
   const standaloneStatic = path.join(standaloneRoot, '.next', 'static')
   const sourceWorker = path.join(root, 'public', 'sw.js')
   const standaloneWorker = path.join(standaloneRoot, 'public', 'sw.js')
+  const sourceBuildInfo = path.join(root, 'public', 'build-info.json')
+  const standaloneBuildInfo = path.join(standaloneRoot, 'public', 'build-info.json')
 
   requirePath(buildIdPath, 'Next.js BUILD_ID')
   requirePath(sourceStatic, 'Next.js static directory')
@@ -38,9 +40,26 @@ function verifyDeploymentArtifact(root = path.resolve(__dirname, '..')) {
   requirePath(standaloneStatic, 'Standalone static directory')
   requirePath(sourceWorker, 'Source service worker')
   requirePath(standaloneWorker, 'Standalone service worker')
+  requirePath(sourceBuildInfo, 'Source build metadata')
+  requirePath(standaloneBuildInfo, 'Standalone build metadata')
 
   const buildId = fs.readFileSync(buildIdPath, 'utf8').trim()
   if (!buildId) throw new Error('Next.js BUILD_ID is empty')
+
+  let sourceBuildMetadata
+  let standaloneBuildMetadata
+  try {
+    sourceBuildMetadata = JSON.parse(fs.readFileSync(sourceBuildInfo, 'utf8'))
+    standaloneBuildMetadata = JSON.parse(fs.readFileSync(standaloneBuildInfo, 'utf8'))
+  } catch {
+    throw new Error('Build metadata is not valid JSON')
+  }
+  if (sourceBuildMetadata.buildId !== buildId || standaloneBuildMetadata.buildId !== buildId) {
+    throw new Error('Build metadata does not match the current Next.js BUILD_ID')
+  }
+  if (JSON.stringify(sourceBuildMetadata) !== JSON.stringify(standaloneBuildMetadata)) {
+    throw new Error('Standalone build metadata differs from the source build metadata')
+  }
 
   const sourceFiles = collectFiles(sourceStatic)
   if (sourceFiles.length === 0) throw new Error('Next.js static directory is empty')

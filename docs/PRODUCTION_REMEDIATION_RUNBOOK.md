@@ -7,15 +7,15 @@ Use this when GitHub merges do not appear on production, the UI loads without th
 Run these from any machine:
 
 ```bash
-curl -fsS https://evershineacademy.com/api/version
-curl -fsS https://evershineacademy.com/api/health
+curl -fsS https://evershineacadmey.com/api/version
+curl -fsS https://evershineacadmey.com/api/health
 ```
 
 Expected result: JSON from this repository. If the response is `403 Forbidden`, a `/lander` redirect, a parked page, or non-JSON HTML, fix DNS and Hostinger Node.js app binding before debugging application code.
 
 Required Hostinger settings:
 
-- Domain: `evershineacademy.com` and `www.evershineacademy.com` bound to the Node.js app
+- Domain: `evershineacadmey.com` and `www.evershineacadmey.com` bound to the Node.js app
 - Auto-deploy branch: `main`
 - Node version: `20.x`
 - Install command: `npm ci`
@@ -28,8 +28,8 @@ Required production env vars:
 ```env
 DATABASE_URL="mysql://USER:PASS@HOST:3306/DBNAME"
 NEXTAUTH_SECRET="<openssl rand -hex 32>"
-NEXTAUTH_URL="https://evershineacademy.com"
-NEXT_PUBLIC_APP_URL="https://evershineacademy.com"
+NEXTAUTH_URL="https://evershineacadmey.com"
+NEXT_PUBLIC_APP_URL="https://evershineacadmey.com"
 NODE_ENV="production"
 NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY="true"
 CRON_SECRET="<openssl rand -hex 32>"
@@ -37,13 +37,13 @@ CRON_SECRET="<openssl rand -hex 32>"
 
 ## 2. Verify deploy and asset freshness
 
-After every merge to `main`, compare the build ID before and after deploy:
+After every merge to `main`, compare both the build ID and Git revision before and after deploy:
 
 ```bash
-curl -fsS https://evershineacademy.com/api/version
+curl -fsS https://evershineacadmey.com/api/version
 ```
 
-The `buildId` must change after Hostinger finishes building. Hostinger logs must include:
+The `buildId` and `revision` must change after Hostinger finishes building. `deployedAt` is the build timestamp; `observedAt` is only the time the endpoint was requested. Hostinger logs must include:
 
 ```text
 [postbuild] Done. Standalone build is deployment-ready.
