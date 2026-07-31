@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
@@ -9,14 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { AccessDenied } from '@/components/AccessDenied'
-import { Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2, Download, Plus, Send, BookOpen, Clock, Upload } from 'lucide-react'
+import { Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2, Download, Plus, Send, BookOpen, Clock, Upload, Trophy, Award, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { downloadReportCardForEnrollment } from '@/lib/academic/download-report-card'
+import { downloadPdf } from '@/lib/pdf'
 import { notify } from '@/lib/notify'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import Link from 'next/link'
 import { FeePaymentDialog } from '@/components/features/guardian/FeePaymentDialog'
 import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
+import ResultReportCard, { type ReportCardResult, type ReportCardStudent } from '@/components/academic/ResultReportCard'
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -24,6 +25,7 @@ type Child = {
   id: string
   firstName: string
   lastName: string
+  fatherName?: string
   registrationNumber: string
   rollNumber: string | null
   profilePicture: string | null
@@ -56,6 +58,36 @@ type ChildAcademic = {
     records: Array<{ attendanceDate: string; status: string }>
   }
   results: Array<{ subjectName: string; percentage: number; grade: string; isPassed: boolean }>
+  // Enhanced declared results — mirrors DeclaredResult from student portal
+  declaredResults: Array<{
+    termResultId: string
+    examSessionId: string
+    examSessionLabel: string
+    sectionLabel: string
+    shiftName: string | null
+    overallPercentage: number
+    grade: string
+    classPosition: number | null
+    performanceBatch: string
+    teacherRemarks: string | null
+    customFields: Array<{ label: string; value: string }>
+    declaredAt: string | null
+    subjects: Array<{
+      subjectId: string
+      subjectName: string
+      subjectCode: string
+      totalMarks: number
+      obtainedMarks: number
+      percentage: number
+      grade: string
+      resultStatus: string
+      isPassed: boolean
+      isAbsent: boolean
+      isNotApplicable: boolean
+      remarks: string | null
+      performanceBatch?: string | null
+    }>
+  }>
   taskResults: Array<{
     id: string
     taskId: string
@@ -127,7 +159,10 @@ export default function MyChildrenPage() {
   const { data: session, status } = useSession()
   const qc = useQueryClient()
   const [selectedChildId, setSelectedChildId] = useState('')
-  const [downloadingCard, setDownloadingCard] = useState(false)
+  // Per-session download state: null = idle, string = termResultId being downloaded
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [expandedSession, setExpandedSession] = useState<string | null>(null)
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [showLeaveForm, setShowLeaveForm] = useState(false)
   const [leaveType, setLeaveType] = useState('CASUAL')
   const [leaveStart, setLeaveStart] = useState('')
@@ -440,59 +475,169 @@ export default function MyChildrenPage() {
               </TabsContent>
 
               <TabsContent value="results" className="mt-4 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart2 className="w-5 h-5 text-purple-600" />
-                      Published Results
-                    </CardTitle>
-                    {academic.enrollmentId && academic.results.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2 w-fit"
-                        disabled={downloadingCard}
-                        onClick={async () => {
-                          setDownloadingCard(true)
-                          try {
-                            await downloadReportCardForEnrollment(academic.enrollmentId!)
-                            notify.success('Report card downloaded')
-                          } catch (e) {
-                            notify.error(e instanceof Error ? e.message : 'Download failed')
-                          } finally {
-                            setDownloadingCard(false)
-                          }
-                        }}
-                      >
-                        {downloadingCard ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        Download report card (PDF)
-                      </Button>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {academic.overallPercentage != null && (
-                      <p className="font-semibold text-purple-800">
-                        Overall average: {academic.overallPercentage}%
+                {/* ── Premium declared-results accordion ── */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-1">
+                    <BarChart2 className="w-5 h-5 text-purple-600" />
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Declared Exam Results</h3>
+                      <p className="text-xs text-slate-500">
+                        Official marks sheets published and verified by the administration.
                       </p>
-                    )}
-                    {academic.results.length === 0 ? (
-                      <p className="text-sm text-gray-500">No published results yet.</p>
-                    ) : (
-                      academic.results.map((r) => (
-                        <div key={r.subjectName} className="flex justify-between border rounded p-3">
-                          <span className="font-medium">{r.subjectName}</span>
-                          <span>
-                            {r.percentage}% · <Badge>{r.grade}</Badge>
-                          </span>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const declaredResults = academic.declaredResults ?? []
+                    if (declaredResults.length === 0) {
+                      return (
+                        <Card>
+                          <CardContent className="pt-12 pb-12">
+                            <div className="text-center">
+                              <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                              <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
+                              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                                Results for your child have not been declared yet.
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    }
+
+                    const cardStudent: ReportCardStudent = {
+                      firstName: academic.student.firstName,
+                      lastName: academic.student.lastName,
+                      fatherName: academic.student.fatherName,
+                      registrationNumber: academic.student.registrationNumber,
+                      rollNumber: academic.student.rollNumber,
+                      profilePicture: academic.student.profilePicture,
+                      campus: academic.student.campus,
+                      batch: academic.student.batch,
+                    }
+
+                    async function handleDownload(sessionResult: ReportCardResult) {
+                      const el = cardRefs.current[sessionResult.termResultId]
+                      if (!el) {
+                        notify.error('Please expand the result card first, then try downloading again.')
+                        return
+                      }
+                      setDownloadingId(sessionResult.termResultId)
+                      try {
+                        await downloadPdf({
+                          element: el,
+                          filename: `${academic.student.firstName}_${sessionResult.examSessionLabel.replace(/\s+/g, '_')}-ReportCard`,
+                          orientation: 'portrait',
+                          format: 'a4',
+                          scale: 3,
+                        })
+                        notify.success('Report card downloaded successfully.')
+                      } catch (e) {
+                        notify.error(e instanceof Error ? e.message : 'Download failed.')
+                      } finally {
+                        setDownloadingId(null)
+                      }
+                    }
+
+                    return declaredResults.map((sessionResult) => {
+                      const isExpanded = expandedSession === sessionResult.termResultId
+                      const isDownloading = downloadingId === sessionResult.termResultId
+
+                      const batchColorClass =
+                        sessionResult.performanceBatch === 'Ever Shine'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : sessionResult.performanceBatch === 'Quaid'
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : sessionResult.performanceBatch === 'Iqbal'
+                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                          : 'bg-rose-100 text-rose-800 border-rose-200'
+
+                      return (
+                        <div
+                          key={sessionResult.termResultId}
+                          className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm"
+                        >
+                          <div
+                            className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:from-slate-100/60 transition-colors border-b"
+                            onClick={() => setExpandedSession(isExpanded ? null : sessionResult.termResultId)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                <Award className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                                  {sessionResult.examSessionLabel}
+                                </h4>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  {sessionResult.sectionLabel}{sessionResult.shiftName ? ` · ${sessionResult.shiftName}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 ml-auto">
+                              <div className="text-right">
+                                <span className="text-xl font-black text-slate-900">
+                                  {sessionResult.overallPercentage.toFixed(1)}%
+                                </span>
+                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                  <Badge className={`${batchColorClass} text-[10px] font-bold border py-0`}>
+                                    {sessionResult.performanceBatch}
+                                  </Badge>
+                                  {sessionResult.classPosition !== null && (
+                                    <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
+                                      Rank #{sessionResult.classPosition}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 text-xs h-8 font-semibold flex-shrink-0"
+                                disabled={isDownloading}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!isExpanded) {
+                                    setExpandedSession(sessionResult.termResultId)
+                                    setTimeout(() => handleDownload(sessionResult as ReportCardResult), 300)
+                                  } else {
+                                    handleDownload(sessionResult as ReportCardResult)
+                                  }
+                                }}
+                              >
+                                {isDownloading ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="w-3.5 h-3.5" />
+                                )}
+                                PDF
+                              </Button>
+
+                              {isExpanded ? (
+                                <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                              )}
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="p-4 sm:p-6 bg-slate-50/40">
+                              <ResultReportCard
+                                ref={(el) => { cardRefs.current[sessionResult.termResultId] = el }}
+                                result={sessionResult as ReportCardResult}
+                                student={cardStudent}
+                                sessionName={academic.activeYear?.name}
+                              />
+                            </div>
+                          )}
                         </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+                      )
+                    })
+                  })()}
+                </div>
 
                 <Card>
                   <CardHeader>
