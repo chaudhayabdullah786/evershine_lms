@@ -125,9 +125,9 @@ export async function GET(request: NextRequest) {
   }
 
   // ── Step 4: Resolve exam session ID ─────────────────────────────────────────
-  // If no examSessionId is specified by the client, default to the active
-  // academic year so the "Latest Published Sheet" option works correctly.
-  const resolvedSessionId = examSessionIdParam ?? activeYear?.id
+  // If no examSessionId is specified by the client, fetch the latest published
+  // sheet across sessions. Explicit selections remain scoped to that session.
+  const resolvedSessionId = examSessionIdParam
 
   // ── Step 5: Fetch date sheet via service (Strategy 1 → Strategy 2 fallback) ──
   let dateSheetRaw: Awaited<ReturnType<typeof AcademicUpgradesService.getStudentDateSheet>> = null
@@ -143,9 +143,10 @@ export async function GET(request: NextRequest) {
 
   // ── Step 6: Resolve academic year display name ───────────────────────────────
   let examSessionName: string | null = null
-  if (resolvedSessionId) {
+  const displaySessionId = resolvedSessionId ?? dateSheetRaw?.examSessionId ?? activeYear?.id
+  if (displaySessionId) {
     const year = await prisma.academicYear.findUnique({
-      where:  { id: resolvedSessionId },
+      where:  { id: displaySessionId },
       select: { name: true, isActive: true },
     })
     examSessionName = year
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
       shiftCode:   sectionInfo.shiftCode,
     },
     examSession: {
-      id:   resolvedSessionId ?? null,
+      id:   displaySessionId ?? null,
       name: examSessionName,
     },
     dateSheet: dateSheetRaw

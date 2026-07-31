@@ -10,6 +10,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,10 +27,16 @@ export async function GET(req: NextRequest) {
     const activeYear = await getActiveAcademicYear()
     if (!activeYear) return successResponse([])
 
+    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id, activeYear.id)
+    if (allowedSectionIds.length === 0) return successResponse([])
+
     const offerings = await prisma.subjectOffering.findMany({
       where: {
-        teacherId: teacher.id,
         academicYearId: activeYear.id,
+        OR: [
+          { teacherId: teacher.id },
+          { classSectionId: { in: allowedSectionIds } },
+        ],
       },
       include: {
         subject: {

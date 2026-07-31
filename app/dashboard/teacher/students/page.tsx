@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -47,12 +46,25 @@ interface Student {
   batch:  { id: string; name: string; code: string; academicYear: string }
   class:  { id: string; name: string; section: string; grade: number } | null
   house:  { id: string; name: string; color: string } | null
+  enrollments?: Array<{
+    id: string
+    rollNumber: string
+    status: string
+    classSection: {
+      id: string
+      className: string
+      sectionName: string
+      shift: { name: string; code: string } | null
+    }
+  }>
 }
 
 interface ClassRecord {
   id: string
   name: string
   section: string
+  classSectionId: string | null
+  legacyClassId: string | null
   batchId: string
   campusId: string
 }
@@ -68,6 +80,43 @@ const ENROLLMENT_STYLES: Record<string, string> = {
 }
 
 const GENDER_ICON: Record<string, string> = { MALE: '♂', FEMALE: '♀' }
+
+export function appendTeacherStudentClassScope(
+  params: URLSearchParams,
+  classFilter: string,
+  classes: ClassRecord[]
+) {
+  if (!classFilter) return
+
+  const selectedClass = classes.find((entry) => entry.id === classFilter)
+  if (selectedClass?.classSectionId) {
+    params.set('classSectionId', selectedClass.classSectionId)
+    return
+  }
+
+  params.set('classId', selectedClass?.legacyClassId ?? classFilter)
+}
+
+export function getStudentClassLabel(student: Student): string {
+  if (student.class?.name) return student.class.name
+
+  const section = student.enrollments?.[0]?.classSection
+  if (!section) return 'Unassigned'
+
+  const shift = section.shift?.name || section.shift?.code
+  return `${section.className} (${section.sectionName})${shift ? ` · ${shift}` : ''}`
+}
+
+export function getStudentRollNumber(student: Student): string | null {
+  return student.enrollments?.[0]?.rollNumber ?? student.rollNumber
+}
+
+export function getClassOptionLabel(classRecord: ClassRecord): string {
+  const sectionSuffix = `(${classRecord.section})`
+  return classRecord.name.trim().endsWith(sectionSuffix)
+    ? classRecord.name
+    : `${classRecord.name} ${sectionSuffix}`
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -141,7 +190,7 @@ function RequestAdminDialog({ student, open, onClose }: RequestDialogProps) {
         {student && (
           <div className="py-1 px-3 bg-gray-50 rounded-lg border text-sm space-y-0.5">
             <p className="font-semibold text-gray-900">{student.firstName} {student.lastName}</p>
-            <p className="text-gray-500 text-xs">{student.registrationNumber} · {student.class?.name ?? 'No class'} · {student.campus.code}</p>
+            <p className="text-gray-500 text-xs">{student.registrationNumber} · {getStudentClassLabel(student)} · {student.campus.code}</p>
           </div>
         )}
 
@@ -236,8 +285,8 @@ function StudentDetailDialog({ student, open, onClose, onRequestAction }: Studen
           {/* Grid: Academic & Campus Info */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Reg. No" value={student.registrationNumber} mono />
-            <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Roll No" value={student.rollNumber ?? '—'} mono />
-            <InfoRow icon={<GraduationCap className="w-3.5 h-3.5" />} label="Class" value={student.class ? `${student.class.name} (${student.class.section})` : '—'} />
+            <InfoRow icon={<Hash className="w-3.5 h-3.5" />} label="Roll No" value={getStudentRollNumber(student) ?? '—'} mono />
+            <InfoRow icon={<GraduationCap className="w-3.5 h-3.5" />} label="Class" value={getStudentClassLabel(student)} />
             <InfoRow icon={<Users className="w-3.5 h-3.5" />} label="Batch" value={`${student.batch.name} (${student.batch.code})`} />
             <InfoRow icon={<Building2 className="w-3.5 h-3.5" />} label="Campus" value={`${student.campus.name} — ${student.campus.city}`} />
             <InfoRow icon={<CalendarDays className="w-3.5 h-3.5" />} label="Academic Year" value={student.academicYear} />
@@ -317,7 +366,7 @@ export default function TeacherMyStudentsPage() {
   params.set('page', String(page))
   params.set('limit', String(limit))
   if (search)           params.set('search', search)
-  if (classFilter)      params.set('classId', classFilter)
+  appendTeacherStudentClassScope(params, classFilter, classes)
   if (enrollmentFilter) params.set('enrollmentStatus', enrollmentFilter)
 
   const { data, isLoading } = useQuery({
@@ -349,22 +398,22 @@ export default function TeacherMyStudentsPage() {
   }
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-4 sm:space-y-5 p-3.5 sm:p-6">
       {/* ── Header ── */}
-      <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-sm sm:px-8 sm:py-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="space-y-4 rounded-2xl sm:rounded-[28px] border border-slate-200 bg-white p-4 sm:px-8 sm:py-6 shadow-sm">
+        <div className="flex flex-col gap-3.5 sm:gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-              <Users className="w-6 h-6 text-indigo-600" />
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
               My Students
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600 max-w-2xl">
+            <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-slate-600 max-w-2xl">
               View student records for your assigned classes, track enrollment status, and submit admin requests from a clean, teacher-first dashboard.
             </p>
           </div>
           <Button
             variant="outline"
-            className="gap-2 text-amber-700 border-amber-200 hover:bg-amber-50 text-sm"
+            className="w-full sm:w-auto justify-center gap-2 text-amber-700 border-amber-200 hover:bg-amber-50 text-xs sm:text-sm h-9 sm:h-10 shrink-0"
             onClick={() => { setSelectedStudent(null); setRequestOpen(true) }}
           >
             <SendHorizonal className="w-4 h-4" />
@@ -372,94 +421,96 @@ export default function TeacherMyStudentsPage() {
           </Button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Total students</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">
+        <div className="grid gap-2.5 sm:gap-3 grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl sm:rounded-3xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-slate-500 font-semibold">Total students</p>
+            <p className="mt-1 sm:mt-3 text-xl sm:text-3xl font-semibold text-slate-900">
               {pagination ? pagination.total.toLocaleString() : students.length}
             </p>
-            <p className="mt-1 text-sm text-slate-500">Across all matched records</p>
+            <p className="mt-0.5 text-[10px] sm:text-sm text-slate-500 hidden sm:block">Across all matched records</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Active</p>
-            <p className="mt-3 text-3xl font-semibold text-emerald-700">
+          <div className="rounded-xl sm:rounded-3xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-slate-500 font-semibold">Active</p>
+            <p className="mt-1 sm:mt-3 text-xl sm:text-3xl font-semibold text-emerald-700">
               {(statusCounts.ACTIVE ?? 0).toLocaleString()}
             </p>
-            <p className="mt-1 text-sm text-slate-500">On this page</p>
+            <p className="mt-0.5 text-[10px] sm:text-sm text-slate-500 hidden sm:block">On this page</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">On leave</p>
-            <p className="mt-3 text-3xl font-semibold text-amber-700">
+          <div className="rounded-xl sm:rounded-3xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-slate-500 font-semibold">On leave</p>
+            <p className="mt-1 sm:mt-3 text-xl sm:text-3xl font-semibold text-amber-700">
               {(statusCounts.ON_LEAVE ?? 0).toLocaleString()}
             </p>
-            <p className="mt-1 text-sm text-slate-500">On this page</p>
+            <p className="mt-0.5 text-[10px] sm:text-sm text-slate-500 hidden sm:block">On this page</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Suspended</p>
-            <p className="mt-3 text-3xl font-semibold text-red-700">
+          <div className="rounded-xl sm:rounded-3xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-slate-500 font-semibold">Suspended</p>
+            <p className="mt-1 sm:mt-3 text-xl sm:text-3xl font-semibold text-red-700">
               {(statusCounts.SUSPENDED ?? 0).toLocaleString()}
             </p>
-            <p className="mt-1 text-sm text-slate-500">On this page</p>
+            <p className="mt-0.5 text-[10px] sm:text-sm text-slate-500 hidden sm:block">On this page</p>
           </div>
         </div>
       </div>
 
       {/* ── Filters ── */}
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="p-4 border-b flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-sm">
+      <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-slate-200 bg-white shadow-sm">
+        <div className="p-3.5 sm:p-4 border-b flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 w-full sm:max-w-xs md:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="search"
-              placeholder="Search name, reg no, roll no, father name…"
-              className="pl-9"
+              placeholder="Search name, reg no, roll, father…"
+              className="pl-9 h-9 text-xs sm:text-sm"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
             />
           </div>
 
-          {/* Class quick-filter */}
-          <Select
-            value={classFilter || '_all'}
-            onValueChange={(v) => { setClassFilter(v === '_all' ? '' : v); setPage(1) }}
-          >
-            <SelectTrigger className="w-48 text-sm">
-              <SelectValue placeholder="All Classes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">All Classes</SelectItem>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name} ({c.section})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {/* Class quick-filter */}
+            <Select
+              value={classFilter || '_all'}
+              onValueChange={(v) => { setClassFilter(v === '_all' ? '' : v); setPage(1) }}
+            >
+              <SelectTrigger className="flex-1 sm:w-48 h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Classes</SelectItem>
+                {classes.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {getClassOptionLabel(c)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => setShowFilters((v) => !v)}
-          >
-            <Filter className="w-4 h-4" />
-            More{' '}
-            {enrollmentFilter && (
-              <span className="ml-1 w-2 h-2 bg-indigo-500 rounded-full inline-block" />
-            )}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-9 text-xs shrink-0"
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              More{' '}
+              {enrollmentFilter && (
+                <span className="w-2 h-2 bg-indigo-500 rounded-full inline-block" />
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Expanded filters */}
         {showFilters && (
           <div className="p-4 border-b bg-gray-50 flex flex-wrap gap-4 items-end">
-            <div className="space-y-1">
+            <div className="space-y-1 w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-600">Enrollment Status</label>
               <Select
                 value={enrollmentFilter || '_all'}
                 onValueChange={(v) => { setEnrollmentFilter(v === '_all' ? '' : v); setPage(1) }}
               >
-                <SelectTrigger className="h-8 text-sm w-44">
+                <SelectTrigger className="h-8 text-sm w-full sm:w-44">
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -475,7 +526,7 @@ export default function TeacherMyStudentsPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-500 h-8"
+              className="text-gray-500 h-8 text-xs"
               onClick={() => {
                 setEnrollmentFilter('')
                 setClassFilter('')
@@ -488,8 +539,117 @@ export default function TeacherMyStudentsPage() {
           </div>
         )}
 
-        {/* ── Table ── */}
-        <div className="overflow-x-auto">
+        {/* Mobile View: Cards (< sm) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
+          ) : students.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <Users className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-sm">No students found</p>
+            </div>
+          ) : (
+            students.map((student) => (
+              <div
+                key={student.id}
+                className="p-3.5 space-y-2.5 hover:bg-indigo-50/20 active:bg-indigo-50/40 transition-colors"
+                onClick={() => {
+                  setSelectedStudent(student)
+                  setDetailOpen(true)
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {student.profilePicture ? (
+                      <img
+                        src={student.profilePicture}
+                        alt={student.firstName}
+                        className="w-10 h-10 rounded-full object-cover shrink-0 ring-1 ring-gray-200"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+                        {student.firstName[0]}{student.lastName[0]}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">
+                        {student.firstName} {student.lastName}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{student.fatherName}</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0 ${
+                      ENROLLMENT_STYLES[student.enrollmentStatus] ?? 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {student.enrollmentStatus.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div className="min-w-0">
+                    <span className="text-gray-400 text-[10px] block uppercase">Reg / Roll</span>
+                    <span className="font-mono text-gray-800 font-medium break-all leading-tight block">{student.registrationNumber}</span>
+                    {getStudentRollNumber(student) && (
+                      <span className="text-gray-400 block break-all leading-tight">
+                        Roll #{getStudentRollNumber(student)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-gray-400 text-[10px] block uppercase">Class</span>
+                    <span className="font-medium text-gray-800 line-clamp-2 leading-tight block">
+                      {getStudentClassLabel(student)}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-gray-400 text-[10px] block uppercase">Campus</span>
+                    <span className="font-semibold text-indigo-600">{student.campus.code}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-gray-400 text-[10px] block uppercase">Batch</span>
+                    <span className="text-gray-700 truncate block">{student.batch.code}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedStudent(student)
+                      setDetailOpen(true)
+                    }}
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 text-amber-700 border-amber-200 hover:bg-amber-50 gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedStudent(student)
+                      setRequestOpen(true)
+                    }}
+                  >
+                    <UserX className="w-3.5 h-3.5" /> Request Action
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View: Table (>= sm) */}
+        <div className="hidden sm:block overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50 text-xs uppercase tracking-wide">
@@ -533,10 +693,10 @@ export default function TeacherMyStudentsPage() {
                           <img
                             src={student.profilePicture}
                             alt={student.firstName}
-                            className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200"
+                            className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-gray-200"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
                             {student.firstName[0]}{student.lastName[0]}
                           </div>
                         )}
@@ -552,15 +712,15 @@ export default function TeacherMyStudentsPage() {
                     {/* Roll / Reg */}
                     <TableCell>
                       <p className="font-mono text-xs text-gray-600">{student.registrationNumber}</p>
-                      {student.rollNumber && (
-                        <p className="text-[10px] text-gray-400">Roll #{student.rollNumber}</p>
+                      {getStudentRollNumber(student) && (
+                        <p className="text-[10px] text-gray-400">Roll #{getStudentRollNumber(student)}</p>
                       )}
                     </TableCell>
 
                     {/* Class & Batch */}
                     <TableCell>
                       <p className="text-sm font-medium text-gray-800">
-                        {student.class ? student.class.name : <span className="text-gray-400 text-xs">Unassigned</span>}
+                        {getStudentClassLabel(student)}
                       </p>
                       <p className="text-[11px] text-gray-400">{student.batch.name} · {student.batch.code}</p>
                     </TableCell>
@@ -568,7 +728,7 @@ export default function TeacherMyStudentsPage() {
                     {/* Campus */}
                     <TableCell>
                       <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-indigo-600">{student.campus.code}</p>
                           <p className="text-[10px] text-gray-400">{student.campus.city}</p>
@@ -581,7 +741,7 @@ export default function TeacherMyStudentsPage() {
                       {student.house ? (
                         <div className="flex items-center gap-1.5">
                           <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ background: student.house.color }}
                           />
                           <span className="text-xs font-medium text-gray-700">{student.house.name}</span>
@@ -642,8 +802,8 @@ export default function TeacherMyStudentsPage() {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t bg-gray-50 gap-2.5">
+            <p className="text-xs sm:text-sm text-gray-500">
               Showing {((page - 1) * limit) + 1}–{Math.min(page * limit, pagination.total)} of {pagination.total}
             </p>
             <div className="flex items-center gap-2">
@@ -655,7 +815,7 @@ export default function TeacherMyStudentsPage() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <span className="text-sm font-medium text-gray-700 px-2">
+              <span className="text-xs sm:text-sm font-medium text-gray-700 px-2">
                 {page} / {pagination.totalPages}
               </span>
               <Button
@@ -672,11 +832,11 @@ export default function TeacherMyStudentsPage() {
       </div>
 
       {/* ── Info callout ── */}
-      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl text-sm">
-        <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-3.5 sm:p-4 bg-amber-50 border border-amber-100 rounded-xl text-xs sm:text-sm">
+        <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
         <div>
-          <p className="font-medium text-amber-800">Read-only view</p>
-          <p className="text-amber-700 text-xs mt-0.5">
+          <p className="font-semibold text-amber-800">Read-only view</p>
+          <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
             You can view student academic details but cannot add, suspend, or modify student records directly.
             Use the <strong>Request Admin Action</strong> button to submit a request — the Admin will review and act on it.
           </p>

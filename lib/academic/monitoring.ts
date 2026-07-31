@@ -96,6 +96,35 @@ export function decodeMonitoringRemarks(
   }
 }
 
+
+export function stripCourseNameFromMonitoringRemarks(
+  remarks: string | null | undefined,
+  courseName: string
+): string {
+  const trimmed = remarks?.trim() ?? ''
+  if (!trimmed) return ''
+  const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return trimmed.replace(new RegExp(`^${escapedCourseName}\\s*:\\s*`, 'i'), '').trim()
+}
+
+export function toDailyMonitoringPortalEntry(input: {
+  rawRemarks: string | null | undefined
+  score?: number | null
+  maxScore?: number | null
+  courseName: string
+  grade?: string | null
+  highlight?: string | null
+}) {
+  const metadata = decodeMonitoringRemarks(input.rawRemarks, input.score, input.maxScore ?? 20)
+  const grade = input.grade ?? metadata.grade
+  const highlight = input.highlight ?? (metadata.isStarOfDay ? 'STAR_OF_THE_DAY' : metadata.isConcern ? 'POOR' : null)
+  return {
+    remarks: stripCourseNameFromMonitoringRemarks(metadata.remarks, input.courseName),
+    grade,
+    highlight,
+  }
+}
+
 export function derivePerformanceGroup(percentage: number): string {
   if (percentage >= 90) return 'Ever Shine Group'
   if (percentage >= 80) return 'Quaid Group'

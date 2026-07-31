@@ -116,8 +116,8 @@ enum FeedbackCategory {
   ACADEMIC_STAFF
   MANAGEMENT
   ACCOUNTS
-  LMS_SERVICES      // Portal usability, digital tools, online resources
-  ACADEMY_SERVICES   // Facilities, cleanliness, transport, admin office
+  LMS_SERVICES // Portal usability, digital tools, online resources
+  ACADEMY_SERVICES // Facilities, cleanliness, transport, admin office
 }
 
 enum FeedbackLikertResponse {
@@ -225,20 +225,26 @@ enum StaffApplicantType {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
+  id                     String    @id @default(cuid())
+  email                  String    @unique
   // WHY passwordHash stored separately: never return this field in API responses
-  passwordHash     String
-  role             Role      @default(STUDENT)
-  isActive         Boolean   @default(true)
-  lastLogin        DateTime?
-  emailVerified    Boolean   @default(false)
-  emailVerifiedAt  DateTime?
+  passwordHash           String
+  role                   Role      @default(STUDENT)
+  isActive               Boolean   @default(true)
+  lastLogin              DateTime?
+  emailVerified          Boolean   @default(false)
+  emailVerifiedAt        DateTime?
+  displayName            String?
+  profilePictureUrl      String?
+  profilePicturePublicId String?
+  profileStatus          String    @default("ACTIVE")
+  profileUpdatedAt       DateTime?
+  profileSource          String    @default("SYSTEM")
   // Short-lived reset token; always expires after 1 hour
-  resetToken       String?   @unique
-  resetTokenExpiry DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  resetToken             String?   @unique
+  resetTokenExpiry       DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   // Profile relationships — at most one of these is populated per user
   student    Student?
@@ -249,22 +255,50 @@ model User {
   guardian   Guardian?
 
   // Audit trail — every mutation this user performs
-  auditLogs               AuditLog[]
-  sessions                Session[]
-  notifications           Notification[]
-  enrollmentTypeAuditLogs EnrollmentTypeAuditLog[]
-  createdExamDateSheets   ExamDateSheet[]
-  declaredTermResults     TermResult[]
-  markedDailyScores       DailyPerformanceScore[]
-  assignedTargets         TargetAssignment[]
-  retroactiveScoreEdits   RetroactiveScoreEditLog[]
-  createdRolePermissions  RolePermission[]
+  auditLogs                AuditLog[]
+  sessions                 Session[]
+  notifications            Notification[]
+  enrollmentTypeAuditLogs  EnrollmentTypeAuditLog[]
+  createdExamDateSheets    ExamDateSheet[]
+  declaredTermResults      TermResult[]
+  markedDailyScores        DailyPerformanceScore[]
+  assignedTargets          TargetAssignment[]
+  retroactiveScoreEdits    RetroactiveScoreEditLog[]
+  createdRolePermissions   RolePermission[]
   requestedRoleAssumptions RoleAssumption[]
-  recordedExpenses       Expense[] @relation("ExpenseRecordedByUser")
+  recordedExpenses         Expense[]                 @relation("ExpenseRecordedByUser")
+  profileChangeRequests    ProfileChangeRequest[]    @relation("ProfileChangeRequestsUser")
+  requestedProfileChanges  ProfileChangeRequest[]    @relation("ProfileChangeRequestsRequester")
+  reviewedProfileChanges   ProfileChangeRequest[]    @relation("ProfileChangeRequestsReviewer")
+  attendanceImports        AttendanceImportLog[]
 
   @@index([email])
   @@index([role])
   @@index([isActive])
+}
+
+model ProfileChangeRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  requestedById  String
+  requestedField String
+  proposedValue  String?
+  currentValue   String?
+  reason         String?
+  status         String    @default("PENDING")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewerNote   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user        User  @relation("ProfileChangeRequestsUser", fields: [userId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("ProfileChangeRequestsRequester", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("ProfileChangeRequestsReviewer", fields: [reviewedById], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedById])
 }
 
 // NextAuth.js v5 session table
@@ -424,10 +458,10 @@ model Student {
   yearOfPassing         Int? // e.g. 2024
 
   requestedLevel        String? // e.g. "Matric", "Intermediate", "Middle", "Primary"
-  requestedClass        Int?    // Grade 1-12 requested by admin during direct admission
+  requestedClass        Int? // Grade 1-12 requested by admin during direct admission
   requestedGroup        String? // Computer Group, Biology Group, F.Sc, etc.
   requestedGroupOther   String? // Free-text detail when primary group is Other
-  requestedCourses Json? // Selected course groups/streams
+  requestedCourses      Json? // Selected course groups/streams
   requestedCoursesOther String? // Free-text details when requestedCourses includes Other
   repeaterSubjects      String? // Physics, Chemistry, etc. (comma separated)
 
@@ -584,7 +618,7 @@ model AdmissionRequest {
   requestedClass        Int? // Grade 1-12 requested (admin assigns batch on approval)
   requestedGroup        String? // Computer Group, Biology Group, F.Sc, etc.
   requestedGroupOther   String? // Free-text detail when primary group is Other
-  requestedCourses Json? // Selected course groups / streams
+  requestedCourses      Json? // Selected course groups / streams
   requestedCoursesOther String? // Free-text details when requestedCourses includes Other
   repeaterSubjects      String? // Physics, Chemistry, etc. (comma separated)
 
@@ -1262,15 +1296,15 @@ model RolePermission {
 }
 
 model RoleAssumption {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   requesterId  String
   originalRole Role
   assumedRole  Role
   reason       String?
   expiresAt    DateTime?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   requester User @relation(fields: [requesterId], references: [id])
 
@@ -1292,23 +1326,23 @@ enum LeaveType {
 }
 
 model LeaveRequest {
-  id            String    @id @default(cuid())
-  applicantId   String // References User.id
-  applicantName String
-  applicantRole Role
-  leaveType     LeaveType @default(CASUAL)
-  startDate     DateTime
-  endDate       DateTime
-  reason        String
-  status        String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
-  remarks       String?
-  reviewedBy    String? // User.id of reviewer (Admin or Teacher)
-  reviewedName  String?
+  id                    String    @id @default(cuid())
+  applicantId           String // References User.id
+  applicantName         String
+  applicantRole         Role
+  leaveType             LeaveType @default(CASUAL)
+  startDate             DateTime
+  endDate               DateTime
+  reason                String
+  status                String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  remarks               String?
+  reviewedBy            String? // User.id of reviewer (Admin or Teacher)
+  reviewedName          String?
   // WHY: Guardians apply on behalf of their child — ties the leave to a specific student
   onBehalfOfStudentId   String?
   onBehalfOfStudentName String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@index([applicantId])
   @@index([status])
@@ -1351,7 +1385,7 @@ model StudentQuery {
 }
 
 model SalarySlip {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   // WHY: employeeId is User.id — consistent with AuditLog.userId for cross-table lookups
   employeeId        String
   employeeName      String
@@ -1362,35 +1396,64 @@ model SalarySlip {
   month             String // "June 2026"
   salaryPeriodStart DateTime
   salaryPeriodEnd   DateTime
-  issueDate         DateTime @default(now())
-  basicSalary       Decimal  @db.Decimal(10, 2)
-  overtimeAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  issueDate         DateTime  @default(now())
+  basicSalary       Decimal   @db.Decimal(10, 2)
+  overtimeAmount    Decimal   @default(0) @db.Decimal(10, 2)
   // totalAdditions = basicSalary + overtimeAmount + any extra; stored denormalized for export
-  totalAdditions    Decimal  @default(0) @db.Decimal(10, 2)
-  lunchDues         Decimal  @default(0) @db.Decimal(10, 2)
-  totalDeductions   Decimal  @default(0) @db.Decimal(10, 2)
+  totalAdditions    Decimal   @default(0) @db.Decimal(10, 2)
+  lunchDues         Decimal   @default(0) @db.Decimal(10, 2)
+  totalDeductions   Decimal   @default(0) @db.Decimal(10, 2)
   // netSalary enforced: basicSalary + overtimeAmount - lunchDues - totalDeductions
-  netSalary         Decimal  @db.Decimal(10, 2)
+  netSalary         Decimal   @db.Decimal(10, 2)
   bankName          String?
   accountNumber     String?
   paymentSource     String? // "Cash" | "Bank Transfer" | "Cheque"
   // WHY Json: Account Manager can add custom line items (e.g. "Travel Allowance: 500")
   // Stored as [{label: string, value: number, isDeduction: boolean}]
   customFields      Json?
-  status            String   @default("ISSUED") // ISSUED | PAID | CANCELLED
+  status            String    @default("ISSUED") // ISSUED | PAID | CANCELLED
+  approvalStatus    String    @default("PENDING") // PENDING | APPROVED | REJECTED | LEGACY
+  approvalNote      String?
+  issuedById        String?
+  approvedById      String?
+  issuedAsRole      String?
+  approvedAsRole    String?
+  paymentReference  String?
+  paymentDate       DateTime?
   notes             String?
   generatedBy       String // Accountant User.id
   // WHY isDeleted: Financial records are never hard-deleted (audit requirement)
-  isDeleted         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  isDeleted         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  editLogs SalarySlipEditLog[]
+  editLogs       SalarySlipEditLog[]
+  authorizations SalaryAuthorization[]
 
   @@index([employeeId])
   @@index([month])
   @@index([generatedBy])
   @@index([isDeleted])
+}
+
+model SalaryAuthorization {
+  id           String   @id @default(cuid())
+  salarySlipId String
+  issuerId     String
+  approverId   String
+  issuerRole   String
+  approverRole String
+  status       String   @default("PENDING")
+  reason       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  salarySlip SalarySlip @relation(fields: [salarySlipId], references: [id], onDelete: Cascade)
+
+  @@index([salarySlipId])
+  @@index([issuerId])
+  @@index([approverId])
+  @@index([status])
 }
 
 // WHY separate audit log: SalarySlip edits are retroactive financial changes
@@ -1415,18 +1478,18 @@ model SalarySlipEditLog {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model ClassTask {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  type        TaskType
-  dueDate     DateTime?
-  maxMarks       Int     @default(100)
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  type           TaskType
+  dueDate        DateTime?
+  maxMarks       Int       @default(100)
   classId        String
   classSectionId String?
   subjectId      String
-  teacherId   String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  teacherId      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   class        Class         @relation(fields: [classId], references: [id])
   classSection ClassSection? @relation(fields: [classSectionId], references: [id], onDelete: SetNull)
@@ -1977,8 +2040,8 @@ model StudentFeedbackSubmission {
   batchId             String
   // WHY: Distinguishes student vs guardian feedback in aggregation queries
   submitterRole       Role     @default(STUDENT)
-  submitterUserId     String   // User.id of whoever submitted (student or guardian)
-  guardianId          String?  // Set when submitter is PARENT/GUARDIAN
+  submitterUserId     String // User.id of whoever submitted (student or guardian)
+  guardianId          String? // Set when submitter is PARENT/GUARDIAN
   submittedAt         DateTime @default(now())
 
   cycle       MonthlyFeedbackCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
@@ -2356,21 +2419,21 @@ model ReserveFundLedger {
 // Structure mirrors monthly monitering report.jpeg grid format.
 // ─────────────────────────────────────────────────────────────────────────────
 model MonthlyMonitoringReport {
-  id             String   @id @default(cuid())
-  classSectionId String
-  month          Int // 1–12
-  year           Int
-  academicYearId String
-  generatedById  String // Teacher User.id
+  id                String                  @id @default(cuid())
+  classSectionId    String
+  month             Int // 1–12
+  year              Int
+  academicYearId    String
+  generatedById     String // Teacher User.id
   declarationStatus ResultDeclarationStatus @default(DRAFT)
-  declaredAt     DateTime?
-  declaredById   String?
+  declaredAt        DateTime?
+  declaredById      String?
   // WHY Json: subject columns vary per section based on SubjectOffering;
   // storing as snapshot prevents report from changing when offerings change.
   // Format: {students: [{name, rollNo, subjectScores: {offeringId: marks}, totalMarks, obtainedMarks, rank}], performanceBatches: {}}
-  reportData     Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  reportData        Json
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   classSection ClassSection @relation(fields: [classSectionId], references: [id])
 
@@ -2387,29 +2450,29 @@ model MonthlyMonitoringReport {
 // Data separated from admissions/staff applications — visitors are not applicants.
 // ─────────────────────────────────────────────────────────────────────────────
 model LandingInquiry {
-  id          String        @id @default(cuid())
+  id String @id @default(cuid())
 
   // Visitor identity (no authentication required)
-  name        String
-  phone       String
-  email       String?
-  message     String        @db.Text
+  name    String
+  phone   String
+  email   String?
+  message String  @db.Text
 
   // WHY source: Distinguishes contact form from future WhatsApp integration.
-  source      InquirySource @default(CONTACT_FORM)
+  source InquirySource @default(CONTACT_FORM)
 
   // Admin workflow
-  status      InquiryStatus @default(NEW)
-  adminReply  String?       @db.Text   // Internal note or drafted reply
-  repliedAt   DateTime?
-  repliedBy   String?                  // User.id of admin who replied
+  status     InquiryStatus @default(NEW)
+  adminReply String?       @db.Text // Internal note or drafted reply
+  repliedAt  DateTime?
+  repliedBy  String? // User.id of admin who replied
 
   // Metadata — stored for spam detection, never exposed in public API
-  ipAddress   String?
-  userAgent   String?
+  ipAddress String?
+  userAgent String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([createdAt])
@@ -2424,51 +2487,65 @@ model LandingInquiry {
 // cooldown if previously declined.
 // ─────────────────────────────────────────────────────────────────────────────
 model StaffApplicationRequest {
-  id                String                 @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── Identity ──────────────────────────────────────────────────────────────
-  fullName          String
+  fullName    String
   // WHY NOT @unique: Allows re-application after 90-day cooldown if declined.
   // Dedup guard is enforced in the API layer with cooldown logic.
-  cnic              String
-  dateOfBirth       DateTime?
-  gender            Gender?
-  address           String?
-  city              String?
+  cnic        String
+  dateOfBirth DateTime?
+  gender      Gender?
+  address     String?
+  city        String?
 
   // ── Contact ───────────────────────────────────────────────────────────────
-  phone             String
-  email             String
+  phone String
+  email String
 
   // ── Professional profile ──────────────────────────────────────────────────
-  applicantType     StaffApplicantType     @default(TEACHER)
+  applicantType     StaffApplicantType @default(TEACHER)
   qualification     String
   specialization    String
-  experienceYears   Int                    @default(0)
+  experienceYears   Int                @default(0)
   preferredShift    SessionShift?
   preferredCampusId String?
 
   // ── Documents ─────────────────────────────────────────────────────────────
-  cvDocUrl          String?                // Server-saved PDF path
-  cvLink            String?                // External URL fallback
+  cvDocUrl String? // Server-saved PDF path
+  cvLink   String? // External URL fallback
 
   // ── Admin workflow ────────────────────────────────────────────────────────
-  status            StaffApplicationStatus @default(PENDING)
-  reviewedBy        String?                // User.id of super-admin who acted
-  adminNotes        String?                @db.Text
-  interviewDate     DateTime?
-  declinedAt        DateTime?
-  approvedAt        DateTime?
+  status        StaffApplicationStatus @default(PENDING)
+  reviewedBy    String? // User.id of super-admin who acted
+  adminNotes    String?                @db.Text
+  interviewDate DateTime?
+  declinedAt    DateTime?
+  approvedAt    DateTime?
 
   // WHY: Links to the User record created on approval for audit trail.
   // Null until status = APPROVED.
   provisionedUserId String?
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([applicantType])
   @@index([cnic])
   @@index([createdAt])
+}
+
+model AttendanceImportLog {
+  id           String   @id @default(cuid())
+  fileName     String
+  importType   String   // "STAFF" | "STUDENT"
+  totalRows    Int
+  successRows  Int
+  failedRows   Int
+  errorLog     Json?    // Array of { row: number, errors: string[] }
+  importedById String
+  createdAt    DateTime @default(now())
+
+  importedBy   User     @relation(fields: [importedById], references: [id])
 }

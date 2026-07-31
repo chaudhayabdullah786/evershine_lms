@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'next/navigation'
 import { fetchApi } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,11 +41,15 @@ interface RosterStudent {
   isConcern: boolean
 }
 
-export default function DailyScoresPage() {
+function DailyScoresInner() {
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
+  const sectionIdFromUrl = searchParams.get('sectionId')
+  const dateFromUrl = searchParams.get('date')
+
   const [selectedOfferingId, setSelectedOfferingId] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
+    dateFromUrl || new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
   )
   const [rosterState, setRosterState] = useState<Record<string, { performanceGrade: DailyPerformanceGrade; isAbsent: boolean; remarks: string; isStarOfDay: boolean; isConcern: boolean }>>({})
 
@@ -54,10 +59,21 @@ export default function DailyScoresPage() {
     queryFn: () => fetchApi<SubjectOffering[]>('/api/teacher-portal/subject-offerings'),
   })
 
-  // Set default offering if none selected
-  if (offerings.length > 0 && !selectedOfferingId) {
-    setSelectedOfferingId(offerings[0].id)
-  }
+  // Set default offering or pre-selected offering from URL
+  useEffect(() => {
+    if (offerings.length > 0) {
+      if (sectionIdFromUrl) {
+        const matched = offerings.find(o => o.classSection.id === sectionIdFromUrl)
+        if (matched) {
+          setSelectedOfferingId(matched.id)
+          return
+        }
+      }
+      if (!selectedOfferingId) {
+        setSelectedOfferingId(offerings[0].id)
+      }
+    }
+  }, [offerings, sectionIdFromUrl, selectedOfferingId])
 
   // Fetch roster & existing monitoring records for selected offering and date.
 
@@ -389,5 +405,20 @@ export default function DailyScoresPage() {
         </form>
       )}
     </div>
+  )
+}
+
+export default function DailyScoresPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh] gap-3 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          <span className="text-sm font-medium">Loading daily scores…</span>
+        </div>
+      }
+    >
+      <DailyScoresInner />
+    </Suspense>
   )
 }

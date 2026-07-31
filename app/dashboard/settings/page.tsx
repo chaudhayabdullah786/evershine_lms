@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, fetchPaginatedApi } from '@/lib/api-client'
@@ -33,6 +33,8 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN'
+  const canManageIdentity = ['SUPER_ADMIN', 'ACCOUNTANT', 'ADMIN', 'GUARDIAN'].includes(session?.user?.role ?? '')
+  const canRequestIdentity = session?.user?.role === 'STUDENT'
 
   const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'admins'>('profile')
 
@@ -54,6 +56,14 @@ export default function SettingsPage() {
   const [confirmPasswordSelf, setConfirmPasswordSelf] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [profileImagePreview, setProfileImagePreview] = useState('')
+  const [identitySaving, setIdentitySaving] = useState(false)
+  const [identityRequestSaving, setIdentityRequestSaving] = useState(false)
+  const [identityNotice, setIdentityNotice] = useState<string | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   // ─── Admin Management States ──────────────────────────────────────────────────
   const [adminSearch, setAdminSearch] = useState('')
@@ -144,10 +154,118 @@ export default function SettingsPage() {
   const strengthScore = calculatePasswordStrength(newPasswordSelf)
   const strengthFeedback = getStrengthFeedback(strengthScore)
 
+  useEffect(() => {
+    let mounted = true
+    const loadProfile = async () => {
+      if (!session?.user?.id) {
+        if (mounted) setProfileLoading(false)
+        return
+      }
+
+      try {
+        const result = await fetch('/api/profile/me', { credentials: 'include' })
+        const json = await result.json()
+        if (!result.ok || !json.success) {
+          throw new Error(json.error?.message ?? json.error ?? 'Failed to load profile data')
+        }
+
+        const profile = json.data ?? { displayName: session?.user?.name ?? '', profilePictureUrl: '' }
+        if (!mounted) return
+        setDisplayName(profile.displayName ?? session?.user?.name ?? '')
+        setProfileImagePreview(profile.profilePictureUrl ?? '')
+      } catch (err: any) {
+        if (!mounted) return
+        setProfileError(err.message || 'Unable to load your profile details')
+      } finally {
+        if (mounted) setProfileLoading(false)
+      }
+    }
+
+    loadProfile()
+    return () => {
+      mounted = false
+    }
+  }, [session?.user?.id, session?.user?.name])
+
+  if (profileLoading) {
+    return (
+      <div className="max-w-5xl mx-auto py-12">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 w-48 rounded-lg bg-slate-200" />
+          <div className="h-48 rounded-3xl bg-slate-200" />
+        </div>
+      </div>
+    )
+  }
+
+  if (profileError) {
+    return (
+      <div className="max-w-5xl mx-auto py-12">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          <p className="font-semibold">Unable to load profile settings.</p>
+          <p>{profileError}</p>
+        </div>
+      </div>
+    )
+  }
   // Handle Save Profile Form (Fallback action)
-  const handleSavePersonal = (e: React.FormEvent) => {
+  const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault()
-    notify.success('Profile settings are secure and up-to-date.')
+    setIdentitySaving(true)
+    setIdentityNotice(null)
+    try {
+      if (canManageIdentity) {
+        const formData = new FormData()
+        if (displayName.trim()) {
+          formData.append('displayName', displayName.trim())
+        }
+        if (profileImageFile) {
+          formData.append('profileImage', profileImageFile)
+        }
+
+        const response = await fetch('/api/profile/me', {
+          method: 'PATCH',
+          body: formData,
+          credentials: 'include',
+        })
+
+        const result = await response.json()
+        if (result.success) {
+          notify.success('Profile updated successfully')
+          setProfileImageFile(null)
+          setProfileImagePreview('')
+          setDisplayName('')
+        } else {
+          throw new Error(result.error || 'Update failed')
+        }
+      }
+    } catch (err: any) {
+      setIdentityNotice(err.message || 'Unable to update profile identity')
+      notify.error('Unable to update profile identity')
+    } finally {
+      setIdentitySaving(false)
+    }
+  }
+
+  const handleIdentityRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIdentityRequestSaving(true)
+    setIdentityNotice(null)
+    try {
+      if (canRequestIdentity) {
+        await fetchApi('/api/profile/requests', {
+          method: 'POST',
+          body: JSON.stringify({ requestedField: 'displayName', proposedValue: displayName.trim() || undefined, reason: 'Requested profile update' }),
+        })
+        setIdentityNotice('Your request has been submitted for review by a Super Admin.')
+        notify.success('Profile change requested')
+      }
+    } catch (err: any) {
+      setIdentityNotice(err.message || 'Unable to request profile update')
+      notify.error('Unable to request profile update')
+    } finally {
+      setIdentityRequestSaving(false)
+    }
   }
 
   // Handle Password Update Form
@@ -455,9 +573,76 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    <Button type="submit" className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold px-5 transition-all">
-                      Save Changes
-                    </Button>
+                    {(canManageIdentity || canRequestIdentity) && (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-bold text-gray-700">Display Name</Label>
+                          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your preferred display name" className="text-xs h-9 bg-white" />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-gray-700">Profile Picture</Label>
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              {profileImagePreview ? (
+                                <img 
+                                  src={profileImagePreview} 
+                                  alt="Preview" 
+                                  className="w-20 h-20 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                />
+                              ) : (
+                                <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 border border-gray-200 flex items-center justify-center">
+                                  <UserCircle className="w-10 h-10 text-indigo-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      // Validate file size (max 5MB)
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        notify.error('Image must be less than 5MB')
+                                        return
+                                      }
+                                      setProfileImageFile(file)
+                                      const reader = new FileReader()
+                                      reader.onloadend = () => {
+                                        setProfileImagePreview(reader.result as string)
+                                      }
+                                      reader.readAsDataURL(file)
+                                    }
+                                  }}
+                                  className="text-xs h-9 bg-white cursor-pointer file:bg-indigo-600 file:text-white file:border-0 file:rounded file:px-3 file:py-1 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-indigo-700 transition-all"
+                                />
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, or GIF (Max 5MB)</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {identityNotice && (
+                      <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">{identityNotice}</div>
+                    )}
+
+                    <div className="flex flex-wrap gap-3">
+                      <Button type="submit" disabled={identitySaving} className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold px-5 transition-all">
+                        {identitySaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {canRequestIdentity ? 'Submit Request' : 'Save Changes'}
+                      </Button>
+                      {canRequestIdentity && (
+                        <Button type="button" variant="outline" disabled={identityRequestSaving} onClick={handleIdentityRequest} className="text-xs h-9 font-bold px-5">
+                          {identityRequestSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Request Approval
+                        </Button>
+                      )}
+                    </div>
                   </form>
                 </CardContent>
               </Card>

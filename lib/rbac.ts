@@ -46,6 +46,41 @@ type Resource = AcademicResource
 
 type PermissionMap = Record<Role, Record<Resource, Action[]>>
 
+const ROLE_ALIASES: Record<string, Role> = {
+  SUPERADMIN: 'SUPER_ADMIN',
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  SUPER_ADMINISTRATOR: 'SUPER_ADMIN',
+  ADMIN: 'ADMIN',
+  ADMINISTRATOR: 'ADMIN',
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT',
+  PARENT: 'PARENT',
+  GUARDIAN: 'GUARDIAN',
+  ACCOUNTANT: 'ACCOUNTANT',
+  ACCOUNT_MANAGER: 'ACCOUNTANT',
+}
+
+/**
+ * Converts display/session role labels into the canonical Prisma Role enum.
+ *
+ * WHY: Some deployed sessions and impersonation flows can expose display labels
+ * such as "Super Admin" while API authorization expects enum values like
+ * "SUPER_ADMIN". Normalizing at the RBAC boundary prevents false 403s without
+ * granting access to unknown roles.
+ */
+export function normalizeRole(role: Role | string | null | undefined): Role | null {
+  if (!role) return null
+
+  const key = String(role)
+    .trim()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase()
+
+  return ROLE_ALIASES[key] ?? null
+}
+
 // WHY typed as const: Ensures exhaustive coverage — TypeScript will error
 // if a new Role or Resource is added without updating this matrix.
 const PERMISSIONS: PermissionMap = {
@@ -264,8 +299,11 @@ const PERMISSIONS: PermissionMap = {
  * @param action - The action being attempted
  * @returns true if permitted, false otherwise
  */
-export function checkPermission(role: Role, resource: Resource, action: Action): boolean {
-  const allowed = PERMISSIONS[role]?.[resource] ?? []
+export function checkPermission(role: Role | string | null | undefined, resource: Resource, action: Action): boolean {
+  const normalizedRole = normalizeRole(role)
+  if (!normalizedRole) return false
+
+  const allowed = PERMISSIONS[normalizedRole]?.[resource] ?? []
   return allowed.includes(action)
 }
 
@@ -273,8 +311,11 @@ export function checkPermission(role: Role, resource: Resource, action: Action):
  * Returns the allowed actions for a role on a resource.
  * Useful for building role-aware UI navigation.
  */
-export function getAllowedActions(role: Role, resource: Resource): Action[] {
-  return PERMISSIONS[role]?.[resource] ?? []
+export function getAllowedActions(role: Role | string | null | undefined, resource: Resource): Action[] {
+  const normalizedRole = normalizeRole(role)
+  if (!normalizedRole) return []
+
+  return PERMISSIONS[normalizedRole]?.[resource] ?? []
 }
 
 /**

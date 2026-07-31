@@ -187,6 +187,15 @@ export default function SectionAttendancePage() {
         </div>
       )}
 
+      {session?.user?.role === 'TEACHER' && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-semibold">Holiday and approved leave guidance</p>
+          <p className="mt-1">
+            Teachers do not approve student holidays or leave requests. Admin and Super Admin approve them. If a selected date is an official holiday or the student has approved leave, mark the student as <strong>EXCUSED</strong>. Pending requests should remain normal attendance until administration approves them.
+          </p>
+        </div>
+      )}
+
       <motion.div variants={fadeUp(0.2)}>
         <Card className="border border-slate-200/60 shadow-soft-md">
         <CardHeader>

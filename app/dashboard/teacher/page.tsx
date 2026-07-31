@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
@@ -110,22 +111,23 @@ export default function TeacherPortalIndexPage() {
   const name = session?.user?.name?.split(' ')[0] ?? 'Teacher'
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
-      <Card className="overflow-hidden rounded-[28px] bg-slate-950/95 text-white shadow-xl ring-1 ring-slate-900/10">
-        <div className="p-8 sm:p-10 lg:p-12">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div className="p-3.5 sm:p-6 max-w-6xl mx-auto space-y-4 sm:space-y-8">
+      {/* Header Banner */}
+      <Card className="overflow-hidden rounded-2xl sm:rounded-[28px] bg-slate-950/95 text-white shadow-xl ring-1 ring-slate-900/10">
+        <div className="p-5 sm:p-8 lg:p-10">
+          <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Teacher Portal</p>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] sm:tracking-[0.35em] text-slate-400">Teacher Portal</p>
+              <h1 className="mt-2 sm:mt-4 text-2xl font-semibold tracking-tight text-white sm:text-4xl">
                 Welcome back, {name}
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              <p className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">
                 Manage your classes, student progress, announcements, and requests from a single professional portal built for classroom workflows.
               </p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-right">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Today</p>
-              <p className="mt-3 text-xl font-semibold text-white">
+            <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5 text-left sm:text-right shrink-0">
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] sm:tracking-[0.35em] text-slate-400">Today</p>
+              <p className="mt-1 sm:mt-3 text-base sm:text-xl font-semibold text-white">
                 {new Date().toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
@@ -133,14 +135,15 @@ export default function TeacherPortalIndexPage() {
         </div>
       </Card>
 
-      <Card className="rounded-[24px] border border-slate-200 bg-white/90 shadow-sm">
-        <div className="p-5 md:p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Leave Status Alert */}
+      <Card className="rounded-2xl sm:rounded-[24px] border border-slate-200 bg-white/90 shadow-sm">
+        <div className="p-4 sm:p-6 flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Leave review status</p>
-            <p className="mt-2 text-lg font-semibold text-slate-900">{pendingLeavesCount} pending student leave request{pendingLeavesCount === 1 ? '' : 's'}</p>
-            <p className="mt-1 text-sm text-slate-600">Stay on top of approved, rejected, and pending leave workflows for your assigned students.</p>
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-slate-500 font-semibold">Leave review status</p>
+            <p className="mt-1 text-base sm:text-lg font-semibold text-slate-900">{pendingLeavesCount} pending student leave request{pendingLeavesCount === 1 ? '' : 's'}</p>
+            <p className="mt-1 text-xs sm:text-sm text-slate-600">Stay on top of approved, rejected, and pending leave workflows for your assigned students.</p>
           </div>
-          <Link href="/dashboard/teacher/leaves" className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+          <Link href="/dashboard/teacher/leaves" className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl sm:rounded-2xl bg-slate-900 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition hover:bg-slate-800 shrink-0">
             Open Student Leaves
           </Link>
         </div>
@@ -149,43 +152,45 @@ export default function TeacherPortalIndexPage() {
       {/* My Shifts Summary Card */}
       <MyShiftsSummary />
 
+      {/* Quick Access Section */}
       <div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Quick access</h2>
-            <p className="mt-1 text-sm text-slate-600">Open the most important teacher workflows with a single tap.</p>
+            <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.24em] text-slate-500">Quick access</h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-600">Open the most important teacher workflows with a single tap.</p>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-4 sm:mt-5 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {TEACHER_QUICK_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`group relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-5 transition duration-150 hover:-translate-y-0.5 hover:shadow-lg ${link.color}`}
+              className={`group relative overflow-hidden rounded-2xl sm:rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5 transition duration-150 hover:-translate-y-0.5 hover:shadow-lg flex items-start sm:block gap-3.5 sm:gap-0 ${link.color}`}
               aria-label={link.label}
             >
-              <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${link.iconBg} transition duration-150 group-hover:scale-105`}>
+              <div className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl ${link.iconBg} transition duration-150 group-hover:scale-105 shrink-0`}>
                 <link.icon className="h-5 w-5" />
               </div>
-              <div className="mt-4">
-                <p className="font-semibold text-sm text-slate-900">{link.label}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-600">{link.description}</p>
+              <div className="sm:mt-4 min-w-0 flex-1">
+                <p className="font-semibold text-sm text-slate-900 leading-tight">{link.label}</p>
+                <p className="mt-1 sm:mt-2 text-xs leading-relaxed text-slate-600">{link.description}</p>
               </div>
             </Link>
           ))}
         </div>
       </div>
 
-      <Card className="rounded-[24px] border border-amber-100 bg-amber-50 px-6 py-5 text-amber-900 shadow-sm">
+      {/* Admin Disclaimer Banner */}
+      <Card className="rounded-2xl sm:rounded-[24px] border border-amber-100 bg-amber-50 p-4 sm:px-6 sm:py-5 text-amber-900 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-semibold">Reminder — Read-only student records</p>
-            <p className="mt-1 text-sm text-amber-800/90">
+          <div className="space-y-1">
+            <p className="font-semibold text-xs sm:text-sm">Reminder — Read-only student records</p>
+            <p className="text-xs sm:text-sm text-amber-800/90 leading-relaxed">
               You can view student profiles and class details here, but direct record edits are handled by the Admin team. Use <strong>Request Admin Action</strong> on the My Students page when follow-up is needed.
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-100/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-900">
+          <div className="inline-flex self-start sm:self-auto items-center gap-2 rounded-xl bg-amber-100/80 px-3 py-1.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.15em] text-amber-900 shrink-0">
             <span>Best practice</span>
           </div>
         </div>
@@ -205,15 +210,26 @@ function MyShiftsSummary() {
   const { data: session } = useSession()
 
   const { data: assignmentsRaw, isLoading } = useQuery<{
+    teacher?: {
+      id: string
+      name: string
+      email: string
+      employeeId: string
+      profilePicture: string | null
+    }
     shifts: Array<{
       code: string
       label: string
       sections: Array<{
+        classSectionId?: string
         className: string
         sectionName: string
         subject: string
+        subjectCode?: string
         studentCount: number
         deliveryMode: string
+        campusName?: string
+        batchName?: string
       }>
     }>
     totalSections: number
@@ -227,11 +243,17 @@ function MyShiftsSummary() {
   })
 
   const assignments = assignmentsRaw
+  const teacherInitials = assignments?.teacher?.name
+    ?.split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'T'
 
   if (isLoading) {
     return (
-      <Card className="rounded-[24px] border border-slate-200 bg-white/90 shadow-sm">
-        <div className="p-5 md:p-6 animate-pulse space-y-3">
+      <Card className="rounded-2xl sm:rounded-[24px] border border-slate-200 bg-white/90 shadow-sm">
+        <div className="p-4 sm:p-6 animate-pulse space-y-3">
           <div className="h-4 w-36 bg-slate-200 rounded" />
           <div className="h-6 w-48 bg-slate-200 rounded" />
         </div>
@@ -242,24 +264,44 @@ function MyShiftsSummary() {
   if (!assignments || assignments.shifts.length === 0) return null
 
   return (
-    <Card className="rounded-[24px] border border-slate-200 bg-white/90 shadow-sm overflow-hidden">
-      <div className="p-5 md:p-6 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">My Teaching Profile</p>
-            <p className="mt-2 text-lg font-semibold text-slate-900">
-              {assignments.totalSections} class section{assignments.totalSections !== 1 ? 's' : ''} · {assignments.totalStudents} student{assignments.totalStudents !== 1 ? 's' : ''}
-            </p>
-            {assignments.academicYear && (
-              <p className="mt-1 text-xs text-slate-500">{assignments.academicYear}</p>
-            )}
+    <Card className="rounded-2xl sm:rounded-[24px] border border-slate-200 bg-white/90 shadow-sm overflow-hidden">
+      <div className="p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm shrink-0">
+              {assignments.teacher?.profilePicture ? (
+                <Image
+                  src={assignments.teacher.profilePicture}
+                  alt={`${assignments.teacher.name} profile`}
+                  fill
+                  sizes="56px"
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-900 text-sm font-bold text-white">
+                  {teacherInitials}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-slate-500 font-semibold">My Teaching Profile</p>
+              <p className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
+                {assignments.totalSections} class section{assignments.totalSections !== 1 ? 's' : ''} · {assignments.totalStudents} student{assignments.totalStudents !== 1 ? 's' : ''}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                {assignments.teacher?.name && <span>{assignments.teacher.name}</span>}
+                {assignments.teacher?.employeeId && <span>Employee ID: {assignments.teacher.employeeId}</span>}
+                {assignments.academicYear && <span>{assignments.academicYear}</span>}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {assignments.activeShifts.map((code) => (
               <Badge
                 key={code}
                 variant="outline"
-                className={`text-xs font-bold px-2.5 py-1 rounded-full ${SHIFT_BADGE_CLASSES[code] ?? 'bg-gray-100 text-gray-700'}`}
+                className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full ${SHIFT_BADGE_CLASSES[code] ?? 'bg-gray-100 text-gray-700'}`}
               >
                 {assignments.shifts.find((s) => s.code === code)?.label ?? code}
               </Badge>
@@ -268,16 +310,21 @@ function MyShiftsSummary() {
         </div>
 
         {/* Shift breakdown */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {assignments.shifts.map((shift) => (
-            <div key={shift.code} className={`rounded-2xl border p-4 ${SHIFT_BADGE_CLASSES[shift.code]?.replace('text-', 'border-').split(' ')[0]} bg-white`}>
-              <p className="text-sm font-bold text-slate-800">{shift.label}</p>
-              <div className="mt-2 space-y-1">
+            <div key={shift.code} className={`rounded-xl sm:rounded-2xl border p-3.5 sm:p-4 ${SHIFT_BADGE_CLASSES[shift.code]?.replace('text-', 'border-').split(' ')[0]} bg-white`}>
+              <p className="text-xs sm:text-sm font-bold text-slate-800">{shift.label}</p>
+              <div className="mt-2 space-y-1.5">
                 {shift.sections.slice(0, 4).map((sec, i) => (
-                  <div key={i} className="text-xs text-slate-600 flex items-center gap-1.5">
-                    <span className="font-medium">{sec.className}-{sec.sectionName}</span>
+                  <div key={i} className="text-xs text-slate-600 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium text-slate-900">{sec.className}-{sec.sectionName}</span>
                     <span className="text-slate-400">·</span>
-                    <span>{sec.subject}</span>
+                    <span className="truncate max-w-[120px]">{sec.subject}</span>
+                    {sec.batchName && (
+                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                        {sec.batchName}
+                      </span>
+                    )}
                     {sec.deliveryMode !== 'PHYSICAL' && (
                       <span className="text-[9px] bg-cyan-100 text-cyan-700 px-1 py-0.5 rounded">
                         {sec.deliveryMode === 'ONLINE' ? '💻' : '🔄'}
@@ -286,11 +333,11 @@ function MyShiftsSummary() {
                   </div>
                 ))}
                 {shift.sections.length > 4 && (
-                  <p className="text-[10px] text-slate-400">+{shift.sections.length - 4} more</p>
+                  <p className="text-[10px] text-slate-400 font-medium">+{shift.sections.length - 4} more sections</p>
                 )}
               </div>
-              <p className="mt-2 text-[10px] text-slate-400">
-                {shift.sections.reduce((s, sec) => s + sec.studentCount, 0)} students
+              <p className="mt-2.5 text-[10px] text-slate-500 font-medium border-t pt-1.5 border-slate-100">
+                {shift.sections.reduce((s, sec) => s + sec.studentCount, 0)} enrolled students
               </p>
             </div>
           ))}

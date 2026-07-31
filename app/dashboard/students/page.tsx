@@ -210,17 +210,17 @@ export default function StudentsListPage() {
       initial="initial"
       animate="animate"
       variants={staggerContainer}
-      className="space-y-6 max-w-7xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-7xl mx-auto p-3.5 sm:p-6"
     >
-      <motion.div variants={fadeUp(0.1)} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-soft-lg border border-slate-200/60">
+      <motion.div variants={fadeUp(0.1)} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 bg-white p-4 sm:p-5 rounded-2xl shadow-soft-lg border border-slate-200/60">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-              <GraduationCap className="w-6 h-6" />
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
+            <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
+              <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             Students Directory
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium ml-11">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium sm:ml-11">
             {pagination ? `${pagination.total.toLocaleString()} registered students` : 'Loading…'}
             <span className="mx-2 text-slate-300">•</span>
             <Link href="/dashboard/admissions" className="text-blue-600 hover:text-blue-700 font-semibold hover:underline">
@@ -228,30 +228,30 @@ export default function StudentsListPage() {
             </Link>
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {canExport && (
-            <Button variant="outline" size="sm" className="gap-2" disabled={exporting} onClick={handleExport}>
-              <Download className="w-4 h-4" />
+            <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-initial h-9 text-xs" disabled={exporting} onClick={handleExport}>
+              <Download className="w-3.5 h-3.5" />
               {exporting ? 'Exporting…' : 'Export Excel'}
             </Button>
           )}
           {canManage && (
             <>
-              <Link href="/dashboard/admissions">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ClipboardList className="w-4 h-4" />
-                  Admissions Queue
+              <Link href="/dashboard/admissions" className="flex-1 sm:flex-initial">
+                <Button variant="outline" size="sm" className="gap-2 w-full h-9 text-xs">
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  Queue
                 </Button>
               </Link>
-              <Link href="/dashboard/students/import">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <FileUp className="w-4 h-4" />
-                  Bulk Import
+              <Link href="/dashboard/students/import" className="flex-1 sm:flex-initial">
+                <Button variant="outline" size="sm" className="gap-2 w-full h-9 text-xs">
+                  <FileUp className="w-3.5 h-3.5" />
+                  Import
                 </Button>
               </Link>
-              <Link href="/dashboard/students/admission">
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
+              <Link href="/dashboard/students/admission" className="w-full sm:w-auto">
+                <Button className="gap-2 w-full h-9 text-xs">
+                  <Plus className="w-3.5 h-3.5" />
                   New Admission
                 </Button>
               </Link>
@@ -261,13 +261,13 @@ export default function StudentsListPage() {
       </motion.div>
 
       <motion.div variants={fadeUp(0.2)} className="bg-white rounded-2xl border border-slate-200/60 shadow-soft-md overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="search"
               placeholder="Search name, reg no, roll, father…"
-              className="pl-9"
+              className="pl-9 h-9 text-xs sm:text-sm"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
             />
@@ -275,10 +275,10 @@ export default function StudentsListPage() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 h-9 text-xs shrink-0 self-end sm:self-auto"
             onClick={() => setShowFilters((v) => !v)}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
             Filters
             {(feeStatusFilter || enrollmentFilter || campusFilter || batchFilter || classSectionFilter) && (
               <span className="w-2 h-2 bg-blue-500 rounded-full" />
@@ -295,11 +295,11 @@ export default function StudentsListPage() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="p-5 border-b border-slate-100 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="p-4 sm:p-5 border-b border-slate-100 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Campus</label>
               <Select value={campusFilter || 'ALL'} onValueChange={(v) => { setCampusFilter(v === 'ALL' ? '' : v); setBatchFilter(''); setClassSectionFilter(''); setPage(1) }}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All campuses" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:text-sm"><SelectValue placeholder="All campuses" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All campuses</SelectItem>
                   {campuses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -309,7 +309,7 @@ export default function StudentsListPage() {
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Batch</label>
               <Select value={batchFilter || 'ALL'} onValueChange={(v) => { setBatchFilter(v === 'ALL' ? '' : v); setClassSectionFilter(''); setPage(1) }} disabled={!campusFilter}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All batches" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:text-sm"><SelectValue placeholder="All batches" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All batches</SelectItem>
                   {batches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -319,7 +319,7 @@ export default function StudentsListPage() {
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Class section (engine)</label>
               <Select value={classSectionFilter || 'ALL'} onValueChange={(v) => { setClassSectionFilter(v === 'ALL' ? '' : v); setPage(1) }} disabled={!campusFilter}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:text-sm"><SelectValue placeholder="All sections" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All sections</SelectItem>
                   {sections.map((s) => (
@@ -331,7 +331,7 @@ export default function StudentsListPage() {
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Fee status</label>
               <Select value={feeStatusFilter || 'ALL'} onValueChange={(v) => { setFeeStatusFilter(v === 'ALL' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All</SelectItem>
                   <SelectItem value="PAID">Paid</SelectItem>
@@ -344,7 +344,7 @@ export default function StudentsListPage() {
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Enrollment</label>
               <Select value={enrollmentFilter || 'ALL'} onValueChange={(v) => { setEnrollmentFilter(v === 'ALL' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All</SelectItem>
                   <SelectItem value="ACTIVE">Active</SelectItem>
@@ -359,6 +359,7 @@ export default function StudentsListPage() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="text-xs text-gray-500 h-8"
                 onClick={() => {
                   setFeeStatusFilter('')
                   setEnrollmentFilter('')
@@ -377,7 +378,94 @@ export default function StudentsListPage() {
           )}
         </AnimatePresence>
 
-        <div className="relative w-full overflow-x-auto min-h-[400px]">
+        {/* Mobile View: Cards (< sm) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
+          ) : students.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <UserX className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-sm font-medium">No students found</p>
+              <p className="text-xs text-gray-400 mt-1">Try adjusting search or filters.</p>
+            </div>
+          ) : (
+            students.map((student) => (
+              <div key={student.id} className="p-3.5 space-y-2.5 hover:bg-slate-50 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {student.profilePicture ? (
+                      <img src={student.profilePicture} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                        {student.firstName[0]}{student.lastName[0]}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{student.firstName} {student.lastName}</p>
+                      <p className="text-xs text-gray-400 truncate">{student.fatherName}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ENROLLMENT_STATUS_STYLES[student.enrollmentStatus] ?? ''}`}>
+                      {student.enrollmentStatus.replace('_', ' ')}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${FEE_STATUS_STYLES[student.feeStatus] ?? ''}`}>
+                      {student.feeStatus.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block uppercase">Reg No</span>
+                    <span className="font-mono text-gray-800 font-medium">{student.registrationNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block uppercase">Class / Section</span>
+                    <span className="font-medium text-gray-800 truncate block">
+                      {formatSections(student) || 'Unassigned'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block uppercase">Campus</span>
+                    <span className="font-bold text-blue-600">{student.campus.code}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block uppercase">Batch</span>
+                    <span className="text-gray-600">{student.batch.code}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" className="h-8 text-xs text-blue-600 border-blue-200" onClick={() => setSelectedStudentId(student.id)}>
+                    Quick View
+                  </Button>
+                  <Link href={`/dashboard/students/${student.id}`}>
+                    <Button variant="outline" size="sm" className="h-8 text-xs">Profile</Button>
+                  </Link>
+                  {canManage && student.enrollmentStatus !== 'SUSPENDED' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 h-8 w-8 p-0"
+                      disabled={suspendingId === student.id}
+                      onClick={() => handleSuspend(student)}
+                    >
+                      <UserX className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View: Table (>= sm) */}
+        <div className="hidden sm:block relative w-full overflow-x-auto min-h-[400px]">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
@@ -481,15 +569,15 @@ export default function StudentsListPage() {
         </div>
 
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t bg-gray-50 gap-2.5">
+            <p className="text-xs sm:text-sm text-gray-500">
               {((page - 1) * limit) + 1}–{Math.min(page * limit, pagination.total)} of {pagination.total}
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <span className="text-sm font-medium px-2">{page} / {pagination.totalPages}</span>
+              <span className="text-xs sm:text-sm font-medium px-2">{page} / {pagination.totalPages}</span>
               <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>
                 <ChevronRight className="w-4 h-4" />
               </Button>

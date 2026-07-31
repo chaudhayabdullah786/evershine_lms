@@ -102,4 +102,46 @@ describe('teacher-portal/classes', () => {
       })
     )
   })
+
+  it('preserves the current ClassSection ID when it merges with a legacy assignment', async () => {
+    authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
+    teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
+    academicYearFindFirstMock.mockResolvedValue({ id: 'year-current', name: '2025-2026' })
+    classTeacherFindManyMock.mockResolvedValue([
+      {
+        isClassTeacher: true,
+        class: {
+          id: 'legacy-class-1', name: 'Class 10-A', section: 'A', grade: 10,
+          shift: 'MORNING', batchId: 'batch-1', campusId: 'campus-1', academicYear: '2025-2026',
+          campus: { name: 'Main Campus', code: 'MC' },
+          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
+        },
+      },
+    ])
+    subjectTeacherFindManyMock.mockResolvedValue([])
+    timetableSlotFindManyMock.mockResolvedValue([])
+    subjectOfferingFindManyMock.mockResolvedValue([
+      {
+        subject: { id: 'subject-1', name: 'Physics', code: 'PHY' },
+        classSection: {
+          id: 'section-10-a', className: 'Class 10', sectionName: 'A', grade: 10,
+          shiftId: 'shift-1', batchId: 'batch-1', campusId: 'campus-1',
+          shift: { name: 'Morning', code: 'MORNING' },
+          campus: { name: 'Main Campus', code: 'MC' },
+          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
+        },
+      },
+    ])
+    classFindFirstMock.mockResolvedValue(null)
+
+    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data).toHaveLength(1)
+    expect(json.data[0]).toMatchObject({
+      legacyClassId: 'legacy-class-1',
+      classSectionId: 'section-10-a',
+    })
+  })
 })

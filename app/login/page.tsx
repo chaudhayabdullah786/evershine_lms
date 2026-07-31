@@ -1,10 +1,8 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { getSession, signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { notify } from '@/lib/notify'
 import { z } from 'zod'
@@ -23,6 +21,36 @@ const loginSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 type LoginForm = z.infer<typeof loginSchema>
+
+function getRoleHome(role?: string | null) {
+  switch (role) {
+    case 'TEACHER':
+      return '/dashboard/teacher'
+    case 'PARENT':
+    case 'GUARDIAN':
+      return '/dashboard/my-children'
+    default:
+      return '/dashboard'
+  }
+}
+
+function resolvePostLoginUrl(callbackUrl: string, role?: string | null) {
+  const roleHome = getRoleHome(role)
+
+  try {
+    const target = new URL(callbackUrl, window.location.origin)
+    if (target.origin !== window.location.origin) return roleHome
+
+    const targetPath = `${target.pathname}${target.search}${target.hash}`
+    if (target.pathname === '/' || target.pathname === '/login' || target.pathname === '/dashboard') {
+      return roleHome
+    }
+
+    return targetPath
+  } catch {
+    return roleHome
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -59,8 +87,9 @@ export default function LoginPage() {
       notify.error('Sign in failed', { description: 'Invalid email or password.' })
       return
     }
+    const session = await getSession()
     notify.success('Welcome back!', { description: 'Redirecting to your dashboard…' })
-    router.replace(callbackUrl)
+    router.replace(resolvePostLoginUrl(callbackUrl, session?.user?.role))
   }
 
   return (

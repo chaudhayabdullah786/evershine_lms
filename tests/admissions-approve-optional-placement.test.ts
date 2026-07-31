@@ -126,7 +126,7 @@ describe('POST /api/admissions/[id]/approve optional placement', () => {
     mockHash.mockResolvedValue('hashed-password')
     mockPrisma.admissionRequest.findUnique.mockResolvedValue(admissionRequest)
     mockPrisma.batch.findUnique.mockResolvedValue({ academicLevel: 'Middle', forceGenderSeparation: false })
-    mockPrisma.campus.findUnique.mockResolvedValue({ id: 'campus-1', name: 'Main Campus', code: 'ESA' })
+    mockPrisma.campus.findUnique.mockResolvedValue({ id: 'cm00000000000000000000001', name: 'Main Campus', code: 'ESA' })
     mockPrisma.student.findFirst.mockResolvedValue(null)
     mockPrisma.student.count.mockResolvedValue(0)
     mockPrisma.guardian.findUnique.mockResolvedValue(null)
@@ -149,8 +149,8 @@ describe('POST /api/admissions/[id]/approve optional placement', () => {
       new NextRequest('http://localhost/api/admissions/adm-1/approve', {
         method: 'POST',
         body: JSON.stringify({
-          campusId: 'campus-1',
-          batchId: 'batch-1',
+          campusId: 'cm00000000000000000000001',
+          batchId: 'cm00000000000000000000002',
           classId: '',
           classSectionId: '',
           section: '',
