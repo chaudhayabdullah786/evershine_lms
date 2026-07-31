@@ -5,6 +5,7 @@ import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { mapGradeLetter } from '@/lib/academic/grades'
 import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
 import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
+import { parseCustomResultFields } from '@/lib/academic/result-fields'
 
 export const dynamic = 'force-dynamic'
 
@@ -190,6 +191,7 @@ export async function GET() {
       classPosition: termResult.classPosition ?? null,
       performanceBatch: termResult.performanceBatch,
       teacherRemarks: termResult.teacherRemarks ?? null,
+      customFields: parseCustomResultFields(termResult.customFields),
       declaredAt: termResult.declaredAt ?? null,
       subjects,
     }
