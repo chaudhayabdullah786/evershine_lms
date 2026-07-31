@@ -717,7 +717,15 @@ function StudentEnrollmentPageInner() {
           {[
             { label: 'Campus', value: section?.campus?.name ?? data?.student?.campus?.name ?? '—' },
             { label: 'Batch', value: section?.batch?.name ?? data?.student?.batch?.name ?? '—' },
-            { label: 'Subjects', value: data?.subjectEnrollments?.length ?? 0 },
+            {
+              label: 'Subjects',
+              // WHY aggregate: multi-shift students have subject enrollments per
+              // enrollment record, not on the top-level subjectEnrollments field.
+              value: (data?.enrollments ?? []).reduce(
+                (sum, enr) => sum + ((enr as { subjectEnrollments?: unknown[] }).subjectEnrollments?.length ?? 0),
+                data?.subjectEnrollments?.length ?? 0
+              ) || (data?.subjectEnrollments?.length ?? 0),
+            },
             { label: 'Semester', value: data?.activeYear?.name ?? '—' },
           ].map(({ label, value }) => (
             <div key={label} className="px-4 py-3 text-center">
@@ -765,75 +773,114 @@ function StudentEnrollmentPageInner() {
         </TabsList>
 
         <TabsContent value="courses" className="mt-4 space-y-6">
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* ── Premium Subjects Grid Card ───────────────────────────────── */}
-        <Card className="border border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50/50 border-b pb-4">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900">My Subjects</CardTitle>
-                <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  {section?.curriculumMode === 'FIXED'
-                    ? 'Mandatory subjects are assigned automatically by the academy.'
-                    : 'Electives require admin approval after you submit choices.'}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {(data?.subjectEnrollments ?? []).length === 0 ? (
-              <div className="text-center py-10">
-                <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-slate-500">No subjects assigned yet.</p>
-                <p className="text-xs text-slate-400 mt-1">Contact the administration to complete your enrollment.</p>
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {data?.subjectEnrollments.map((se) => (
-                  <div
-                    key={se.id}
-                    className="group relative flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-4 transition-all hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 text-sm leading-tight truncate">
-                          {se.subjectOffering.subject.name}
-                        </p>
-                        {se.subjectOffering.subject.code && (
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mt-0.5">
-                            {se.subjectOffering.subject.code}
-                          </p>
-                        )}
-                      </div>
-                      <Badge
-                        className={`shrink-0 text-[10px] font-bold py-0.5 ${
-                          se.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                          se.status === 'PENDING'  ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                          'bg-rose-100 text-rose-800 border-rose-200'
-                        }`}
-                      >
-                        {se.status}
-                      </Badge>
-                    </div>
-                    {se.subjectOffering.teacher ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-black text-indigo-700">
-                          {se.subjectOffering.teacher.firstName[0]}{se.subjectOffering.teacher.lastName[0]}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* ── My Subjects — grouped by shift for multi-shift students ─── */}
+            {(() => {
+              // Build a list of {shiftLabel, subjectEnrollments} per enrollment.
+          // For single-shift students this renders one unlabelled card.
+          // For multi-shift students each shift gets its own labelled card.
+          const allEnrollments = (data?.enrollments ?? []) as Array<{
+            id: string
+            rollNumber: string
+            classSection: {
+              className: string
+              sectionName: string
+              shift?: { name: string; code: string }
+            }
+            subjectEnrollments?: PortalData['subjectEnrollments']
+          }>
+
+          // Fall back to the top-level subjectEnrollments if freshEnrollments
+          // doesn't carry them (older API response shape)
+          const slots =
+            allEnrollments.length > 0 && allEnrollments.some((e) => (e.subjectEnrollments?.length ?? 0) > 0)
+              ? allEnrollments
+              : [{ id: 'primary', rollNumber: data?.enrollment?.rollNumber ?? '', classSection: data?.enrollment?.classSection ?? { className: '', sectionName: '' }, subjectEnrollments: data?.subjectEnrollments }]
+
+          const multiShift = slots.length > 1
+
+          return (
+            <div className="space-y-4">
+              {slots.map((enr) => {
+                const subs = enr.subjectEnrollments ?? []
+                const shiftName = enr.classSection.shift?.name
+                const cardTitle = multiShift && shiftName
+                  ? `${enr.classSection.className}-${enr.classSection.sectionName} · ${shiftName} · Roll ${enr.rollNumber}`
+                  : 'My Subjects'
+
+                return (
+                  <Card key={enr.id} className="border border-slate-200 shadow-sm">
+                    <CardHeader className="bg-slate-50/50 border-b pb-4">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-5 h-5 text-indigo-600" />
+                        <div>
+                          <CardTitle className="text-base font-bold text-slate-900">{cardTitle}</CardTitle>
+                          <CardDescription className="text-xs text-slate-500 mt-0.5">
+                            {section?.curriculumMode === 'FIXED'
+                              ? 'Mandatory subjects are assigned automatically by the academy.'
+                              : 'Electives require admin approval after you submit choices.'}
+                          </CardDescription>
                         </div>
-                        <p className="text-xs text-slate-500 truncate">
-                          {se.subjectOffering.teacher.firstName} {se.subjectOffering.teacher.lastName}
-                        </p>
                       </div>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">Teacher TBA</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      {subs.length === 0 ? (
+                        <div className="text-center py-10">
+                          <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                          <p className="text-sm font-semibold text-slate-500">No subjects assigned yet.</p>
+                          <p className="text-xs text-slate-400 mt-1">Contact the administration to complete your enrollment.</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {subs.map((se) => (
+                            <div
+                              key={se.id}
+                              className="group relative flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-4 transition-all hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm"
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 text-sm leading-tight truncate">
+                                    {se.subjectOffering.subject.name}
+                                  </p>
+                                  {se.subjectOffering.subject.code && (
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mt-0.5">
+                                      {se.subjectOffering.subject.code}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge
+                                  className={`shrink-0 text-[10px] font-bold py-0.5 ${
+                                    se.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                    se.status === 'PENDING'  ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                    'bg-rose-100 text-rose-800 border-rose-200'
+                                  }`}
+                                >
+                                  {se.status}
+                                </Badge>
+                              </div>
+                              {se.subjectOffering.teacher ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-black text-indigo-700">
+                                    {se.subjectOffering.teacher.firstName[0]}{se.subjectOffering.teacher.lastName[0]}
+                                  </div>
+                                  <p className="text-xs text-slate-500 truncate">
+                                    {se.subjectOffering.teacher.firstName} {se.subjectOffering.teacher.lastName}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic">Teacher TBA</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {data?.canSelectElectives && (
           <Card>

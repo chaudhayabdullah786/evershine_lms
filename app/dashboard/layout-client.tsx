@@ -333,8 +333,19 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
           <div className="flex-shrink-0 border-t border-gray-100 p-3 space-y-2">
             <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-gray-50/80">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-white shadow-sm">
-                {session?.user?.name?.[0] ?? session?.user?.email?.[0] ?? '?'}
+              <div className="w-9 h-9 rounded-full flex-shrink-0 ring-2 ring-white shadow-sm overflow-hidden">
+                {session?.user?.profilePicture ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={session.user.profilePicture}
+                    alt={session.user.name ?? 'Profile'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                    {session?.user?.name?.[0] ?? session?.user?.email?.[0] ?? '?'}
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">
@@ -382,8 +393,19 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
                   {roleBadge.label}
                 </span>
               </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm ring-2 ring-gray-100 shadow-sm">
-                {session?.user?.name?.[0] ?? '?'}
+              <div className="w-9 h-9 rounded-full flex-shrink-0 ring-2 ring-gray-100 shadow-sm overflow-hidden">
+                {session?.user?.profilePicture ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={session.user.profilePicture}
+                    alt={session.user.name ?? 'Profile'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                    {session?.user?.name?.[0] ?? '?'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
