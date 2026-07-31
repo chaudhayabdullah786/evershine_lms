@@ -30,6 +30,7 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
 import { verify } from '@node-rs/argon2'
+import { compare } from 'bcryptjs'
 import { loginSchema } from '@/lib/validation/user'
 import { authConfig } from '@/lib/auth.config'
 
@@ -84,11 +85,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // admin credential management panel.
         let passwordValid = false
         try {
-          passwordValid = await verify(user.passwordHash, password)
+          // Check if hash is bcrypt (starts with $2a$, $2b$, or $2y$)
+          if (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$') || user.passwordHash.startsWith('$2y$')) {
+            passwordValid = await compare(password, user.passwordHash)
+          } else {
+            passwordValid = await verify(user.passwordHash, password)
+          }
         } catch (err) {
           console.error(
-            '[AUTH] Password verification failed — hash algorithm mismatch.',
-            'Expected Argon2id. Check DB hash for user:', user.email,
+            '[AUTH] Password verification failed.',
+            'Expected Argon2id or Bcrypt. Check DB hash for user:', user.email,
             'Hash prefix:', user.passwordHash.substring(0, 24),
             'Error:', err instanceof Error ? err.message : String(err),
           )
