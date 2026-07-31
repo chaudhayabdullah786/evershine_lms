@@ -773,9 +773,10 @@ function StudentEnrollmentPageInner() {
         </TabsList>
 
         <TabsContent value="courses" className="mt-4 space-y-6">
-        {/* ── My Subjects — grouped by shift for multi-shift students ─── */}
-        {(() => {
-          // Build a list of {shiftLabel, subjectEnrollments} per enrollment.
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* ── My Subjects — grouped by shift for multi-shift students ─── */}
+            {(() => {
+              // Build a list of {shiftLabel, subjectEnrollments} per enrollment.
           // For single-shift students this renders one unlabelled card.
           // For multi-shift students each shift gets its own labelled card.
           const allEnrollments = (data?.enrollments ?? []) as Array<{
@@ -786,7 +787,7 @@ function StudentEnrollmentPageInner() {
               sectionName: string
               shift?: { name: string; code: string }
             }
-            subjectEnrollments?: typeof data.subjectEnrollments
+            subjectEnrollments?: PortalData['subjectEnrollments']
           }>
 
           // Fall back to the top-level subjectEnrollments if freshEnrollments
