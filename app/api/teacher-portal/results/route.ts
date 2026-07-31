@@ -82,6 +82,7 @@ const termResultListSelect = {
   performanceBatch: true,
   classPosition: true,
   teacherRemarks: true,
+  customFields: true,
   declaredAt: true,
   student: {
     select: {

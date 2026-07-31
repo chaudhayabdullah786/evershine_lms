@@ -6,6 +6,7 @@ import { getActiveAcademicYear, calculateWeightedPercentage } from '@/lib/academ
 import { mapGradeLetter } from '@/lib/academic/grades'
 import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
 import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
+import { parseCustomResultFields } from '@/lib/academic/result-fields'
 
 export const dynamic = 'force-dynamic'
 
@@ -192,6 +193,62 @@ export async function GET(
     },
   })
 
+  const declaredResults = (await prisma.termResult.findMany({
+    where: {
+      studentId,
+      declarationStatus: 'DECLARED',
+    },
+    include: {
+      classSection: {
+        select: {
+          className: true,
+          sectionName: true,
+          shift: { select: { name: true } },
+        },
+      },
+      subjectResults: {
+        include: {
+          subjectOffering: {
+            include: {
+              subject: { select: { name: true, code: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: [{ examSessionId: 'desc' }, { createdAt: 'desc' }],
+  })).map((termResult) => ({
+    id: termResult.id,
+    examSessionId: termResult.examSessionId,
+    examSessionLabel: termResult.examSessionId
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, (character) => character.toUpperCase()),
+    sectionLabel: `${termResult.classSection.className}-${termResult.classSection.sectionName}`,
+    shiftName: termResult.classSection.shift?.name ?? null,
+    declarationStatus: termResult.declarationStatus,
+    overallPercentage: Number(termResult.overallPercentage),
+    grade: termResult.grade,
+    classPosition: termResult.classPosition,
+    performanceBatch: termResult.performanceBatch,
+    teacherRemarks: termResult.teacherRemarks,
+    customFields: parseCustomResultFields(termResult.customFields),
+    declaredAt: termResult.declaredAt,
+    subjects: termResult.subjectResults.map((subjectResult) => ({
+      id: subjectResult.id,
+      subjectName: subjectResult.subjectOffering.subject.name,
+      subjectCode: subjectResult.subjectOffering.subject.code,
+      totalMarks: subjectResult.totalMarks,
+      obtainedMarks: subjectResult.obtainedMarks === null ? null : Number(subjectResult.obtainedMarks),
+      percentage: subjectResult.percentage === null ? null : Number(subjectResult.percentage),
+      grade: subjectResult.grade,
+      resultStatus: subjectResult.resultStatus,
+      isAbsent: subjectResult.isAbsent,
+      isNotApplicable: subjectResult.isNotApplicable,
+      remarks: subjectResult.remarks,
+    })),
+  }))
+
   return successResponse({
     student,
     activeYear,
@@ -200,6 +257,7 @@ export async function GET(
     enrollment,
     attendance: { records: attendanceRecords, summary: { ...attSummary, attendancePct } },
     results,
+    declaredResults,
     taskResults: taskResults.map((record) => ({
       id: record.id,
       taskId: record.taskId,

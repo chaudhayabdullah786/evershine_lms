@@ -41,9 +41,11 @@ interface StudentProfile {
 interface TermSubjectResult {
   id: string
   totalMarks: number
-  obtainedMarks: number
+  obtainedMarks: number | null
   grade: string
   resultStatus: string
+  isAbsent: boolean
+  isNotApplicable: boolean
   subjectOffering?: { subject?: { name: string } }
 }
 
@@ -122,18 +124,21 @@ function pctTextColor(pct: number): string {
 
 function SubjectRow({ subject, obtained, total, grade, status }: {
   subject: string
-  obtained: number
+  obtained: number | null
   total: number
   grade: string
   status: string
 }) {
-  const pct = total > 0 ? Math.round((obtained / total) * 100) : 0
+  const normalizedStatus = status.trim().toLowerCase()
+  const isPassed = normalizedStatus === 'pass'
+  const isNeutral = normalizedStatus === 'absent' || normalizedStatus === 'n/a'
+  const pct = total > 0 ? Math.round(((obtained ?? 0) / total) * 100) : 0
   const cfg = gradeConfig(grade)
   return (
     <div className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50/60 transition-colors border-b last:border-0 border-gray-100">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-gray-900 truncate">{subject}</p>
-        <p className="text-[11px] text-gray-400 font-medium mt-0.5">{obtained} / {total} marks</p>
+        <p className="text-[11px] text-gray-400 font-medium mt-0.5">{obtained ?? '—'} / {total} marks</p>
       </div>
       <div className="w-28 hidden sm:block">
         <div className="w-full bg-gray-100 rounded-full h-1.5">
@@ -148,10 +153,10 @@ function SubjectRow({ subject, obtained, total, grade, status }: {
         {grade}
       </div>
       <div className="flex items-center gap-1">
-        {status === 'PASS'
+        {isPassed
           ? <CheckCircle className="w-4 h-4 text-emerald-600" />
-          : <XCircle className="w-4 h-4 text-red-500" />}
-        <span className={`text-[11px] font-bold hidden sm:block ${status === 'PASS' ? 'text-emerald-700' : 'text-red-600'}`}>
+          : <XCircle className={`w-4 h-4 ${isNeutral ? 'text-slate-400' : 'text-red-500'}`} />}
+        <span className={`text-[11px] font-bold hidden sm:block ${isPassed ? 'text-emerald-700' : isNeutral ? 'text-slate-500' : 'text-red-600'}`}>
           {status}
         </span>
       </div>
@@ -476,11 +481,11 @@ export default function StudentAcademicsPage() {
                   {Array.isArray(activeTermResult.customFields) && activeTermResult.customFields.length > 0 && (
                     <div className="px-5 py-3 border-t border-gray-100">
                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Additional Assessments</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {(activeTermResult.customFields as any[]).map((cf, i) => (
-                          <div key={i} className="flex justify-between items-center bg-gray-50 rounded-lg px-3 py-1.5">
-                            <span className="text-[11px] text-gray-500 font-bold uppercase">{cf.label}</span>
-                            <span className="text-xs font-black text-gray-900">{cf.value}</span>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {activeTermResult.customFields.map((field, index) => (
+                          <div key={`${field.label}-${index}`} className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                            <span className="text-[11px] text-gray-500 font-bold uppercase">{field.label}</span>
+                            <span className="break-words text-right text-xs font-black text-gray-900">{field.value || '—'}</span>
                           </div>
                         ))}
                       </div>

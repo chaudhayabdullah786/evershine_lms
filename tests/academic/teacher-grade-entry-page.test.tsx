@@ -94,4 +94,50 @@ describe('teacher grade-entry page', () => {
     expect((sectionSelect as HTMLSelectElement).value).toBe('section-1')
     expect(screen.queryByText('Page Error')).toBeNull()
   })
+
+  it('renders saved custom fields and exposes draft edit controls', () => {
+    useQueryMock.mockImplementation(({ queryKey }: { queryKey: string[] }) => {
+      if (queryKey[0] === 'teacher-sections') {
+        return { data: [{ id: 'section-1', className: 'Class 11', sectionName: 'A' }] }
+      }
+      if (queryKey[0] === 'exam-sessions') {
+        return { data: [{ id: 'exam-1', name: '2025-2026', term: 'ACTIVE_YEAR' }] }
+      }
+      if (queryKey[0] === 'section-students') {
+        return {
+          data: [{
+            id: 'student-1',
+            firstName: 'Test',
+            lastName: 'Student',
+            rollNumber: '001',
+            fatherName: 'Parent',
+          }],
+        }
+      }
+      if (queryKey[0] === 'section-offerings') return { data: undefined }
+      if (queryKey[0] === 'existing-result') {
+        return {
+          data: {
+            id: 'result-1',
+            studentId: 'student-1',
+            declarationStatus: 'DRAFT',
+            customFields: [{ label: 'Ethics', value: '15' }],
+            subjectResults: [],
+          },
+        }
+      }
+      return { data: null, error: null }
+    })
+
+    render(<TeacherGradeEntryPage />)
+
+    expect(screen.getByText('Ethics')).toBeTruthy()
+    expect(screen.getByText('15')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Ethics' }))
+
+    expect((screen.getByRole('textbox', { name: 'Edit label for Ethics' }) as HTMLInputElement).value).toBe('Ethics')
+    expect((screen.getByRole('textbox', { name: 'Edit value for Ethics' }) as HTMLInputElement).value).toBe('15')
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false)
+  })
 })

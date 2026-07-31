@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { AccessDenied } from '@/components/AccessDenied'
-import { Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2, Download, Plus, Send } from 'lucide-react'
+import {
+  Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2,
+  Download, Plus, Send, Award, CheckCircle2, XCircle, BookOpen,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { downloadReportCardForEnrollment } from '@/lib/academic/download-report-card'
 import { notify } from '@/lib/notify'
@@ -52,6 +55,34 @@ type ChildAcademic = {
     records: Array<{ attendanceDate: string; status: string }>
   }
   results: Array<{ subjectName: string; percentage: number; grade: string; isPassed: boolean }>
+  declaredResults: Array<{
+    id: string
+    examSessionId: string
+    examSessionLabel: string
+    sectionLabel: string
+    shiftName: string | null
+    declarationStatus: string
+    overallPercentage: number
+    grade: string
+    classPosition: number | null
+    performanceBatch: string | null
+    teacherRemarks: string | null
+    customFields: Array<{ label: string; value: string }>
+    declaredAt: string | null
+    subjects: Array<{
+      id: string
+      subjectName: string
+      subjectCode: string | null
+      totalMarks: number
+      obtainedMarks: number | null
+      percentage: number | null
+      grade: string
+      resultStatus: string
+      isAbsent: boolean
+      isNotApplicable: boolean
+      remarks: string | null
+    }>
+  }>
   taskResults: Array<{
     id: string
     taskId: string
@@ -156,6 +187,7 @@ export default function MyChildrenPage() {
     queryFn: () => fetchApi<ChildAcademic>(`/api/guardian-portal/children/${childId}/academic`),
     enabled: !!childId && allowed,
   })
+  const declaredResults = academic?.declaredResults ?? []
 
 
   const submitLeave = useMutation({
@@ -233,7 +265,8 @@ export default function MyChildrenPage() {
             </div>
           ) : academic ? (
             <Tabs defaultValue="overview">
-              <TabsList>
+              <div className="-mx-1 overflow-x-auto px-1 pb-1">
+              <TabsList className="w-max min-w-full justify-start">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="attendance">Attendance</TabsTrigger>
                 <TabsTrigger value="results">Results</TabsTrigger>
@@ -241,6 +274,7 @@ export default function MyChildrenPage() {
                 <TabsTrigger value="fees">Fees</TabsTrigger>
                 <TabsTrigger value="leaves">Leaves</TabsTrigger>
               </TabsList>
+              </div>
 
               <TabsContent value="overview" className="mt-4 space-y-4">
                 <Card>
@@ -311,7 +345,7 @@ export default function MyChildrenPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-4 gap-3 mb-4 text-center text-sm">
+                    <div className="mb-4 grid grid-cols-2 gap-3 text-center text-sm sm:grid-cols-4">
                       <div className="bg-green-50 rounded p-2">
                         <p className="font-bold text-green-700">{academic.attendance.summary.present}</p>
                         <p className="text-xs">Present</p>
@@ -352,7 +386,7 @@ export default function MyChildrenPage() {
                       <BarChart2 className="w-5 h-5 text-purple-600" />
                       Published Results
                     </CardTitle>
-                    {academic.enrollmentId && academic.results.length > 0 && (
+                    {academic.enrollmentId && (declaredResults.length > 0 || academic.results.length > 0) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -379,24 +413,109 @@ export default function MyChildrenPage() {
                       </Button>
                     )}
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {academic.overallPercentage != null && (
-                      <p className="font-semibold text-purple-800">
-                        Overall average: {academic.overallPercentage}%
-                      </p>
-                    )}
-                    {academic.results.length === 0 ? (
-                      <p className="text-sm text-gray-500">No published results yet.</p>
-                    ) : (
-                      academic.results.map((r) => (
-                        <div key={r.subjectName} className="flex justify-between border rounded p-3">
-                          <span className="font-medium">{r.subjectName}</span>
-                          <span>
-                            {r.percentage}% · <Badge>{r.grade}</Badge>
-                          </span>
+                  <CardContent className="space-y-5">
+                    {declaredResults.length === 0 ? (
+                      academic.results.length === 0 ? (
+                        <div className="rounded-xl border border-dashed bg-slate-50 px-4 py-8 text-center">
+                          <BookOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                          <p className="text-sm font-medium text-slate-700">No declared results yet</p>
+                          <p className="mt-1 text-xs text-slate-500">Results appear here after the teacher declares them.</p>
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        <div className="space-y-3">
+                          {academic.results.map((result) => (
+                            <div key={result.subjectName} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium">{result.subjectName}</span>
+                              <span className="flex items-center gap-2">
+                                {result.percentage}% <Badge>{result.grade}</Badge>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : declaredResults.map((result) => (
+                      <article key={result.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex flex-col gap-3 border-b bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">{result.examSessionLabel}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {result.sectionLabel}{result.shiftName ? ` · ${result.shiftName}` : ''}
+                              {result.declaredAt ? ` · Declared ${new Date(result.declaredAt).toLocaleDateString('en-PK')}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Overall</p>
+                              <p className="text-xl font-bold text-purple-700">{result.overallPercentage.toFixed(1)}%</p>
+                            </div>
+                            <Badge className="px-3 py-1 text-sm">{result.grade}</Badge>
+                          </div>
+                        </div>
+
+                        {(result.classPosition || result.performanceBatch) && (
+                          <div className="flex flex-wrap gap-2 border-b px-4 py-3">
+                            {result.classPosition ? (
+                              <Badge variant="outline" className="gap-1.5">
+                                <Award className="h-3.5 w-3.5" /> Class position #{result.classPosition}
+                              </Badge>
+                            ) : null}
+                            {result.performanceBatch ? (
+                              <Badge variant="outline">Batch: {result.performanceBatch}</Badge>
+                            ) : null}
+                          </div>
+                        )}
+
+                        <div className="divide-y">
+                          {result.subjects.map((subject) => {
+                            const status = subject.resultStatus.toLowerCase()
+                            const isPassed = status === 'pass'
+                            const marks = subject.isAbsent
+                              ? 'Absent'
+                              : subject.isNotApplicable
+                                ? 'N/A'
+                                : `${subject.obtainedMarks ?? 0}/${subject.totalMarks}`
+
+                            return (
+                              <div key={subject.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900">{subject.subjectName}</p>
+                                  {subject.remarks ? <p className="text-xs text-slate-500">{subject.remarks}</p> : null}
+                                </div>
+                                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                                  <span className="text-sm font-semibold text-slate-700">{marks}</span>
+                                  <Badge variant="outline">{subject.grade}</Badge>
+                                  <span className={`flex items-center gap-1 text-xs font-medium ${isPassed ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                    {isPassed ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                    {subject.resultStatus}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {result.customFields.length > 0 ? (
+                          <div className="border-t bg-slate-50/50 px-4 py-3">
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Additional assessments</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {result.customFields.map((field, index) => (
+                                <div key={`${field.label}-${index}`} className="flex items-start justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-sm">
+                                  <span className="font-medium text-slate-600">{field.label}</span>
+                                  <span className="break-words text-right font-semibold text-slate-900">{field.value || '—'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {result.teacherRemarks ? (
+                          <div className="border-t px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Teacher remarks</p>
+                            <p className="mt-1 text-sm italic text-slate-700">&ldquo;{result.teacherRemarks}&rdquo;</p>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
                   </CardContent>
                 </Card>
 

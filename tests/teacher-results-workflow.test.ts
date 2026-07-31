@@ -8,7 +8,7 @@ const { mockAuth, mockPrisma, mockDispatchBulkNotification } = vi.hoisted(() => 
     student: { findUnique: vi.fn() },
     subjectOffering: { findFirst: vi.fn(), findMany: vi.fn() },
     subjectResult: { count: vi.fn(), findMany: vi.fn() },
-    termResult: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    termResult: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   }
   const mockDispatchBulkNotification = vi.fn()
@@ -24,6 +24,10 @@ vi.mock('@/lib/notifications/dispatch', () => ({
 
 import { GET as listTeacherResults, POST as saveTeacherResult } from '../app/api/teacher-portal/results/route'
 import { POST as declareTeacherResult } from '../app/api/teacher-portal/results/[id]/declare/route'
+import {
+  PATCH as updateCustomField,
+  DELETE as deleteCustomField,
+} from '../app/api/teacher-portal/results/[id]/custom-fields/route'
 
 describe('teacher result workflow', () => {
   beforeEach(() => {
@@ -260,5 +264,55 @@ describe('teacher result workflow', () => {
       id: 'result-1',
       declaredAt: null,
     })
+    const resultListCall = mockPrisma.termResult.findMany.mock.calls.find(
+      ([args]) => args?.select?.subjectResults
+    )
+    expect(resultListCall?.[0].select.customFields).toBe(true)
+  })
+
+  it('updates a saved custom field while a result is still a draft', async () => {
+    mockPrisma.termResult.findUnique.mockResolvedValue({
+      id: 'result-1',
+      classSectionId: 'section-1',
+      declarationStatus: 'DRAFT',
+      customFields: [{ label: 'Ethics', value: '10' }],
+    })
+    mockPrisma.termResult.updateMany.mockResolvedValue({ count: 1 })
+
+    const response = await updateCustomField(
+      new Request('http://localhost/api/teacher-portal/results/result-1/custom-fields', {
+        method: 'PATCH',
+        body: JSON.stringify({ index: 0, label: ' Ethics ', value: ' 15 ' }),
+      }) as never,
+      { params: Promise.resolve({ id: 'result-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockPrisma.termResult.updateMany).toHaveBeenCalledWith({
+      where: { id: 'result-1', declarationStatus: 'DRAFT' },
+      data: { customFields: [{ label: 'Ethics', value: '15' }] },
+    })
+  })
+
+  it('locks custom field deletion after declaration', async () => {
+    mockPrisma.termResult.findUnique.mockResolvedValue({
+      id: 'result-1',
+      classSectionId: 'section-1',
+      declarationStatus: 'DECLARED',
+      customFields: [{ label: 'Ethics', value: '15' }],
+    })
+
+    const response = await deleteCustomField(
+      new Request('http://localhost/api/teacher-portal/results/result-1/custom-fields', {
+        method: 'DELETE',
+        body: JSON.stringify({ index: 0 }),
+      }) as never,
+      { params: Promise.resolve({ id: 'result-1' }) }
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(json.error.message).toContain('Declared result fields are locked')
+    expect(mockPrisma.termResult.updateMany).not.toHaveBeenCalled()
   })
 })

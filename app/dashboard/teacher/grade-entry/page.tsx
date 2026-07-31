@@ -25,6 +25,7 @@ import {
   Trash2, Edit2, Award, BarChart3, Eye, AlertCircle,
 } from 'lucide-react'
 import { AccessDenied } from '@/components/AccessDenied'
+import { parseCustomResultFields, type CustomResultField } from '@/lib/academic/result-fields'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,8 +43,6 @@ type SubjectEntry = {
   isNotApplicable: boolean
   remarks: string
 }
-
-type CustomField = { label: string; value: string }
 
 const PERFORMANCE_BATCH_OPTIONS = [
   'Ever Shine',
@@ -77,17 +76,6 @@ function getEntryStatus(entry: SubjectEntry) {
   return 'Marked'
 }
 
-function parseCustomFields(raw: unknown): CustomField[] {
-  if (!Array.isArray(raw)) return []
-  return raw.filter(
-    (field): field is CustomField =>
-      typeof field === 'object' &&
-      field !== null &&
-      typeof (field as CustomField).label === 'string' &&
-      typeof (field as CustomField).value === 'string'
-  )
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 // WHY: useSearchParams() requires a Suspense boundary in Next.js App Router.
@@ -101,7 +89,9 @@ function TeacherResultEntryInner() {
   const [studentId, setStudentId] = useState('')
   const [teacherRemarks, setTeacherRemarks] = useState('')
   const [subjectEntries, setSubjectEntries] = useState<SubjectEntry[]>([])
-  const [newField, setNewField] = useState<CustomField>({ label: '', value: '' })
+  const [newField, setNewField] = useState<CustomResultField>({ label: '', value: '' })
+  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null)
+  const [editingField, setEditingField] = useState<CustomResultField>({ label: '', value: '' })
   const [editReason, setEditReason] = useState('')
   const [showDeclareDialog, setShowDeclareDialog] = useState(false)
   const [selectedBatchOverride, setSelectedBatchOverride] = useState('')
@@ -263,11 +253,16 @@ function TeacherResultEntryInner() {
 
   const declareResult = useMutation({
     mutationFn: (resultId: string) =>
-      fetchApi(`/api/teacher-portal/results/${resultId}/declare`, { method: 'POST' }),
-    onSuccess: () => {
+      fetchApi<ExistingResult>(`/api/teacher-portal/results/${resultId}/declare`, { method: 'POST' }),
+    onSuccess: (declaredResult) => {
+      qc.setQueryData(
+        ['existing-result', studentId, classSectionId, examSessionId],
+        (current: ExistingResult | null | undefined) =>
+          current ? { ...current, ...declaredResult, declarationStatus: 'DECLARED' } : current
+      )
       notify.success('Result declared successfully — student notified')
       setShowDeclareDialog(false)
-      qc.invalidateQueries({ queryKey: ['existing-result'] })
+      qc.invalidateQueries({ queryKey: ['existing-result', studentId, classSectionId, examSessionId] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
     onError: (e: Error) => notify.error(formatApiError(e)),
@@ -288,6 +283,22 @@ function TeacherResultEntryInner() {
     onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
+  const updateCustomField = useMutation({
+    mutationFn: ({ index, field }: { index: number; field: CustomResultField }) =>
+      fetchApi(`/api/teacher-portal/results/${existingResult?.id}/custom-fields`, {
+        method: 'PATCH',
+        body: JSON.stringify({ index, ...field }),
+      }),
+    onSuccess: () => {
+      notify.success('Custom field updated')
+      setEditingFieldIndex(null)
+      setEditingField({ label: '', value: '' })
+      qc.invalidateQueries({ queryKey: ['existing-result'] })
+      if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
+    },
+    onError: (e: Error) => notify.error(formatApiError(e)),
+  })
+
   const deleteCustomField = useMutation({
     mutationFn: (index: number) =>
       fetchApi(`/api/teacher-portal/results/${existingResult?.id}/custom-fields`, {
@@ -296,7 +307,9 @@ function TeacherResultEntryInner() {
       }),
     onSuccess: () => {
       notify.success('Custom field removed')
+      setEditingFieldIndex(null)
       qc.invalidateQueries({ queryKey: ['existing-result'] })
+      if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
     onError: (e: Error) => notify.error(formatApiError(e)),
   })
@@ -322,7 +335,7 @@ function TeacherResultEntryInner() {
 
   const isEditing = !!resultId
   const isDeclared = existingResult?.declarationStatus === 'DECLARED'
-  const existingCustomFields = parseCustomFields(existingResult?.customFields)
+  const existingCustomFields = parseCustomResultFields(existingResult?.customFields)
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -726,39 +739,115 @@ function TeacherResultEntryInner() {
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Existing custom fields */}
-            {existingCustomFields.map((f, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-                <span className="text-sm font-medium text-slate-700 flex-1">{f.label}</span>
-                <span className="text-sm text-slate-500">{f.value}</span>
-                {!isDeclared && (
-                  <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-rose-500 hover:text-rose-700"
-                    onClick={() => deleteCustomField.mutate(i)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+            {existingCustomFields.map((field, index) => (
+              <div
+                key={`${field.label}-${index}`}
+                className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center"
+              >
+                {editingFieldIndex === index ? (
+                  <>
+                    <Input
+                      aria-label={`Edit label for ${field.label}`}
+                      className="h-9 text-sm sm:flex-1"
+                      maxLength={100}
+                      value={editingField.label}
+                      onChange={(event) => setEditingField((current) => ({
+                        ...current,
+                        label: event.target.value,
+                      }))}
+                    />
+                    <Input
+                      aria-label={`Edit value for ${field.label}`}
+                      className="h-9 text-sm sm:w-48"
+                      maxLength={500}
+                      value={editingField.value}
+                      onChange={(event) => setEditingField((current) => ({
+                        ...current,
+                        value: event.target.value,
+                      }))}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-9"
+                        disabled={!editingField.label.trim() || updateCustomField.isPending}
+                        onClick={() => updateCustomField.mutate({ index, field: editingField })}
+                      >
+                        {updateCustomField.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9"
+                        disabled={updateCustomField.isPending}
+                        onClick={() => setEditingFieldIndex(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium text-slate-700">
+                      {field.label}
+                    </span>
+                    <span className="break-words text-sm text-slate-500 sm:max-w-[40%] sm:text-right">
+                      {field.value || '—'}
+                    </span>
+                    {!isDeclared && (
+                      <div className="flex items-center gap-1 self-end sm:self-auto">
+                        <Button
+                          aria-label={`Edit ${field.label}`}
+                          title={`Edit ${field.label}`}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            setEditingFieldIndex(index)
+                            setEditingField(field)
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          aria-label={`Delete ${field.label}`}
+                          title={`Delete ${field.label}`}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:text-rose-700"
+                          disabled={deleteCustomField.isPending}
+                          onClick={() => deleteCustomField.mutate(index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}
 
             {/* Add new field */}
             {!isDeclared && (
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                 <Input
                   placeholder="Field label (e.g. Co-curricular)"
                   className="text-sm h-9"
+                  maxLength={100}
                   value={newField.label}
                   onChange={(e) => setNewField((f) => ({ ...f, label: e.target.value }))}
                 />
                 <Input
                   placeholder="Value"
-                  className="text-sm h-9 w-40"
+                  className="h-9 text-sm sm:w-48"
+                  maxLength={500}
                   value={newField.value}
                   onChange={(e) => setNewField((f) => ({ ...f, value: e.target.value }))}
                 />
                 <Button
                   variant="outline" size="sm" className="gap-1.5 h-9 px-3"
-                  disabled={!newField.label || addCustomField.isPending}
+                  disabled={!newField.label.trim() || addCustomField.isPending}
                   onClick={() => addCustomField.mutate()}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
