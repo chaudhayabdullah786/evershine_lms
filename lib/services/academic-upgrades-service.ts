@@ -273,6 +273,52 @@ export class AcademicUpgradesService {
     return sheet?.slots ?? []
   }
 
+  /**
+   * WHY: Publish/unpublish is a separate, explicit intent from saving content.
+   * Keeps the audit surface narrow: PATCH only toggles isPublished, never mutates
+   * slots or title, preventing accidental content changes on a visibility toggle.
+   */
+  static async togglePublishDateSheet(
+    classSectionId: string,
+    examSessionId: string,
+    publish: boolean,
+  ) {
+    const sheet = await prisma.examDateSheet.findUnique({
+      where: { classSectionId_examSessionId: { classSectionId, examSessionId } },
+      select: { id: true, isPublished: true },
+    })
+    if (!sheet) {
+      throw new Error('Date sheet not found for the specified section and exam session.')
+    }
+    return prisma.examDateSheet.update({
+      where: { id: sheet.id },
+      data: { isPublished: publish },
+      select: { id: true, isPublished: true, title: true, version: true },
+    })
+  }
+
+  /**
+   * WHY: Slots must be explicitly deleted before the header row to satisfy the
+   * ExamDateSheetSlot → ExamDateSheet FK constraint. We do this inside a
+   * $transaction so a partial failure leaves the DB consistent.
+   * TRADEOFF: Cascade deletes would be cleaner but require a schema migration;
+   * explicit ordering achieves the same safety without schema changes.
+   */
+  static async deleteDateSheet(classSectionId: string, examSessionId: string) {
+    const sheet = await prisma.examDateSheet.findUnique({
+      where: { classSectionId_examSessionId: { classSectionId, examSessionId } },
+      select: { id: true },
+    })
+    if (!sheet) {
+      throw new Error('Date sheet not found for the specified section and exam session.')
+    }
+    return prisma.$transaction(async (tx) => {
+      await tx.examDateSheetSlot.deleteMany({ where: { dateSheetId: sheet.id } })
+      await tx.examDateSheet.delete({ where: { id: sheet.id } })
+      return { deleted: true, id: sheet.id }
+    })
+  }
+
   static async getStudentDateSheet(studentId: string, examSessionId?: string) {
     // Include classSection data for Strategy 2 sibling lookup
     const enrollment = await prisma.studentEnrollment.findFirst({
