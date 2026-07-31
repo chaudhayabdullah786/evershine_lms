@@ -129,7 +129,19 @@ type TargetsData = {
 const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 type PortalData = {
-  student?: { house?: { name: string; color: string } | null }
+  student?: {
+    id?: string
+    firstName?: string
+    lastName?: string
+    rollNumber?: string | null
+    profilePicture?: string | null
+    shift?: string | null
+    deliveryMode?: string | null
+    house?: { name: string; color: string } | null
+    campus?: { name: string } | null
+    batch?: { name: string } | null
+    class?: { name: string; grade: number } | null
+  }
   activeYear: { id: string; name: string; isLocked: boolean } | null
   enrollments?: Array<{
     id: string
@@ -158,7 +170,10 @@ type PortalData = {
   subjectEnrollments: Array<{
     id: string
     status: string
-    subjectOffering: { subject: { name: string }; teacher?: { firstName: string; lastName: string } }
+    subjectOffering: {
+      subject: { name: string; code?: string }
+      teacher?: { firstName: string; lastName: string }
+    }
   }>
   timetable: Array<{
     dayOfWeek: number
@@ -616,16 +631,101 @@ function StudentEnrollmentPageInner() {
 
   const section = data?.enrollment?.classSection
 
+  // Derived helpers
+  const studentName = `${data?.student?.firstName ?? ''} ${data?.student?.lastName ?? ''}`.trim()
+  const initials = [data?.student?.firstName?.[0], data?.student?.lastName?.[0]].filter(Boolean).join('').toUpperCase()
+  const shiftLabel = section?.shift?.code
+    ? SESSION_SHIFT_LABELS[section.shift.code as keyof typeof SESSION_SHIFT_LABELS]
+    : section?.shift?.name ?? '—'
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <BookOpen className="w-7 h-7 text-blue-600" />
-          My Academic Portal
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {data?.activeYear?.name ?? 'Academic year'} — courses, attendance, and published results.
-        </p>
+
+      {/* ── Premium Hero Profile Card ─────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-800 shadow-xl">
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute -top-10 -right-10 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-8 -left-8 h-40 w-40 rounded-full bg-emerald-500/15 blur-2xl" />
+
+        <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
+          {/* Avatar */}
+          <div className="shrink-0">
+            {data?.student?.profilePicture ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={data.student.profilePicture}
+                alt={studentName}
+                className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white/20 shadow-lg"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-indigo-600 text-2xl font-black text-white shadow-lg ring-4 ring-white/20">
+                {initials || <GraduationCap className="h-9 w-9" />}
+              </div>
+            )}
+          </div>
+
+          {/* Identity */}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-black text-white truncate">{studentName || 'My Academic Portal'}</h1>
+            <p className="text-indigo-300 text-sm mt-0.5">
+              {data?.activeYear?.name ?? 'Current Academic Year'}
+              {data?.student?.campus ? ` · ${data.student.campus.name}` : ''}
+            </p>
+
+            {/* Chip row */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {section && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm border border-white/10">
+                  <BookOpen className="h-3.5 w-3.5 text-indigo-300" />
+                  {section.className}-{section.sectionName}
+                </span>
+              )}
+              {shiftLabel !== '—' && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm border border-white/10">
+                  <Clock className="h-3.5 w-3.5 text-amber-300" />
+                  {shiftLabel} Shift
+                </span>
+              )}
+              {data?.enrollment?.deliveryMode && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm border border-white/10">
+                  {data.enrollment.deliveryMode}
+                </span>
+              )}
+              {data?.student?.house && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm border border-white/10"
+                  style={{ backgroundColor: `${data.student.house.color}33` }}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: data.student.house.color }} />
+                  {data.student.house.name} House
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Roll number badge */}
+          {data?.enrollment?.rollNumber && (
+            <div className="shrink-0 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Roll No.</p>
+              <p className="text-2xl font-black text-white">{data.enrollment.rollNumber}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Stats bar */}
+        <div className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
+          {[
+            { label: 'Campus', value: section?.campus?.name ?? data?.student?.campus?.name ?? '—' },
+            { label: 'Batch', value: section?.batch?.name ?? data?.student?.batch?.name ?? '—' },
+            { label: 'Subjects', value: data?.subjectEnrollments?.length ?? 0 },
+            { label: 'Semester', value: data?.activeYear?.name ?? '—' },
+          ].map(({ label, value }) => (
+            <div key={label} className="px-4 py-3 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">{label}</p>
+              <p className="mt-0.5 truncate text-sm font-bold text-white">{String(value)}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {data?.message && !data.enrollment && (
@@ -637,8 +737,8 @@ function StudentEnrollmentPageInner() {
       {(data?.enrollments?.length ?? 0) > 1 && (
         <Card className="border-indigo-200 bg-indigo-50/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">All shift enrollments</CardTitle>
-            <CardDescription>You are enrolled in multiple sessions this year.</CardDescription>
+            <CardTitle className="text-base">All Shift Enrollments</CardTitle>
+            <CardDescription>You are enrolled in multiple sessions this academic year.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {(data?.enrollments ?? []).map((enr: { id: string; rollNumber: string; classSection: { className: string; sectionName: string; shift?: { name: string; code: string } } }) => (
@@ -647,54 +747,6 @@ function StudentEnrollmentPageInner() {
                 {enr.classSection.shift?.name ?? 'Shift'} · Roll {enr.rollNumber}
               </Badge>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {section && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Academic Placement</CardTitle>
-          </CardHeader>
-          <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500">Section</p>
-              <p className="font-semibold">
-                {section.className}-{section.sectionName}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500">Campus · Batch</p>
-              <p className="font-semibold">
-                {section.campus?.name} · {section.batch?.name}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500">Shift</p>
-              <p className="font-semibold">
-                {section.shift?.code
-                  ? SESSION_SHIFT_LABELS[section.shift.code as keyof typeof SESSION_SHIFT_LABELS]
-                  : section.shift?.name}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500">Mode · Roll</p>
-              <p className="font-semibold">
-                {data?.enrollment?.deliveryMode} · {data?.enrollment?.rollNumber}
-              </p>
-            </div>
-            {data?.student?.house && (
-              <div>
-                <p className="text-gray-500">House</p>
-                <p className="font-semibold inline-flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: data.student.house.color }}
-                  />
-                  {data.student.house.name}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -714,32 +766,71 @@ function StudentEnrollmentPageInner() {
 
         <TabsContent value="courses" className="mt-4 space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">My Subjects</CardTitle>
-            <CardDescription>
-              {section?.curriculumMode === 'FIXED'
-                ? 'Mandatory subjects are assigned automatically.'
-                : 'Electives require admin approval after you submit choices.'}
-            </CardDescription>
+        {/* ── Premium Subjects Grid Card ───────────────────────────────── */}
+        <Card className="border border-slate-200 shadow-sm">
+          <CardHeader className="bg-slate-50/50 border-b pb-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-indigo-600" />
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">My Subjects</CardTitle>
+                <CardDescription className="text-xs text-slate-500 mt-0.5">
+                  {section?.curriculumMode === 'FIXED'
+                    ? 'Mandatory subjects are assigned automatically by the academy.'
+                    : 'Electives require admin approval after you submit choices.'}
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="pt-4">
             {(data?.subjectEnrollments ?? []).length === 0 ? (
-              <p className="text-sm text-gray-500">No subject enrollments yet.</p>
+              <div className="text-center py-10">
+                <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-500">No subjects assigned yet.</p>
+                <p className="text-xs text-slate-400 mt-1">Contact the administration to complete your enrollment.</p>
+              </div>
             ) : (
-              data?.subjectEnrollments.map((se) => (
-                <div key={se.id} className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
-                    <p className="font-medium">{se.subjectOffering.subject.name}</p>
-                    {se.subjectOffering.teacher && (
-                      <p className="text-xs text-gray-500">
-                        {se.subjectOffering.teacher.firstName} {se.subjectOffering.teacher.lastName}
-                      </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {data?.subjectEnrollments.map((se) => (
+                  <div
+                    key={se.id}
+                    className="group relative flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-4 transition-all hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 text-sm leading-tight truncate">
+                          {se.subjectOffering.subject.name}
+                        </p>
+                        {se.subjectOffering.subject.code && (
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mt-0.5">
+                            {se.subjectOffering.subject.code}
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        className={`shrink-0 text-[10px] font-bold py-0.5 ${
+                          se.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                          se.status === 'PENDING'  ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                          'bg-rose-100 text-rose-800 border-rose-200'
+                        }`}
+                      >
+                        {se.status}
+                      </Badge>
+                    </div>
+                    {se.subjectOffering.teacher ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-black text-indigo-700">
+                          {se.subjectOffering.teacher.firstName[0]}{se.subjectOffering.teacher.lastName[0]}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate">
+                          {se.subjectOffering.teacher.firstName} {se.subjectOffering.teacher.lastName}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">Teacher TBA</p>
                     )}
                   </div>
-                  <Badge className={statusBadge[se.status] ?? ''}>{se.status}</Badge>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

@@ -16,10 +16,13 @@ export async function getChildrenForGuardianUser(userId: string) {
       lastName: true,
       registrationNumber: true,
       rollNumber: true,
+      profilePicture: true,
       campus: { select: { name: true } },
       batch: { select: { name: true } },
       class: { select: { name: true, shift: true } },
       deliveryMode: true,
+      shift: true,
+      house: { select: { name: true, color: true } },
     },
     orderBy: { firstName: 'asc' },
   })
