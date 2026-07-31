@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * ResultReportCard
- *
- * A premium, A4-proportioned report card rendered as React/HTML that is
- * designed to be captured by downloadPdf() (html2canvas + jsPDF). All
- * styling uses Tailwind classes that are available in the project.
- *
- * WHY DOM-capture over jsPDF direct: custom teacher fields, per-subject
- * remarks, and student photos vary per result — encoding all that logic
- * into jsPDF primitives is fragile. Capturing the rendered DOM gives us
- * exact visual parity between what the student sees on screen and what
- * they download, with zero layout duplication.
- *
- * TRADEOFF: html2canvas capture is slower (~2s on a mid-range device)
- * and is sensitive to oklch/oklab CSS colors (mitigated by the safeColor
- * proxy in lib/pdf.ts). We accept this because fidelity is paramount.
- */
-
 import React, { forwardRef } from 'react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -82,23 +64,25 @@ export type ResultReportCardProps = {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function performanceBatchStyle(batch: string): { bg: string; text: string; border: string } {
-  switch (batch) {
-    case 'Ever Shine':
-      return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' }
-    case 'Quaid':
-      return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' }
-    case 'Iqbal':
-      return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' }
-    default:
-      return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' }
+  const normBatch = (batch || "").toLowerCase()
+  if (normBatch.includes("ever shine") || normBatch.includes("shine") || normBatch.includes("quaid")) {
+    return { bg: "bg-[#E6F4EA]", text: "text-[#16835D]", border: "border-[#A3E2C9]" } // Success green
   }
+  if (normBatch.includes("iqbal")) {
+    return { bg: "bg-[#FFF9E6]", text: "text-[#B78103]", border: "border-[#FFE59E]" } // Amber
+  }
+  if (normBatch.includes("improvement") || normBatch.includes("fail")) {
+    return { bg: "bg-[#FCE8E6]", text: "text-[#B4233C]", border: "border-[#F9C2BD]" } // Warning red
+  }
+  return { bg: "bg-[#EBF3FC]", text: "text-[#2F66B3]", border: "border-[#BFDAF7]" } // Info Blue
 }
 
 function gradeColor(grade: string): string {
-  if (['A+', 'A'].includes(grade)) return 'text-emerald-700 font-black'
-  if (['B+', 'B'].includes(grade)) return 'text-blue-700 font-bold'
-  if (['C+', 'C'].includes(grade)) return 'text-amber-700 font-bold'
-  return 'text-rose-700 font-bold'
+  const g = (grade || "").toUpperCase()
+  if (['A+', 'A', 'B+'].includes(g)) return 'text-[#16835D]'
+  if (['B', 'C+'].includes(g)) return 'text-[#2F66B3]'
+  if (['C', 'D'].includes(g)) return 'text-[#B78103]'
+  return 'text-[#B4233C]'
 }
 
 function fmtDate(iso: string | null): string {
@@ -110,13 +94,8 @@ function initials(first?: string, last?: string): string {
   return `${(first?.[0] ?? 'S').toUpperCase()}${(last?.[0] ?? 'T').toUpperCase()}`
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
-/**
- * ResultReportCard renders a single declared exam result as a beautifully
- * formatted A4 report card. Wrap with React.forwardRef so the parent can
- * pass a ref and call downloadPdf({ element: ref.current, ... }).
- */
 const ResultReportCard = forwardRef<HTMLDivElement, ResultReportCardProps>(
   function ResultReportCard({ result, student, sessionName, attendancePct }, ref) {
     const totalObtained = result.subjects
@@ -127,343 +106,89 @@ const ResultReportCard = forwardRef<HTMLDivElement, ResultReportCardProps>(
       .filter((s) => !s.isNotApplicable)
       .reduce((acc, s) => acc + s.totalMarks, 0)
 
-    const batchStyle = performanceBatchStyle(result.performanceBatch)
-    const studentName = `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim()
-    const hasPhoto = !!student.profilePicture
-    const hasCustomFields = result.customFields.length > 0
+    const campusName = student.campus?.name ?? 'Madina Town Campus'
 
     return (
-      // data-pdf-page: signals html2canvas to treat this as the PDF page target
       <div
         ref={ref}
         data-pdf-page
-        className="w-full max-w-[210mm] mx-auto bg-white font-sans shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
-        style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif" }}
+        className="w-full max-w-[210mm] mx-auto bg-white font-sans border border-[#D9E0E8] overflow-hidden flex flex-col"
+        style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif", color: '#172033' }}
       >
-        {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <div
-          className="relative overflow-hidden px-8 pt-6 pb-8"
-          style={{
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #312e81 100%)',
-          }}
-        >
-          {/* Decorative circles */}
-          <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, #818cf8 0%, transparent 70%)' }} />
-          <div className="absolute bottom-0 left-8 w-24 h-24 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, #38bdf8 0%, transparent 70%)' }} />
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 15mm;
+            }
+            .page-break-inside-avoid {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
+        ` }} />
 
-          <div className="relative flex items-center gap-6">
-            {/* Academy Logo */}
-            <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center p-1 backdrop-blur-sm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/favicon-128x128.png"
-                alt="Evershine Academy"
-                width={52}
-                height={52}
-                className="w-full h-full object-contain"
-                crossOrigin="anonymous"
-              />
-            </div>
+        {/* Header */}
+        <ResultCardHeader
+          examSessionLabel={result.examSessionLabel}
+          sectionLabel={result.sectionLabel}
+          shiftName={result.shiftName}
+          sessionName={sessionName}
+          declaredAt={result.declaredAt}
+          campusName={campusName}
+        />
 
-            {/* Academy Identity */}
-            <div className="flex-1">
-              <p className="text-white/60 text-[10px] font-semibold uppercase tracking-[0.2em] mb-0.5">
-                Official Document
-              </p>
-              <h1 className="text-white text-xl font-black leading-tight tracking-tight">
-                Evershine Academy
-              </h1>
-              <p className="text-blue-200 text-xs font-medium mt-0.5">
-                Madina Town Campus · Boys & Girls Divisions
-              </p>
-            </div>
+        {/* Student Information */}
+        <StudentInformation
+          student={student}
+          result={result}
+          attendancePct={attendancePct}
+          sessionName={sessionName}
+        />
 
-            {/* Doc Type Badge */}
-            <div className="flex-shrink-0 text-right">
-              <div className="inline-flex flex-col items-end gap-1">
-                <span className="bg-white/15 border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  Examination Report Card
-                </span>
-                {result.declaredAt && (
-                  <span className="text-blue-200/80 text-[10px]">
-                    Declared: {fmtDate(result.declaredAt)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Subject wise Results */}
+        <SubjectResultTable
+          subjects={result.subjects}
+          overallPercentage={result.overallPercentage}
+          grade={result.grade}
+        />
 
-          {/* Session + Section Info Bar */}
-          <div className="relative mt-5 flex flex-wrap items-center gap-2">
-            <span className="bg-white/10 border border-white/20 text-white text-xs font-semibold px-3 py-1 rounded-lg">
-              {result.examSessionLabel}
-            </span>
-            <span className="bg-white/10 border border-white/20 text-white text-xs px-3 py-1 rounded-lg">
-              {result.sectionLabel}
-            </span>
-            {result.shiftName && (
-              <span className="bg-white/10 border border-white/20 text-white text-xs px-3 py-1 rounded-lg">
-                {result.shiftName}
-              </span>
-            )}
-            {sessionName && (
-              <span className="ml-auto text-blue-200/70 text-[10px]">
-                Academic Year: {sessionName}
-              </span>
-            )}
-          </div>
-        </div>
+        {/* Character Development Assessment */}
+        <CharacterAssessment
+          customFields={result.customFields}
+          attendancePct={attendancePct}
+        />
 
-        {/* ── STUDENT IDENTITY ────────────────────────────────────────────── */}
-        <div className="px-8 py-5 bg-slate-50/70 border-b border-slate-200">
-          <div className="flex items-start gap-5">
-            {/* Avatar */}
-            <div className="flex-shrink-0">
-              {hasPhoto ? (
-                <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-blue-200 shadow-md">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={student.profilePicture!}
-                    alt={studentName}
-                    className="w-full h-full object-cover"
-                    crossOrigin="anonymous"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center border-2 border-blue-200 shadow-md"
-                  style={{ background: 'linear-gradient(135deg, #1e3a8a, #312e81)' }}
-                >
-                  <span className="text-white text-2xl font-black">
-                    {initials(student.firstName, student.lastName)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Identity Grid */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
-              <div className="col-span-2 sm:col-span-3 mb-1">
-                <p className="text-xl font-black text-slate-900 leading-tight">
-                  {studentName || 'Student Name'}
-                </p>
-                {student.fatherName && (
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    S/D of <span className="text-slate-700 font-semibold">{student.fatherName}</span>
-                  </p>
-                )}
-              </div>
-
-              <IdentityField label="Registration No." value={student.registrationNumber} />
-              <IdentityField label="Roll Number" value={result.subjects.length > 0 ? (student.rollNumber ?? '—') : '—'} />
-              <IdentityField label="Class / Section" value={result.sectionLabel} />
-              <IdentityField label="Shift" value={result.shiftName ?? 'Regular'} />
-              <IdentityField label="Campus" value={student.campus?.name ?? 'Evershine Academy'} />
-              {student.batch && <IdentityField label="Batch" value={student.batch.name} />}
-            </div>
-
-            {/* Performance Badges (right column) */}
-            <div className="flex-shrink-0 flex flex-col items-end gap-2">
-              <div
-                className={`px-4 py-2 rounded-xl border text-center ${batchStyle.bg} ${batchStyle.border}`}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Group</p>
-                <p className={`text-base font-black ${batchStyle.text}`}>{result.performanceBatch}</p>
-              </div>
-              {result.classPosition !== null && (
-                <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Rank</p>
-                  <p className="text-lg font-black leading-none">#{result.classPosition}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── SUBJECTS TABLE ──────────────────────────────────────────────── */}
-        <div className="px-8 py-5">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span className="w-4 h-0.5 bg-blue-500 inline-block" />
-            Subject-Wise Result
-            <span className="w-4 h-0.5 bg-blue-500 inline-block" />
-          </h2>
-
-          <div className="overflow-hidden rounded-xl border border-slate-200">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wide px-4 py-2.5">
-              <div className="col-span-4">Subject</div>
-              <div className="col-span-2 text-center">Obtained</div>
-              <div className="col-span-1 text-center">Total</div>
-              <div className="col-span-2 text-center">Percentage</div>
-              <div className="col-span-1 text-center">Grade</div>
-              <div className="col-span-2 text-center">Status</div>
-            </div>
-
-            {/* Subject Rows */}
-            {result.subjects.map((sub, idx) => {
-              const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
-              const isAbsent = sub.isAbsent
-              const isNA = sub.isNotApplicable
-              const passed = sub.isPassed && !isAbsent
-
-              return (
-                <div key={sub.subjectId} className={`${rowBg} border-t border-slate-100`}>
-                  <div className="grid grid-cols-12 items-center px-4 py-2.5 text-sm">
-                    <div className="col-span-4">
-                      <p className="font-semibold text-slate-900 text-sm">{sub.subjectName}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{sub.subjectCode}</p>
-                    </div>
-                    <div className="col-span-2 text-center font-black text-slate-800 text-base">
-                      {isNA ? '—' : isAbsent ? 'Abs' : sub.obtainedMarks}
-                    </div>
-                    <div className="col-span-1 text-center text-slate-500 text-sm">{sub.totalMarks}</div>
-                    <div className="col-span-2 text-center font-bold text-indigo-700 text-sm">
-                      {isNA || isAbsent ? '—' : `${sub.percentage.toFixed(1)}%`}
-                    </div>
-                    <div className={`col-span-1 text-center text-sm ${gradeColor(sub.grade)}`}>
-                      {isNA ? '—' : isAbsent ? 'Abs' : sub.grade}
-                    </div>
-                    <div className="col-span-2 text-center">
-                      {isNA ? (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">N/A</span>
-                      ) : isAbsent ? (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">Absent</span>
-                      ) : passed ? (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">Pass</span>
-                      ) : (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-semibold">Fail</span>
-                      )}
-                    </div>
-                  </div>
-                  {sub.remarks && (
-                    <div className="px-4 pb-2">
-                      <p className="text-[11px] text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg">
-                        Remark: {sub.remarks}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {/* Totals Row */}
-            <div className="grid grid-cols-12 items-center px-4 py-3 bg-slate-900 text-white">
-              <div className="col-span-4 text-sm font-bold uppercase tracking-wide">Total</div>
-              <div className="col-span-2 text-center text-base font-black text-emerald-400">
-                {Math.round(totalObtained * 100) / 100}
-              </div>
-              <div className="col-span-1 text-center text-sm text-slate-400">{totalPossible}</div>
-              <div className="col-span-2 text-center text-base font-black text-blue-300">
-                {result.overallPercentage.toFixed(1)}%
-              </div>
-              <div className={`col-span-1 text-center text-base ${gradeColor(result.grade)} !text-white`}>
-                {result.grade}
-              </div>
-              <div className="col-span-2 text-center">
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${batchStyle.bg} ${batchStyle.text}`}>
-                  {result.performanceBatch}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── CUSTOM FIELDS (Ethics, Character, etc.) ─────────────────────── */}
-        {hasCustomFields && (
-          <div className="px-8 pb-5">
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-4 h-0.5 bg-purple-500 inline-block" />
-              Character &amp; Development Assessment
-              <span className="w-4 h-0.5 bg-purple-500 inline-block" />
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {result.customFields.map((field) => (
-                <div
-                  key={field.label}
-                  className="bg-purple-50 border border-purple-100 rounded-xl p-3 flex flex-col"
-                >
-                  <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1">
-                    {field.label}
-                  </p>
-                  <p className="text-base font-black text-purple-900 leading-none">{field.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── TEACHER REMARKS ─────────────────────────────────────────────── */}
+        {/* Teacher Remarks */}
         {result.teacherRemarks && (
-          <div className="px-8 pb-5">
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1.5">
-                Head Teacher Remarks
+          <div className="px-[15mm] pb-[6mm] page-break-inside-avoid">
+            <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-lg p-4">
+              <p className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+                Teacher Remarks
               </p>
-              <p className="text-sm text-blue-900 italic leading-relaxed">
+              <p className="text-xs text-[#172033] italic leading-relaxed">
                 &ldquo;{result.teacherRemarks}&rdquo;
               </p>
             </div>
           </div>
         )}
 
-        {/* ── OVERALL PERFORMANCE SUMMARY ─────────────────────────────────── */}
-        <div className="px-8 pb-5">
-          <div
-            className="rounded-2xl p-5 border"
-            style={{
-              background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
-              borderColor: '#bae6fd',
-            }}
-          >
-            <h2 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-4">
-              Overall Performance Summary
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <SummaryMetric label="Marks Obtained" value={`${Math.round(totalObtained * 100) / 100} / ${totalPossible}`} accent="blue" />
-              <SummaryMetric label="Overall %" value={`${result.overallPercentage.toFixed(1)}%`} accent="emerald" />
-              <SummaryMetric label="Final Grade" value={result.grade} accent="purple" />
-              {attendancePct !== null && attendancePct !== undefined && (
-                <SummaryMetric label="Attendance" value={`${attendancePct}%`} accent={attendancePct >= 75 ? 'emerald' : 'rose'} />
-              )}
-            </div>
+        {/* Performance Summary */}
+        <PerformanceSummary
+          result={result}
+          totalObtained={totalObtained}
+          totalPossible={totalPossible}
+          attendancePct={attendancePct}
+        />
 
-            <div className="mt-4 pt-4 border-t border-blue-100/60 flex flex-wrap items-center gap-3">
-              <span className="text-xs text-slate-500 font-medium">Performance Group:</span>
-              <span className={`text-sm font-black px-3 py-1 rounded-full border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border}`}>
-                {result.performanceBatch} Group
-              </span>
-              {result.classPosition !== null && (
-                <>
-                  <span className="text-xs text-slate-400">·</span>
-                  <span className="text-sm font-bold text-slate-700">
-                    Class Rank: <span className="text-blue-700">#{result.classPosition}</span>
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── SIGNATURES FOOTER ────────────────────────────────────────────── */}
-        <div
-          className="px-8 py-6 border-t border-slate-200"
-          style={{ background: 'linear-gradient(to bottom, #f8fafc, #f1f5f9)' }}
-        >
-          <div className="grid grid-cols-3 gap-6 text-center">
-            <SignatureLine title="Class Teacher" subtitle="Signature & Stamp" />
-            <SignatureLine title="Head of Department" subtitle="Signature & Stamp" />
-            <SignatureLine title="Principal / Controller" subtitle="Official Seal" />
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
-            <p className="text-[10px] text-slate-400">
-              This is an official document of Evershine Academy, Madina Town Campus.
-            </p>
-            <p className="text-[10px] text-slate-400 font-mono">
-              REF: ESA/{result.termResultId.slice(-8).toUpperCase()}
-            </p>
+        {/* Signatures & Footer */}
+        <div className="px-[15mm] pb-[6mm] mt-auto">
+          <SignatureSection />
+          <div className="mt-6">
+            <ResultCardFooter
+              termResultId={result.termResultId}
+              declaredAt={result.declaredAt}
+            />
           </div>
         </div>
       </div>
@@ -476,34 +201,399 @@ export default ResultReportCard
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function IdentityField({ label, value }: { label: string; value: string | null | undefined }) {
+export function ResultCardHeader({
+  examSessionLabel,
+  sectionLabel,
+  shiftName,
+  sessionName,
+  declaredAt,
+  campusName,
+}: {
+  examSessionLabel: string
+  sectionLabel: string
+  shiftName: string | null
+  sessionName: string | null
+  declaredAt: string | null
+  campusName: string
+}) {
   return (
-    <div>
-      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-bold text-slate-800 truncate">{value ?? '—'}</p>
+    <div className="bg-[#173B7A] text-white px-[15mm] py-[8mm] relative flex flex-col gap-4 select-none">
+      <div className="flex items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <img
+            src="/brand/logo-crest-web.png"
+            alt="Evershine Academy Logo"
+            className="w-16 h-16 object-contain bg-white p-1 rounded-lg"
+            crossOrigin="anonymous"
+          />
+          <div>
+            <h1 className="text-2xl font-black tracking-tight leading-none mb-1">
+              Evershine Academy
+            </h1>
+            <p className="text-xs font-semibold text-blue-100 uppercase tracking-wider">
+              {campusName}
+            </p>
+            <p className="text-[10px] text-blue-200/90 mt-0.5">
+              Madina Town, Gujranwala
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="inline-block bg-[#2F66B3] text-white text-xs font-extrabold px-3.5 py-1 rounded-md uppercase tracking-wider mb-2">
+            Examination Report Card
+          </span>
+          <p className="text-[10px] text-blue-200">
+            Academic Year: {sessionName ?? "—"}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/20 pt-3 text-xs">
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-blue-100">Term:</span>
+          <span>{examSessionLabel}</span>
+          <span className="text-white/30">|</span>
+          <span className="font-bold text-blue-100">Class:</span>
+          <span>{sectionLabel}</span>
+          {shiftName && (
+            <>
+              <span className="text-white/30">|</span>
+              <span className="font-bold text-blue-100">Shift:</span>
+              <span>{shiftName}</span>
+            </>
+          )}
+        </div>
+        {declaredAt && (
+          <span className="text-[11px] text-blue-200">
+            Declaration Date: {fmtDate(declaredAt)}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
-function SummaryMetric({
-  label,
-  value,
-  accent,
+export function StudentInformation({
+  student,
+  result,
+  attendancePct,
+  sessionName,
 }: {
-  label: string
-  value: string
-  accent: 'blue' | 'emerald' | 'purple' | 'rose'
+  student: ReportCardStudent
+  result: ReportCardResult
+  attendancePct: number | null | undefined
+  sessionName?: string | null
 }) {
-  const colors = {
-    blue: 'text-blue-700 bg-blue-50/80 border-blue-100',
-    emerald: 'text-emerald-700 bg-emerald-50/80 border-emerald-100',
-    purple: 'text-purple-700 bg-purple-50/80 border-purple-100',
-    rose: 'text-rose-700 bg-rose-50/80 border-rose-100',
-  }
+  const studentName = `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()
+  const hasPhoto = !!student.profilePicture
+  const batchStyle = performanceBatchStyle(result.performanceBatch)
+
   return (
-    <div className={`rounded-xl p-3 border text-center ${colors[accent]}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{label}</p>
-      <p className="text-lg font-black leading-none">{value}</p>
+    <div className="flex flex-col md:flex-row gap-6 px-[15mm] py-[6mm] bg-white border-b border-[#D9E0E8]">
+      <div className="flex-1 flex flex-col sm:flex-row gap-5">
+        <div className="flex-shrink-0">
+          {hasPhoto ? (
+            <img
+              src={student.profilePicture!}
+              alt={studentName}
+              className="w-24 h-24 rounded-lg object-cover border border-[#D9E0E8] shadow-sm"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <div
+              className="w-24 h-24 rounded-lg flex items-center justify-center border border-[#D9E0E8] shadow-sm text-white font-black text-3xl"
+              style={{ background: "linear-gradient(135deg, #173B7A, #2F66B3)" }}
+            >
+              {initials(student.firstName, student.lastName)}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-extrabold text-[#172033] tracking-tight leading-tight truncate mb-1">
+            {studentName || "Student Name"}
+          </h2>
+          {student.fatherName && (
+            <p className="text-sm text-[#5F6B7A] mb-3">
+              Father/Guardian: <span className="text-[#172033] font-semibold">{student.fatherName}</span>
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+            <InfoRow label="Reg. Number" value={student.registrationNumber} />
+            <InfoRow label="Roll Number" value={result.subjects.length > 0 ? (student.rollNumber ?? "—") : "—"} />
+            <InfoRow label="Class / Section" value={result.sectionLabel} />
+            <InfoRow label="Shift" value={result.shiftName ?? "Regular"} />
+            <InfoRow label="Campus" value={student.campus?.name ?? "Evershine Academy"} />
+            <InfoRow label="Batch / Program" value={student.batch?.name} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 w-full md:w-48 flex flex-row md:flex-col gap-3 justify-end md:justify-start">
+        <div className={`flex-1 p-2.5 rounded-lg border text-center ${batchStyle.bg} ${batchStyle.border}`}>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-1">
+            Performance Group
+          </p>
+          <p className={`text-xs font-extrabold ${batchStyle.text}`}>
+            {result.performanceBatch}
+          </p>
+        </div>
+
+        {result.classPosition !== null && (
+          <div className="flex-1 p-2.5 rounded-lg border border-[#D9E0E8] bg-[#F5F7FA] text-center">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-1">
+              Class Rank
+            </p>
+            <p className="text-sm font-extrabold text-[#172033]">
+              #{result.classPosition}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex flex-col min-w-0">
+      <span className="text-[9px] font-bold uppercase tracking-wider text-[#5F6B7A]">{label}</span>
+      <span className="text-xs font-semibold text-[#172033] truncate">{value ?? "—"}</span>
+    </div>
+  )
+}
+
+export function SubjectResultTable({ subjects, overallPercentage, grade }: {
+  subjects: ReportCardSubject[]
+  overallPercentage: number
+  grade: string
+}) {
+  const totalObtained = subjects
+    .filter((s) => !s.isAbsent && !s.isNotApplicable)
+    .reduce((acc, s) => acc + (s.obtainedMarks ?? 0), 0)
+
+  const totalPossible = subjects
+    .filter((s) => !s.isNotApplicable)
+    .reduce((acc, s) => acc + s.totalMarks, 0)
+
+  const overallPassed = subjects
+    .filter((s) => !s.isNotApplicable && !s.isAbsent)
+    .every((s) => s.isPassed)
+
+  return (
+    <div className="px-[15mm] py-[6mm]">
+      <h3 className="text-xs font-bold text-[#172033] uppercase tracking-wider mb-3 flex items-center gap-2">
+        <span className="w-1.5 h-3 bg-[#173B7A] rounded-sm" />
+        Subject-Wise Result
+      </h3>
+      <div className="overflow-x-auto rounded-lg border border-[#D9E0E8] shadow-sm">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-[#173B7A] text-white text-[10px] font-bold uppercase tracking-wider border-b border-[#173B7A]">
+              <th className="px-4 py-3 text-left">Subject</th>
+              <th className="px-4 py-3 text-center">Obtained Marks</th>
+              <th className="px-4 py-3 text-center">Total Marks</th>
+              <th className="px-4 py-3 text-center">Percentage</th>
+              <th className="px-4 py-3 text-center">Grade</th>
+              <th className="px-4 py-3 text-center">Status</th>
+              <th className="px-4 py-3 text-left max-w-xs">Remarks</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#D9E0E8] text-xs text-[#172033]">
+            {subjects.map((sub) => {
+              const isAbsent = sub.isAbsent
+              const isNA = sub.isNotApplicable
+              const passed = sub.isPassed && !isAbsent
+
+              return (
+                <tr key={sub.subjectId} className="hover:bg-[#F5F7FA] transition-colors page-break-inside-avoid">
+                  <td className="px-4 py-3 font-semibold">
+                    <div>{sub.subjectName}</div>
+                    <div className="text-[10px] text-[#5F6B7A] font-mono mt-0.5">{sub.subjectCode}</div>
+                  </td>
+                  <td className="px-4 py-3 text-center font-bold text-sm">
+                    {isNA ? "—" : isAbsent ? "Abs" : sub.obtainedMarks}
+                  </td>
+                  <td className="px-4 py-3 text-center text-[#5F6B7A]">
+                    {sub.totalMarks}
+                  </td>
+                  <td className="px-4 py-3 text-center font-bold text-[#2F66B3]">
+                    {isNA || isAbsent ? "—" : `${sub.percentage.toFixed(1)}%`}
+                  </td>
+                  <td className={`px-4 py-3 text-center font-extrabold ${gradeColor(sub.grade)}`}>
+                    {isNA ? "—" : isAbsent ? "Abs" : sub.grade}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isNA ? (
+                      <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[#F5F7FA] text-[#5F6B7A] font-bold">
+                        N/A
+                      </span>
+                    ) : isAbsent ? (
+                      <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[#FFF9E6] text-[#B78103] font-bold">
+                        Absent
+                      </span>
+                    ) : passed ? (
+                      <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#16835D] font-bold">
+                        Pass
+                      </span>
+                    ) : (
+                      <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[#FCE8E6] text-[#B4233C] font-bold">
+                        Fail
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-left max-w-xs whitespace-normal break-words text-[#5F6B7A]">
+                    {sub.remarks || "—"}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-[#172033] text-white text-xs font-bold border-t border-[#D9E0E8]">
+              <td className="px-4 py-3 font-extrabold uppercase">Total / Summary</td>
+              <td className="px-4 py-3 text-center font-black text-sm text-[#A3E2C9]">
+                {Math.round(totalObtained * 100) / 100}
+              </td>
+              <td className="px-4 py-3 text-center text-slate-300">
+                {totalPossible}
+              </td>
+              <td className="px-4 py-3 text-center font-black text-sm text-blue-200">
+                {overallPercentage.toFixed(1)}%
+              </td>
+              <td className={`px-4 py-3 text-center font-black text-sm ${gradeColor(grade)} !text-white`}>
+                {grade}
+              </td>
+              <td className="px-4 py-3 text-center">
+                {overallPassed ? (
+                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded-md bg-[#E6F4EA] text-[#16835D] font-bold">
+                    Pass
+                  </span>
+                ) : (
+                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded-md bg-[#FCE8E6] text-[#B4233C] font-bold">
+                    Fail
+                  </span>
+                )}
+              </td>
+              <td className="px-4 py-3"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+export function CharacterAssessment({ customFields, attendancePct }: {
+  customFields: ReportCardCustomField[]
+  attendancePct: number | null | undefined
+}) {
+  const fields = [...customFields]
+  if (attendancePct !== null && attendancePct !== undefined) {
+    fields.push({ label: "Attendance", value: `${attendancePct}%` })
+  }
+
+  if (fields.length === 0) return null
+
+  return (
+    <div className="px-[15mm] pb-[6mm] page-break-inside-avoid">
+      <h3 className="text-xs font-bold text-[#172033] uppercase tracking-wider mb-3 flex items-center gap-2">
+        <span className="w-1.5 h-3 bg-[#2F66B3] rounded-sm" />
+        Character &amp; Development Assessment
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {fields.map((field) => (
+          <div
+            key={field.label}
+            className="bg-white border border-[#D9E0E8] rounded-lg p-3 flex flex-col justify-center"
+          >
+            <p className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              {field.label}
+            </p>
+            <p className="text-sm font-extrabold text-[#172033] leading-none">
+              {field.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function PerformanceSummary({
+  result,
+  totalObtained,
+  totalPossible,
+  attendancePct,
+}: {
+  result: ReportCardResult
+  totalObtained: number
+  totalPossible: number
+  attendancePct: number | null | undefined
+}) {
+  const batchStyle = performanceBatchStyle(result.performanceBatch)
+
+  return (
+    <div className="px-[15mm] pb-[6mm] page-break-inside-avoid">
+      <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-xl p-5">
+        <h4 className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-widest mb-4">
+          Overall Performance Summary
+        </h4>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              Marks Obtained
+            </span>
+            <span className="text-base font-extrabold text-[#172033]">
+              {Math.round(totalObtained * 100) / 100} / {totalPossible}
+            </span>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              Overall Percentage
+            </span>
+            <span className="text-base font-extrabold text-[#2F66B3]">
+              {result.overallPercentage.toFixed(1)}%
+            </span>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              Final Grade
+            </span>
+            <span className={`text-base font-black ${gradeColor(result.grade)}`}>
+              {result.grade}
+            </span>
+          </div>
+
+          <div className="flex flex-col justify-center">
+            <span className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              Group &amp; Class Rank
+            </span>
+            <div className="flex items-center gap-2 text-xs">
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border}`}>
+                {result.performanceBatch}
+              </span>
+              {result.classPosition !== null && (
+                <span className="font-extrabold text-[#172033]">
+                  Rank #{result.classPosition}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function SignatureSection() {
+  return (
+    <div className="grid grid-cols-3 gap-6 text-center border-t border-[#D9E0E8] pt-6 mt-6 page-break-inside-avoid">
+      <SignatureLine title="Class Teacher" subtitle="Signature & Stamp" />
+      <SignatureLine title="Head of Department" subtitle="Signature & Stamp" />
+      <SignatureLine title="Principal / Controller" subtitle="Official Seal" />
     </div>
   )
 }
@@ -511,11 +601,27 @@ function SummaryMetric({
 function SignatureLine({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="w-full h-16 border-b-2 border-dashed border-slate-300 rounded-t-lg bg-white/60" />
+      <div className="w-full h-12 border-b border-dashed border-[#5F6B7A] rounded-t-lg bg-white/40" />
       <div>
-        <p className="text-xs font-bold text-slate-700">{title}</p>
-        <p className="text-[10px] text-slate-400">{subtitle}</p>
+        <p className="text-xs font-bold text-[#172033]">{title}</p>
+        <p className="text-[9px] text-[#5F6B7A] uppercase tracking-wider mt-0.5">{subtitle}</p>
       </div>
+    </div>
+  )
+}
+
+export function ResultCardFooter({ termResultId, declaredAt }: {
+  termResultId: string
+  declaredAt: string | null
+}) {
+  return (
+    <div className="pt-4 border-t border-[#D9E0E8]/60 flex items-center justify-between text-[9px] text-[#5F6B7A] uppercase tracking-wider">
+      <p>
+        Official Document of Evershine Academy. All rights reserved.
+      </p>
+      <p className="font-mono">
+        REF: ESA/{termResultId.slice(-8).toUpperCase()}
+      </p>
     </div>
   )
 }

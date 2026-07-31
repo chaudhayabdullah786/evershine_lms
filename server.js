@@ -143,6 +143,9 @@ if (fs.existsSync(standaloneSW)) {
   console.warn('[SERVER] WARN: standalone/public/sw.js not found — PWA cache busting unavailable.')
 }
 
+// ── Sync Hostinger-Native Prisma Engine ─────────────────────────────────────
+syncPrismaEngine()
+
 // ── 4. Start Next.js standalone server ──────────────────────────────────────
 const serverPath = path.join(STANDALONE, 'server.js')
 if (!fs.existsSync(serverPath)) {
@@ -156,3 +159,31 @@ process.env.PORT = String(PORT)
 
 console.log(`[SERVER] Starting Next.js on port ${PORT}...`)
 require(serverPath)
+
+function syncPrismaEngine() {
+  const HOSTINGER_NATIVE_PATH = '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node'
+  
+  if (!fs.existsSync(HOSTINGER_NATIVE_PATH)) {
+    console.log('[SERVER] Prisma native engine sync skipped (not on Hostinger production or engine missing).')
+    return
+  }
+
+  const targetDir = path.join(STANDALONE, 'node_modules', '.prisma', 'client')
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true })
+  }
+
+  // 1. Delete wrong engine binaries in standalone to prevent resolution collision
+  const files = fs.readdirSync(targetDir)
+  for (const file of files) {
+    if (file.startsWith('libquery_engine-debian-openssl-3.0.x')) {
+      fs.unlinkSync(path.join(targetDir, file))
+      console.log(`[SERVER] OK  Removed mismatched engine from standalone: ${file}`)
+    }
+  }
+
+  // 2. Copy correct native engine to standalone client
+  const targetPath = path.join(targetDir, 'libquery_engine-debian-openssl-1.1.x.so.node')
+  fs.copyFileSync(HOSTINGER_NATIVE_PATH, targetPath)
+  console.log('[SERVER] OK  Hostinger-native Prisma engine synced successfully into standalone.')
+}
