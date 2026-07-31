@@ -21,10 +21,11 @@ const nextConfig: NextConfig = {
   },
 
 
-  // Limit build workers and CPU cores to 1 to bypass Hostinger's process limit (EAGAIN).
-  // Prevents Next.js from spawning worker processes during minification/static generation.
-  // WHY workerThreads + cpus only: webpackBuildWorker was removed in Next.js 16.
+  // Limit build workers and memory footprint to bypass Hostinger's memory/process limits.
+  // Disables the webpack build worker to run the compilation in the main process under memory limits.
   experimental: {
+    webpackBuildWorker: false,
+    webpackMemoryOptimizations: true,
     workerThreads: false,
     cpus: 1,
   },
