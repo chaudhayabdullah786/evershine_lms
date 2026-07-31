@@ -20,11 +20,13 @@ declare module 'next-auth' {
       name: string
       role: Role
       campusId?: string | null
+      profilePicture?: string | null
     }
   }
   interface User {
     role: Role
     campusId?: string | null
+    profilePicture?: string | null
   }
 }
 
@@ -42,6 +44,8 @@ declare module '@auth/core/jwt' {
     role?: Role
     /** Campus scope — null for SUPER_ADMIN / STUDENT / PARENT / GUARDIAN. */
     campusId?: string | null
+    /** Cloudinary profile picture URL — null if not uploaded. */
+    profilePicture?: string | null
   }
 }
 
@@ -74,6 +78,11 @@ export const authConfig = {
         token.id = user.id
         token.role = user.role
         token.campusId = user.campusId
+        // WHY store in JWT: profilePicture needs to be available in every
+        // server and client request without an extra DB round-trip. The JWT
+        // is updated on login; if the user uploads a new photo, they must
+        // re-login (or we invalidate via a profile-update endpoint).
+        token.profilePicture = (user as { profilePicture?: string | null }).profilePicture ?? null
       }
 
       // Defensive: if token.role is somehow missing but we have a userId,
@@ -105,11 +114,12 @@ export const authConfig = {
       return {
         ...session,
         user: {
-          id:       token.id ?? token.sub ?? '',
-          email:    token.email ?? session.user?.email ?? '',
-          name:     token.name ?? session.user?.name ?? '',
-          role:     token.role ?? session.user?.role ?? 'STUDENT',
-          campusId: token.campusId ?? null,
+          id:             token.id ?? token.sub ?? '',
+          email:          token.email ?? session.user?.email ?? '',
+          name:           token.name ?? session.user?.name ?? '',
+          role:           token.role ?? session.user?.role ?? 'STUDENT',
+          campusId:       token.campusId ?? null,
+          profilePicture: token.profilePicture ?? null,
         },
       }
     },

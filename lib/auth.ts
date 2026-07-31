@@ -110,10 +110,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const profile = await prisma.user.findUnique({
           where: { id: user.id },
           select: {
-            admin:      { select: { firstName: true, lastName: true, campusId: true } },
-            teacher:    { select: { firstName: true, lastName: true, campusId: true } },
-            student:    { select: { firstName: true, lastName: true } },
-            accountant: { select: { firstName: true, lastName: true, campusId: true } },
+            admin:      { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
+            teacher:    { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
+            student:    { select: { firstName: true, lastName: true, profilePicture: true } },
+            accountant: { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
           },
         })
 
@@ -128,14 +128,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           profile?.accountant?.campusId ??
           null
 
+        const profilePicture =
+          profile?.student?.profilePicture ??
+          profile?.teacher?.profilePicture ??
+          profile?.admin?.profilePicture   ??
+          profile?.accountant?.profilePicture ??
+          null
+
         // This object is passed to the jwt() callback as `user`.
         // All fields must be JSON-serialisable (no undefined, no circular refs).
         return {
-          id:       user.id,
-          email:    user.email,
+          id:             user.id,
+          email:          user.email,
           name,
-          role:     user.role,
-          campusId: campusId ?? null,
+          role:           user.role,
+          campusId:       campusId ?? null,
+          profilePicture: profilePicture ?? null,
         }
       },
     }),
