@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getActiveEnrollmentsForStudent } from '@/lib/academic/student-enrollment'
+import { autoEnrollMandatorySubjects } from '@/lib/academic/enrollment'
 
 /** Student portal: enrollments (multi-shift), electives, and timetables per section. */
 export async function GET() {
@@ -52,10 +53,24 @@ export async function GET() {
   }
 
   const enrollments = await getActiveEnrollmentsForStudent(student.id, activeYear.id)
-  const enrollment = enrollments[0] ?? null
+
+  // ── Auto-backfill mandatory SubjectEnrollments for FIXED sections ──────────
+  // WHY: If a student is in a FIXED curriculum section, mandatory subjects are
+  // assigned automatically during admission. If the SubjectEnrollment records are
+  // missing (e.g. legacy data, manual admin creation), we auto-create them here
+  // at query time so the student always sees their subjects without admin intervention.
+  for (const enr of enrollments) {
+    if (enr.classSection.curriculumMode === 'FIXED' && enr.subjectEnrollments.length === 0) {
+      await autoEnrollMandatorySubjects(enr.id, enr.classSectionId, activeYear.id)
+    }
+  }
+
+  // Reload enrollments so any newly created SubjectEnrollments are reflected
+  const freshEnrollments = await getActiveEnrollmentsForStudent(student.id, activeYear.id)
+  const enrollment = freshEnrollments[0] ?? null
 
   const timetablesByEnrollment = await Promise.all(
-    enrollments.map(async (enr) => {
+    freshEnrollments.map(async (enr) => {
       const slots = await prisma.timetableSlot.findMany({
         where: {
           academicYearId: activeYear.id,
@@ -104,6 +119,7 @@ export async function GET() {
       firstName: student.firstName,
       lastName: student.lastName,
       rollNumber: student.rollNumber,
+      profilePicture: student.profilePicture ?? null,
       deliveryMode: student.deliveryMode,
       shift: student.shift,
       campus: student.campus,
@@ -112,7 +128,7 @@ export async function GET() {
       house: student.house,
     },
     activeYear: { id: activeYear.id, name: activeYear.name, isLocked: activeYear.isLocked },
-    enrollments,
+    enrollments: freshEnrollments,
     enrollment,
     eligibleElectives,
     subjectEnrollments: enrollment?.subjectEnrollments ?? [],

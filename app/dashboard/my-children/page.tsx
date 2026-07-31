@@ -9,14 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { AccessDenied } from '@/components/AccessDenied'
-import { Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2, Download, Plus, Send } from 'lucide-react'
+import { Users, ClipboardCheck, BarChart2, Calendar, CreditCard, Loader2, Download, Plus, Send, BookOpen, Clock, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { downloadReportCardForEnrollment } from '@/lib/academic/download-report-card'
 import { notify } from '@/lib/notify'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import Link from 'next/link'
 import { FeePaymentDialog } from '@/components/features/guardian/FeePaymentDialog'
-import { Upload, Clock } from 'lucide-react'
 import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -27,8 +26,13 @@ type Child = {
   lastName: string
   registrationNumber: string
   rollNumber: string | null
+  profilePicture: string | null
+  shift: string | null
+  deliveryMode: string | null
   campus: { name: string }
   batch: { name: string } | null
+  house: { name: string; color: string } | null
+  class: { name: string; shift: string | null } | null
 }
 
 type ChildAcademic = {
@@ -194,7 +198,7 @@ export default function MyChildrenPage() {
           My Children
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          View attendance, published results, timetable, and fee status (read-only).
+          Monitor academic progress, attendance, results, and fee status for your linked students.
         </p>
       </div>
 
@@ -210,22 +214,41 @@ export default function MyChildrenPage() {
         </Card>
       ) : (
         <>
-          <Card>
-            <CardContent className="pt-6">
-              <Select value={childId} onValueChange={setSelectedChildId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select child" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(children ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} · {c.registrationNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          {/* ── Child Selector ───────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-3">
+            {(children ?? []).map((c) => {
+              const initials = `${c.firstName[0]}${c.lastName[0]}`.toUpperCase()
+              const isSelected = childId === c.id
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedChildId(c.id)}
+                  className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all ${
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                  }`}
+                >
+                  {c.profilePicture ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.profilePicture} alt={c.firstName} className="h-10 w-10 rounded-xl object-cover" />
+                  ) : (
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
+                      isSelected ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className={`font-bold text-sm truncate ${isSelected ? 'text-emerald-800' : 'text-slate-800'}`}>
+                      {c.firstName} {c.lastName}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">{c.registrationNumber}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
 
           {loadingAcademic ? (
             <div className="flex items-center gap-2 text-gray-500 py-8">
@@ -243,43 +266,114 @@ export default function MyChildrenPage() {
               </TabsList>
 
               <TabsContent value="overview" className="mt-4 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {academic.student.firstName} {academic.student.lastName}
-                    </CardTitle>
-                    <CardDescription>
-                      {academic.activeYear?.name ?? 'No active year'} · {academic.student.campus.name}
-                      {academic.student.batch ? ` · ${academic.student.batch.name}` : ''}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid sm:grid-cols-2 gap-4 text-sm">
-                    {academic.enrollment ? (
-                      <>
-                        <div>
-                          <p className="text-gray-500">Section</p>
-                          <p className="font-semibold">
-                            {academic.enrollment.classSection.className}-
-                            {academic.enrollment.classSection.sectionName}
-                          </p>
+                {/* ── Premium Child Hero Card ─────────────────────────── */}
+                {(() => {
+                  const selectedChild = (children ?? []).find((c) => c.id === childId)
+                  const cInitials = selectedChild ? `${selectedChild.firstName[0]}${selectedChild.lastName[0]}`.toUpperCase() : ''
+                  const cShift = academic.enrollment?.classSection?.shift?.code
+                    ? SESSION_SHIFT_LABELS[academic.enrollment.classSection.shift.code as keyof typeof SESSION_SHIFT_LABELS]
+                    : null
+                  return (
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 shadow-xl">
+                      <div className="pointer-events-none absolute -top-8 -right-8 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
+                      <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-teal-400/10 blur-2xl" />
+
+                      <div className="relative flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
+                        <div className="shrink-0">
+                          {selectedChild?.profilePicture ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={selectedChild.profilePicture} alt={selectedChild.firstName} className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white/20" />
+                          ) : (
+                            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-700 text-2xl font-black text-white ring-4 ring-white/20">
+                              {cInitials}
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-gray-500">Shift · Mode</p>
-                          <p className="font-semibold">
-                            {academic.enrollment.classSection.shift?.code
-                              ? SESSION_SHIFT_LABELS[
-                                  academic.enrollment.classSection.shift.code as keyof typeof SESSION_SHIFT_LABELS
-                                ]
-                              : '—'}{' '}
-                            · {academic.enrollment.deliveryMode}
+
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-xl font-black text-white">
+                            {academic.student.firstName} {academic.student.lastName}
+                          </h2>
+                          <p className="text-emerald-300 text-sm mt-0.5">
+                            {academic.activeYear?.name ?? 'No active year'} · {academic.student.campus.name}
+                            {academic.student.batch ? ` · ${academic.student.batch.name}` : ''}
                           </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {academic.enrollment && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white border border-white/10">
+                                <BookOpen className="h-3.5 w-3.5 text-emerald-300" />
+                                {academic.enrollment.classSection.className}-{academic.enrollment.classSection.sectionName}
+                              </span>
+                            )}
+                            {cShift && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white border border-white/10">
+                                <Clock className="h-3.5 w-3.5 text-amber-300" />
+                                {cShift} Shift
+                              </span>
+                            )}
+                            {academic.enrollment?.deliveryMode && (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-semibold text-white border border-white/10">
+                                {academic.enrollment.deliveryMode}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </>
-                    ) : (
-                      <p className="text-gray-500 sm:col-span-2">No enrollment for the active academic year.</p>
-                    )}
-                  </CardContent>
-                </Card>
+
+                        {academic.enrollment?.rollNumber && (
+                          <div className="shrink-0 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Roll No.</p>
+                            <p className="text-2xl font-black text-white">{academic.enrollment.rollNumber}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stats bar */}
+                      <div className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
+                        {[
+                          { label: 'Attendance', value: academic.attendance.summary.attendancePct != null ? `${academic.attendance.summary.attendancePct}%` : '—' },
+                          { label: 'Subjects', value: academic.enrollment?.subjectEnrollments?.length ?? '—' },
+                          { label: 'Avg. Result', value: academic.overallPercentage != null ? `${academic.overallPercentage}%` : '—' },
+                          { label: 'Invoices', value: academic.feeInvoices?.length ?? 0 },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="px-4 py-3 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">{label}</p>
+                            <p className="mt-0.5 text-sm font-bold text-white">{String(value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Enrolled subjects list */}
+                {academic.enrollment && (academic.enrollment.subjectEnrollments ?? []).length > 0 && (
+                  <Card className="border-slate-200 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-indigo-600" /> Enrolled Subjects
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {academic.enrollment.subjectEnrollments.map((se, idx) => (
+                          <div key={idx} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5 hover:bg-indigo-50/30 transition-colors">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-700">
+                              {se.subjectOffering.subject.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">{se.subjectOffering.subject.name}</p>
+                              {se.subjectOffering.teacher && (
+                                <p className="text-[11px] text-slate-400 truncate">
+                                  {se.subjectOffering.teacher.firstName} {se.subjectOffering.teacher.lastName}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {academic.timetable.length > 0 && (
                   <Card>
