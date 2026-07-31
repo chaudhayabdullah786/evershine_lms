@@ -12,6 +12,7 @@ import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
 import { AcademicUpgradesService, type SaveDateSheetInput } from '@/lib/services/academic-upgrades-service'
 import { saveDateSheetSchema } from '@/lib/validation/academic-upgrades'
+import { z } from 'zod'
 import type { Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
@@ -84,5 +85,73 @@ export async function POST(request: NextRequest) {
     return successResponse(sheet, 'Date sheet saved successfully.')
   } catch (err: any) {
     return errors.badRequest(err.message ?? 'Failed to save date sheet.')
+  }
+}
+
+// ── Toggle publish / unpublish ────────────────────────────────────────────────
+// WHY PATCH not PUT: only isPublished changes — full resource replacement is not
+// the intent. PATCH semantics correctly signal a partial update.
+const togglePublishSchema = z.object({
+  classSectionId: z.string().cuid('Invalid class section ID'),
+  examSessionId:  z.string().cuid('Invalid exam session ID'),
+  isPublished:    z.boolean(),
+})
+
+export async function PATCH(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return errors.unauthorized()
+
+  const role = session.user.role as Role
+  if (!checkPermission(role, 'exams', 'create')) return errors.forbidden()
+
+  let body: unknown
+  try { body = await request.json() }
+  catch { return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never) }
+
+  const parsed = togglePublishSchema.safeParse(body)
+  if (!parsed.success) return errors.validation(parsed.error)
+
+  try {
+    const result = await AcademicUpgradesService.togglePublishDateSheet(
+      parsed.data.classSectionId,
+      parsed.data.examSessionId,
+      parsed.data.isPublished,
+    )
+    const label = parsed.data.isPublished ? 'published' : 'unpublished'
+    return successResponse(result, `Date sheet ${label} successfully.`)
+  } catch (err: any) {
+    return errors.badRequest(err.message ?? 'Failed to update date sheet visibility.')
+  }
+}
+
+// ── Delete date sheet ─────────────────────────────────────────────────────────
+// WHY query params not body: HTTP spec discourages a body on DELETE requests;
+// query params are unambiguous, cacheable, and log-friendly for audit trails.
+export async function DELETE(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return errors.unauthorized()
+
+  const role = session.user.role as Role
+  if (!checkPermission(role, 'exams', 'create')) return errors.forbidden()
+
+  const { searchParams } = new URL(request.url)
+  const classSectionId = searchParams.get('classSectionId')
+  const examSessionId  = searchParams.get('examSessionId')
+
+  if (!classSectionId || !examSessionId) {
+    return errors.badRequest('Both classSectionId and examSessionId query parameters are required.')
+  }
+
+  // Lightweight CUID format guard before hitting the DB
+  const idShape = z.string().cuid()
+  if (!idShape.safeParse(classSectionId).success || !idShape.safeParse(examSessionId).success) {
+    return errors.badRequest('Invalid classSectionId or examSessionId format.')
+  }
+
+  try {
+    const result = await AcademicUpgradesService.deleteDateSheet(classSectionId, examSessionId)
+    return successResponse(result, 'Date sheet deleted successfully.')
+  } catch (err: any) {
+    return errors.badRequest(err.message ?? 'Failed to delete date sheet.')
   }
 }
