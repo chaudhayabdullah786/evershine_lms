@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,8 +13,9 @@ import { notify } from '@/lib/notify'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookOpen, Calendar, CheckCircle2, Clock, Loader2, ClipboardCheck, BarChart2, Download, Target, TrendingUp, ArrowUpRight, Star, AlertTriangle, Trophy, Award, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState as useLocalState } from 'react'
-import { downloadReportCardForEnrollment } from '@/lib/academic/download-report-card'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
+import { downloadPdf } from '@/lib/pdf'
+import ResultReportCard, { type ReportCardResult, type ReportCardStudent } from '@/components/academic/ResultReportCard'
 
 type AttendanceData = {
   academicYear: { name: string } | null
@@ -56,6 +57,7 @@ type DeclaredResult = {
   classPosition: number | null
   performanceBatch: string
   teacherRemarks: string | null
+  customFields: Array<{ label: string; value: string }>
   declaredAt: string | null
   subjects: DeclaredSubject[]
 }
@@ -133,6 +135,8 @@ type PortalData = {
     id?: string
     firstName?: string
     lastName?: string
+    fatherName?: string
+    registrationNumber?: string
     rollNumber?: string | null
     profilePicture?: string | null
     shift?: string | null
@@ -374,188 +378,198 @@ function MonitoringCard({ results }: { results: ResultsData | undefined }) {
   }
 
 // ── Results Tab Component ─────────────────────────────────────────────────────
+/**
+ * ResultsTabContent renders each declared exam session as a premium
+ * ResultReportCard. Per-session download captures the card DOM via
+ * downloadPdf() for pixel-perfect PDF output.
+ *
+ * WHY DOM-capture: the on-screen card already contains all custom fields,
+ * student photo, academy branding, and signature lines. Duplicating this
+ * rendering in jsPDF primitives would be fragile and drift out of sync.
+ */
 function ResultsTabContent({
   results,
-  enrollmentId,
-  downloadingCard,
-  setDownloadingCard,
+  student,
+  sessionName,
 }: {
   results: ResultsData | undefined
-  enrollmentId: string | undefined
-  downloadingCard: boolean
-  setDownloadingCard: (val: boolean) => void
+  student: PortalData['student']
+  sessionName?: string | null
 }) {
   const [expandedSession, setExpandedSession] = useLocalState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  // Refs keyed by termResultId for per-session DOM capture
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const hasDeclared = (results?.declaredResults ?? []).length > 0
 
-  return (
-    <Card className="border border-slate-200 shadow-sm">
-      <CardHeader className="bg-slate-50/50 border-b pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-purple-600" />
-            <div>
-              <CardTitle className="text-base font-bold text-slate-900">Declared Exam Results</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Official marks sheets published and verified by the administration.
-              </CardDescription>
-            </div>
-          </div>
-          {enrollmentId && hasDeclared && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50 shadow-sm font-semibold text-xs h-9"
-              disabled={downloadingCard}
-              onClick={async () => {
-                setDownloadingCard(true)
-                try {
-                  await downloadReportCardForEnrollment(enrollmentId)
-                  notify.success('Official report card downloaded successfully.')
-                } catch (e) {
-                  notify.error(e instanceof Error ? e.message : 'Failed to download report card.')
-                } finally {
-                  setDownloadingCard(false)
-                }
-              }}
-            >
-              {downloadingCard ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              Download Report Card (PDF)
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-6 space-y-6">
-        {!hasDeclared ? (
-          <div className="text-center py-12">
-            <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              Your results for this session have not been declared yet. Results appear immediately after the administration declared them.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {(results?.declaredResults ?? []).map((sessionResult) => {
-              const isExpanded = expandedSession === sessionResult.examSessionId
-              const batchColorClass =
-                sessionResult.performanceBatch === 'Ever Shine'
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                  : sessionResult.performanceBatch === 'Quaid'
-                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                  : sessionResult.performanceBatch === 'Iqbal'
-                  ? 'bg-amber-100 text-amber-800 border-amber-200'
-                  : 'bg-rose-100 text-rose-800 border-rose-200'
+  const cardStudent: ReportCardStudent = {
+    firstName: student?.firstName,
+    lastName: student?.lastName,
+    fatherName: student?.fatherName,
+    registrationNumber: student?.registrationNumber,
+    rollNumber: student?.rollNumber,
+    profilePicture: student?.profilePicture,
+    campus: student?.campus,
+    batch: student?.batch,
+    class: student?.class,
+  }
 
-              return (
-                <div
-                  key={sessionResult.examSessionId}
-                  className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm"
-                >
-                  <div
-                    className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50/40 cursor-pointer hover:bg-slate-50/80 transition-colors border-b"
-                    onClick={() => setExpandedSession(isExpanded ? null : sessionResult.examSessionId)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Award className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm sm:text-base">
-                          {sessionResult.examSessionLabel}
-                        </h4>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Section: {sessionResult.sectionLabel} {sessionResult.shiftName ? `(${sessionResult.shiftName})` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className="text-lg font-black text-slate-900">
-                          {sessionResult.overallPercentage.toFixed(1)}%
-                        </span>
-                        <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                          <Badge className={`${batchColorClass} text-[10px] font-bold py-0`}>
-                            {sessionResult.performanceBatch} Group
-                          </Badge>
-                          {sessionResult.classPosition !== null && (
-                            <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
-                              Rank {sessionResult.classPosition}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronUp className="h-5 w-5 text-slate-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-slate-400" />
+  async function handleDownload(sessionResult: ReportCardResult) {
+    const el = cardRefs.current[sessionResult.termResultId]
+    if (!el) {
+      notify.error('Report card element not found. Please expand the card first.')
+      return
+    }
+    setDownloadingId(sessionResult.termResultId)
+    try {
+      await downloadPdf({
+        element: el,
+        filename: `${(student?.firstName ?? 'Student').replace(/\s+/g, '_')}-${sessionResult.examSessionLabel.replace(/\s+/g, '_')}-ReportCard`,
+        orientation: 'portrait',
+        format: 'a4',
+        scale: 3,
+      })
+      notify.success('Report card downloaded successfully.')
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : 'Failed to download report card.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-1">
+        <BarChart2 className="w-5 h-5 text-purple-600" />
+        <div>
+          <h3 className="text-base font-bold text-slate-900">Declared Exam Results</h3>
+          <p className="text-xs text-slate-500">
+            Official marks sheets published and verified by the administration.
+          </p>
+        </div>
+      </div>
+
+      {!hasDeclared ? (
+        <Card>
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center">
+              <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                Your results for this session have not been declared yet. Results appear here immediately after the administration declares them.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        (results?.declaredResults ?? []).map((sessionResult) => {
+          const isExpanded = expandedSession === sessionResult.termResultId
+          const isDownloading = downloadingId === sessionResult.termResultId
+
+          const batchColorClass =
+            sessionResult.performanceBatch === 'Ever Shine'
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+              : sessionResult.performanceBatch === 'Quaid'
+              ? 'bg-blue-100 text-blue-800 border-blue-200'
+              : sessionResult.performanceBatch === 'Iqbal'
+              ? 'bg-amber-100 text-amber-800 border-amber-200'
+              : 'bg-rose-100 text-rose-800 border-rose-200'
+
+          return (
+            <div
+              key={sessionResult.termResultId}
+              className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm"
+            >
+              {/* Accordion Header */}
+              <div
+                className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:from-slate-100/60 transition-colors border-b"
+                onClick={() => setExpandedSession(isExpanded ? null : sessionResult.termResultId)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <Award className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                      {sessionResult.examSessionLabel}
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {sessionResult.sectionLabel}{sessionResult.shiftName ? ` · ${sessionResult.shiftName}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 ml-auto">
+                  <div className="text-right">
+                    <span className="text-xl font-black text-slate-900">
+                      {sessionResult.overallPercentage.toFixed(1)}%
+                    </span>
+                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                      <Badge className={`${batchColorClass} text-[10px] font-bold border py-0`}>
+                        {sessionResult.performanceBatch}
+                      </Badge>
+                      {sessionResult.classPosition !== null && (
+                        <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
+                          Rank #{sessionResult.classPosition}
+                        </Badge>
                       )}
                     </div>
                   </div>
 
-                  {isExpanded && (
-                    <div className="p-4 space-y-4 bg-white">
-                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                        {sessionResult.subjects.map((sub) => {
-                          const statusColor = sub.isPassed
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-rose-100 text-rose-800'
-                          return (
-                            <div
-                              key={sub.subjectId}
-                              className="border border-slate-100 hover:border-slate-200 rounded-xl p-3.5 bg-slate-50/20 flex flex-col justify-between"
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="font-bold text-slate-900 text-sm">{sub.subjectName}</p>
-                                  <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">
-                                    {sub.subjectCode}
-                                  </p>
-                                </div>
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
-                                  {sub.grade}
-                                </span>
-                              </div>
-                              <div className="flex items-baseline justify-between mt-4">
-                                <span className="text-base font-black text-slate-800">
-                                  {sub.obtainedMarks} <span className="text-slate-400 text-xs font-normal">/ {sub.totalMarks}</span>
-                                </span>
-                                <span className="text-xs font-bold text-indigo-600">
-                                  {sub.percentage.toFixed(1)}%
-                                </span>
-                              </div>
-                              {sub.remarks && (
-                                <p className="mt-2 text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded border border-slate-100">
-                                  {sub.remarks}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
+                  {/* Download button — always shown when expanded or not */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 text-xs h-8 font-semibold flex-shrink-0"
+                    disabled={isDownloading}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // Auto-expand card first so the ref is populated
+                      if (!isExpanded) {
+                        setExpandedSession(sessionResult.termResultId)
+                        // small settle delay for DOM to render before capture
+                        setTimeout(() => handleDownload(sessionResult as ReportCardResult), 300)
+                      } else {
+                        handleDownload(sessionResult as ReportCardResult)
+                      }
+                    }}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    PDF
+                  </Button>
 
-                      {sessionResult.teacherRemarks && (
-                        <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-4 text-sm text-purple-900">
-                          <p className="font-bold text-purple-950 flex items-center gap-1.5 mb-1">
-                            <GraduationCap className="h-4 w-4" /> Head Teacher Remarks
-                          </p>
-                          <p className="text-purple-800">{sessionResult.teacherRemarks}</p>
-                        </div>
-                      )}
-                    </div>
+                  {isExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />
                   )}
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-    )
-  }
+              </div>
+
+              {/* Expanded: Full ResultReportCard */}
+              {isExpanded && (
+                <div className="p-4 sm:p-6 bg-slate-50/40">
+                  <ResultReportCard
+                    ref={(el) => { cardRefs.current[sessionResult.termResultId] = el }}
+                    result={sessionResult as ReportCardResult}
+                    student={cardStudent}
+                    sessionName={sessionName}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
 
 function StudentEnrollmentPageInner() {
   const { data: session, status } = useSession()
@@ -563,7 +577,7 @@ function StudentEnrollmentPageInner() {
   const searchParams = useSearchParams()
   const qc = useQueryClient()
   const [selected, setSelected] = useState<string[]>([])
-  const [downloadingCard, setDownloadingCard] = useState(false)
+
 
   const tabParam = searchParams.get('tab')
   const activeTab: PortalTab = PORTAL_TABS.includes(tabParam as PortalTab)
@@ -1062,9 +1076,8 @@ function StudentEnrollmentPageInner() {
         <TabsContent value="results" className="mt-4 space-y-4">
           <ResultsTabContent
             results={results}
-            enrollmentId={data?.enrollment?.id}
-            downloadingCard={downloadingCard}
-            setDownloadingCard={setDownloadingCard}
+            student={data?.student}
+            sessionName={data?.activeYear?.name}
           />
         </TabsContent>
 
