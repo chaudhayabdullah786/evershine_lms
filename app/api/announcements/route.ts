@@ -10,7 +10,7 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { checkPermission } from '@/lib/rbac'
+import { checkPermission, normalizeRole } from '@/lib/rbac'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { sendEmail } from '@/lib/email'
 import { logAudit } from '@/lib/audit-logger'
@@ -32,7 +32,8 @@ const querySchema = z.object({
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!checkPermission(session.user.role as Role, 'announcements', 'read')) return errors.forbidden()
+  const role = normalizeRole(session.user.role)
+  if (!role || !checkPermission(role, 'announcements', 'read')) return errors.forbidden()
 
   const { searchParams } = new URL(request.url)
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams))
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       {
         OR: [
           { targetRole: null },
-          { targetRole: session.user.role as Role },
+          { targetRole: role },
         ],
       },
     ],
@@ -79,7 +80,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!checkPermission(session.user.role as Role, 'announcements', 'create')) return errors.forbidden()
+  const role = normalizeRole(session.user.role)
+  if (!role || !checkPermission(role, 'announcements', 'create')) return errors.forbidden()
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -193,4 +195,3 @@ async function sendAnnouncementEmails({
     await sendEmail({ to: batch, subject: `📢 ${title} — ${appName}`, html })
   }
 }
-

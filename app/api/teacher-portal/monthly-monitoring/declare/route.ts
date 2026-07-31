@@ -4,10 +4,13 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 import { dispatchBulkNotification, getStudentUserIdsForSection } from '@/lib/notifications/dispatch'
 import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 
 export const dynamic = 'force-dynamic'
 
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,16 +23,16 @@ export async function POST(request: NextRequest) {
     const year = Number(body.year)
     const academicYearId = String(body.academicYearId ?? '')
     if (!classSectionId || !academicYearId || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) return errors.badRequest('classSectionId, academicYearId, month, and year are required.')
-    const report = await monitoringModel.findUnique({ where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } } })
+    const report = await monitoringModel().findUnique({ where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } } })
     if (!report) return errors.notFound('Monthly monitoring report')
     if (report.declarationStatus === 'DECLARED') return errors.badRequest('Monthly monitoring report is already declared.')
     if (session.user.role === 'TEACHER') {
       const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
-      const assigned = teacher && await prisma.subjectOffering.findFirst({ where: { classSectionId, teacherId: teacher.id }, select: { id: true } })
+      const assigned = teacher && await teacherCanAccessClassSection(teacher.id, classSectionId, academicYearId)
       if (!assigned) return errors.forbidden('You are not assigned to this class section.')
     }
     const declaredAt = new Date()
-    const updateResult = await monitoringModel.updateMany({
+    const updateResult = await monitoringModel().updateMany({
       where: { id: report.id, declarationStatus: 'DRAFT' },
       data: { declarationStatus: 'DECLARED', declaredAt, declaredById: session.user.id },
     })
@@ -47,6 +50,46 @@ export async function POST(request: NextRequest) {
     return successResponse(declared, 'Monthly monitoring report declared successfully')
   } catch (error) {
     console.error('[MONTHLY_MONITORING_DECLARE]', error)
+    return errors.internal()
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth()
+    if (!session?.user) return errors.unauthorized()
+    if (!['TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(session.user.role)) return errors.forbidden()
+    const body = await request.json()
+    const classSectionId = String(body.classSectionId ?? '')
+    const month = Number(body.month)
+    const year = Number(body.year)
+    const academicYearId = String(body.academicYearId ?? '')
+    if (!classSectionId || !academicYearId || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) {
+      return errors.badRequest('classSectionId, academicYearId, month, and year are required.')
+    }
+    const report = await monitoringModel().findUnique({
+      where: { classSectionId_month_year_academicYearId: { classSectionId, month, year, academicYearId } }
+    })
+    if (!report) return errors.notFound('Monthly monitoring report')
+    if (report.declarationStatus === 'DRAFT') {
+      return errors.badRequest('Monthly monitoring report is already in draft status.')
+    }
+    if (session.user.role === 'TEACHER') {
+      const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+      const assigned = teacher && await teacherCanAccessClassSection(teacher.id, classSectionId, academicYearId)
+      if (!assigned) return errors.forbidden('You are not assigned to this class section.')
+    }
+    const updateResult = await monitoringModel().updateMany({
+      where: { id: report.id, declarationStatus: 'DECLARED' },
+      data: { declarationStatus: 'DRAFT', declaredAt: null, declaredById: null },
+    })
+    if (updateResult.count !== 1) {
+      return errors.badRequest('Monthly monitoring report could not be reverted.')
+    }
+    const reverted = { ...report, declarationStatus: 'DRAFT' as const, declaredAt: null, declaredById: null }
+    return successResponse(reverted, 'Monthly monitoring report reverted to draft successfully')
+  } catch (error) {
+    console.error('[MONTHLY_MONITORING_REVERT]', error)
     return errors.internal()
   }
 }

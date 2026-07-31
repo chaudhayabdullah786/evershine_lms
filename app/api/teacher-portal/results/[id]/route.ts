@@ -14,6 +14,29 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { derivePerformanceBatch, deriveGrade, deriveResultStatus } from '@/lib/academic/result-utils'
 import { errors, successResponse } from '@/lib/api-response'
+import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+
+const resultDetailSelect = {
+  id: true,
+  studentId: true,
+  classSectionId: true,
+  examSessionId: true,
+  declarationStatus: true,
+  overallPercentage: true,
+  grade: true,
+  performanceBatch: true,
+  classPosition: true,
+  teacherRemarks: true,
+  customFields: true,
+  student: { select: { id: true, firstName: true, lastName: true, rollNumber: true } },
+  subjectResults: {
+    include: {
+      subjectOffering: {
+        include: { subject: { select: { name: true, code: true } } },
+      },
+    },
+  },
+} as const
 
 export async function GET(
   req: NextRequest,
@@ -33,24 +56,13 @@ export async function GET(
     const { id } = await params
     const result = await prisma.termResult.findUnique({
       where: { id },
-      include: {
-        student: { select: { id: true, firstName: true, lastName: true, rollNumber: true } },
-        subjectResults: {
-          include: {
-            subjectOffering: {
-              include: { subject: { select: { name: true, code: true } } },
-            },
-          },
-        },
-      },
+      select: resultDetailSelect,
     })
 
     if (!result) return errors.notFound('Result')
 
-    const teachingSection = await prisma.subjectOffering.findFirst({
-      where: { classSectionId: result.classSectionId, teacherId: teacher.id },
-    })
-    if (!teachingSection) return errors.forbidden()
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, result.classSectionId)
+    if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
     return successResponse(result)
   } catch (err) {
@@ -100,14 +112,20 @@ export async function PATCH(
 
     const existing = await prisma.termResult.findUnique({
       where: { id },
-      include: { subjectResults: true },
+      select: {
+        id: true,
+        classSectionId: true,
+        declarationStatus: true,
+        overallPercentage: true,
+        teacherRemarks: true,
+        customFields: true,
+        subjectResults: true,
+      },
     })
     if (!existing) return errors.notFound('Result')
 
-    const teachingSection = await prisma.subjectOffering.findFirst({
-      where: { classSectionId: existing.classSectionId, teacherId: teacher.id },
-    })
-    if (!teachingSection) return errors.forbidden()
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, existing.classSectionId)
+    if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
     const { teacherRemarks, customFields, subjectResults, reason } = parsed.data
 
@@ -180,7 +198,13 @@ export async function PATCH(
           teacherId: teacher.id,
           updatedAt: new Date(),
         },
-        include: { subjectResults: true },
+        select: {
+          id: true,
+          overallPercentage: true,
+          teacherRemarks: true,
+          customFields: true,
+          subjectResults: true,
+        },
       })
 
       // Write retroactive audit log
@@ -226,13 +250,18 @@ export async function DELETE(
 
     const { id } = await params
 
-    const existing = await prisma.termResult.findUnique({ where: { id } })
+    const existing = await prisma.termResult.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        classSectionId: true,
+        declarationStatus: true,
+      },
+    })
     if (!existing) return errors.notFound('Result')
 
-    const teachingSection = await prisma.subjectOffering.findFirst({
-      where: { classSectionId: existing.classSectionId, teacherId: teacher.id },
-    })
-    if (!teachingSection) return errors.forbidden()
+    const canAccessSection = await teacherCanAccessClassSection(teacher.id, existing.classSectionId)
+    if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
     if (existing.declarationStatus === 'DECLARED') {
       return errors.badRequest('Declared results cannot be deleted. Contact SuperAdmin.')

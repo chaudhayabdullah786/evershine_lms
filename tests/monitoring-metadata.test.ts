@@ -4,6 +4,7 @@ import {
   decodeMonitoringRemarks,
   encodeMonitoringRemarks,
   derivePerformanceGroup,
+  toDailyMonitoringPortalEntry,
 } from '@/lib/academic/monitoring'
 
 describe('monitoring metadata helpers', () => {
@@ -28,6 +29,29 @@ describe('monitoring metadata helpers', () => {
       grade: 'POOR',
       remarks: 'Needs writing practice',
       isConcern: true,
+    })
+  })
+
+
+  it('formats portal daily monitoring entries without exposing encoded JSON metadata', () => {
+    const encoded = encodeMonitoringRemarks({
+      grade: 'GOOD',
+      remarks: 'Physics: Keep doing focused practice',
+      isStarOfDay: true,
+      isConcern: false,
+    })
+
+    expect(toDailyMonitoringPortalEntry({
+      rawRemarks: encoded,
+      score: 16,
+      maxScore: 20,
+      courseName: 'Physics',
+      grade: 'A',
+      highlight: null,
+    })).toEqual({
+      remarks: 'Keep doing focused practice',
+      grade: 'A',
+      highlight: 'STAR_OF_THE_DAY',
     })
   })
 

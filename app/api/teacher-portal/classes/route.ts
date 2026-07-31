@@ -243,8 +243,12 @@ export async function GET(req: NextRequest) {
     })
 
     if (classMap.has(key)) {
-      // Class already exists in map — just add the subject
+      // Class already exists in map from the legacy assignment. Preserve the
+      // current-engine ID as well; attendance must submit a ClassSection ID,
+      // not the legacy Class ID, when both records describe the same class.
       const entry = classMap.get(key)!
+      entry.classSectionId ??= cls.id
+      entry.legacyClassId ??= legacyClass?.id ?? null
       entry.isSubjectTeacher = true
       if (row.subjectOffering?.subject && !entry.subjects.find((s: any) => s.id === row.subjectOffering.subject.id)) {
         entry.subjects.push({ 
@@ -298,8 +302,11 @@ export async function GET(req: NextRequest) {
     })
 
     if (classMap.has(key)) {
-      // Class already exists in map — just add the subject
+      // See the timetable branch above. A legacy-first map entry still needs
+      // the current ClassSection ID for all modern teacher workflows.
       const entry = classMap.get(key)!
+      entry.classSectionId ??= cls.id
+      entry.legacyClassId ??= legacyClass?.id ?? null
       entry.isSubjectTeacher = true
       if (!entry.subjects.find((s: any) => s.id === subject.id)) {
         entry.subjects.push({ id: subject.id, name: subject.name, code: subject.code })

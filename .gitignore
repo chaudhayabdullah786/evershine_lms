@@ -199,6 +199,8 @@ designs/row_profile.txt
 # ═══════════════════════════════════════════════════════════════════════════════
 /public/uploads/*
 !/public/uploads/.gitkeep
+/public/build-info.json
+/public/assets/images/evershine-social-share.jpg
 /uploads/
 /temp/
 /tmp/

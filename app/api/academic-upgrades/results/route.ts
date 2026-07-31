@@ -15,6 +15,9 @@ import { errors, successResponse } from '@/lib/api-response'
 import { AcademicUpgradesService, type SubmitScoresInput } from '@/lib/services/academic-upgrades-service'
 import { submitScoresSchema, declareResultSchema } from '@/lib/validation/academic-upgrades'
 import type { Role } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
+import { assertGuardianAccessToStudent } from '@/lib/academic/guardian'
+import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -28,10 +31,46 @@ export async function GET(request: NextRequest) {
   const examSessionId  = searchParams.get('examSessionId')
   const classSectionId = searchParams.get('classSectionId')
 
-  const declaredOnly = role === 'STUDENT' || role === 'GUARDIAN'
+  const declaredOnly = ['STUDENT', 'PARENT', 'GUARDIAN'].includes(role)
 
   try {
     if (studentId) {
+      if (role === 'STUDENT') {
+        const student = await prisma.student.findUnique({
+          where: { userId: session.user.id },
+          select: { id: true },
+        })
+        if (!student || student.id !== studentId) {
+          return errors.forbidden('You can only view your own declared results.')
+        }
+      }
+
+      if (role === 'PARENT' || role === 'GUARDIAN') {
+        const allowed = await assertGuardianAccessToStudent(session.user.id, studentId)
+        if (!allowed) return errors.forbidden('You can only view your linked children.')
+      }
+
+      if (role === 'TEACHER') {
+        const teacher = await prisma.teacher.findUnique({
+          where: { userId: session.user.id },
+          select: { id: true },
+        })
+        if (!teacher) return errors.forbidden()
+
+        const sectionIds = await getTeacherClassSectionIds(teacher.id)
+        const enrollment = await prisma.studentEnrollment.findFirst({
+          where: {
+            studentId,
+            classSectionId: { in: sectionIds },
+            status: 'ACTIVE',
+          },
+          select: { id: true },
+        })
+        if (!enrollment) {
+          return errors.forbidden('You can only view students in your assigned sections.')
+        }
+      }
+
       const card = await AcademicUpgradesService.getStudentTermResults(
         studentId,
         examSessionId ?? undefined,
@@ -41,6 +80,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (classSectionId && examSessionId) {
+      if (!['SUPER_ADMIN', 'ADMIN', 'TEACHER'].includes(role)) {
+        return errors.forbidden('Class result sheets are restricted to staff.')
+      }
+
+      if (role === 'TEACHER') {
+        const teacher = await prisma.teacher.findUnique({
+          where: { userId: session.user.id },
+          select: { id: true },
+        })
+        if (!teacher) return errors.forbidden()
+        const sectionIds = await getTeacherClassSectionIds(teacher.id)
+        if (!sectionIds.includes(classSectionId)) {
+          return errors.forbidden('You can only view result sheets for your assigned sections.')
+        }
+      }
+
       const sheet = await AcademicUpgradesService.getClassResultsSheet(classSectionId, examSessionId)
       return successResponse(sheet)
     }

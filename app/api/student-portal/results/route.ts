@@ -4,10 +4,14 @@ import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { mapGradeLetter } from '@/lib/academic/grades'
 import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
+import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
+import { parseCustomResultFields } from '@/lib/academic/result-fields'
 
 export const dynamic = 'force-dynamic'
 
-const monitoringModel = prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+function monitoringModel(): MonthlyMonitoringRepository {
+  return prisma.monthlyMonitoringReport as unknown as MonthlyMonitoringRepository
+}
 
 /**
  * GET /api/student-portal/results
@@ -90,7 +94,7 @@ export async function GET() {
         })
       : Promise.resolve([]),
     classSectionIds.length > 0 && activeYear
-      ? monitoringModel.findMany({
+      ? monitoringModel().findMany({
           where: {
             classSectionId: { in: classSectionIds },
             academicYearId: activeYear.id,
@@ -117,15 +121,25 @@ export async function GET() {
   ])
 
   const monitoringReports = {
-    daily: dailyMonitoring.map((entry) => ({
-      date: entry.date,
-      courseName: entry.subjectOffering.subject.name,
-      remarks: entry.remarks,
-      // WHY cast: DailyPerformanceScore has grade+highlight at DB level;
-      // Prisma types lag schema — safe cast for runtime access.
-      grade: (entry as typeof entry & { grade?: string | null }).grade ?? null,
-      highlight: (entry as typeof entry & { highlight?: string | null }).highlight ?? null,
-    })),
+    daily: dailyMonitoring.map((entry) => {
+      const assessment = entry as typeof entry & { grade?: string | null; highlight?: string | null }
+      const courseName = entry.subjectOffering.subject.name
+      const formatted = toDailyMonitoringPortalEntry({
+        rawRemarks: entry.remarks,
+        score: Number(entry.score),
+        maxScore: entry.subjectOffering.maxDailyScore,
+        courseName,
+        grade: assessment.grade,
+        highlight: assessment.highlight,
+      })
+      return {
+        date: entry.date,
+        courseName,
+        remarks: formatted.remarks,
+        grade: formatted.grade,
+        highlight: formatted.highlight,
+      }
+    }),
     monthly: monthlyMonitoring.flatMap((report) => {
       const studentReport = toPortalMonthlyMonitoringReport(report, student.id)
       return studentReport ? [studentReport] : []
@@ -177,6 +191,7 @@ export async function GET() {
       classPosition: termResult.classPosition ?? null,
       performanceBatch: termResult.performanceBatch,
       teacherRemarks: termResult.teacherRemarks ?? null,
+      customFields: parseCustomResultFields(termResult.customFields),
       declaredAt: termResult.declaredAt ?? null,
       subjects,
     }

@@ -11,10 +11,27 @@ export function PWARegister() {
     if (process.env.NODE_ENV !== 'production') return;
 
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      const registerSW = () => {
-        const swUrl = '/sw.js';
+      const registerSW = async () => {
+        let swUrl = '/sw.js';
+
+        try {
+          const versionResponse = await fetch('/api/version', {
+            cache: 'no-store',
+            credentials: 'same-origin',
+          });
+          if (versionResponse.ok) {
+            const version = await versionResponse.json() as { buildId?: string | null };
+            if (version.buildId) {
+              swUrl = `/sw.js?v=${encodeURIComponent(version.buildId)}`;
+            }
+          }
+        } catch {
+          // Registration still works without a version query. The standalone
+          // postbuild copy contains the same BUILD_ID as a fallback.
+        }
+
         navigator.serviceWorker
-          .register(swUrl)
+          .register(swUrl, { updateViaCache: 'none' })
           .then((registration) => {
             console.log('[PWA] Service Worker registered with scope:', registration.scope);
 
@@ -47,7 +64,7 @@ export function PWARegister() {
 
       // Register the service worker on window load
       if (document.readyState === 'complete') {
-        registerSW();
+        void registerSW();
       } else {
         window.addEventListener('load', registerSW);
       }

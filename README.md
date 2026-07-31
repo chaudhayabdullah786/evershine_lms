@@ -13,7 +13,7 @@
 > A production-deployed academy management, learning management, and education ERP platform for multi-campus educational institutions.
 
 <p align="center">
-  <a href="https://evershineacademy.com/"><strong>🌐 Live Application</strong></a>
+  <a href="https://evershineacadmey.com/"><strong>🌐 Live Application</strong></a>
   ·
   <a href="https://github.com/chaudhayabdullah786/evershine_lms"><strong>💻 Source Code</strong></a>
   ·
@@ -416,7 +416,7 @@ evershine_lms/
 
 The live application is deployed on **Hostinger**:
 
-**https://evershineacademy.com/**
+**https://evershineacadmey.com/**
 
 ### Production Requirements
 
@@ -593,7 +593,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## 🔗 Project Links
 
-- **Live Application:** https://evershineacademy.com/
+- **Live Application:** https://evershineacadmey.com/
 - **Repository:** https://github.com/chaudhayabdullah786/evershine_lms
 - **Deployment Documentation:** [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md)
 

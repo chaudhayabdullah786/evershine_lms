@@ -40,13 +40,16 @@ describe('GET /api/dashboard', () => {
   })
 
   it('computes fee dashboard metrics from invoice and payment ledgers', async () => {
+    const futureDueDate = new Date()
+    futureDueDate.setDate(futureDueDate.getDate() + 30)
+
     mockPrisma.$transaction.mockResolvedValue([
       86,
       84,
       12,
       { _sum: { amount: 12500 } },
       [
-        { studentId: 'student-1', status: 'ISSUED', dueDate: new Date('2026-07-20T00:00:00.000Z'), totalAmount: 5000, paidAmount: 1000 },
+        { studentId: 'student-1', status: 'ISSUED', dueDate: futureDueDate, totalAmount: 5000, paidAmount: 1000 },
         { studentId: 'student-2', status: 'OVERDUE', dueDate: new Date('2026-07-01T00:00:00.000Z'), totalAmount: 6000, paidAmount: 0 },
         { studentId: 'student-2', status: 'PARTIALLY_PAID', dueDate: new Date('2026-07-25T00:00:00.000Z'), totalAmount: 3000, paidAmount: 3000 },
       ],

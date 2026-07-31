@@ -1,0 +1,16 @@
+User-agent: *
+
+Allow: /
+
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /logout
+Disallow: /register
+Disallow: /api/
+Disallow: /private/
+Disallow: /uploads/private/
+Disallow: /password/
+Disallow: /account/
+
+Sitemap: https://www.evershineacadmey.com/sitemap.xml

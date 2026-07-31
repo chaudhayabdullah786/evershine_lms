@@ -7,6 +7,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 
 export async function GET() {
@@ -21,13 +22,30 @@ export async function GET() {
     })
     if (!teacher) return successResponse([])
 
-    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id)
+    const activeYear = await getActiveAcademicYear()
+    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id, activeYear?.id)
     if (allowedSectionIds.length === 0) return successResponse([])
 
     const sections = await prisma.classSection.findMany({
       where: {
         id: { in: allowedSectionIds },
-        isActive: true,
+        // A migrated section can be marked inactive while still carrying
+        // active enrollments. Keep it available to its already-authorized
+        // teacher until the enrollment data is reconciled; historical empty
+        // sections remain excluded.
+        OR: [
+          { isActive: true },
+          ...(activeYear
+            ? [{
+                enrollments: {
+                  some: {
+                    academicYearId: activeYear.id,
+                    status: 'ACTIVE' as const,
+                  },
+                },
+              }]
+            : []),
+        ],
       },
       select: {
         id: true,

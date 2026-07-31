@@ -1,6 +1,37 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, BookOpen, Users, Trophy } from 'lucide-react'
 import { AcademyLogo } from '@/components/AcademyLogo'
+
+export const metadata: Metadata = {
+  title: 'Admissions',
+  description: 'Join Evershine Academy. We are committed to providing top-tier academic excellence, holistic character development, and a state-of-the-art learning environment.',
+  alternates: {
+    canonical: 'https://www.evershineacadmey.com/admissions',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://www.evershineacadmey.com/admissions',
+    title: 'Admissions | Evershine Academy',
+    description: 'Join Evershine Academy. We are committed to providing top-tier academic excellence, holistic character development, and a state-of-the-art learning environment.',
+    images: [
+      {
+        url: 'https://www.evershineacadmey.com/assets/images/evershine-social-share.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Admissions at Evershine Academy',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Admissions | Evershine Academy',
+    description: 'Join Evershine Academy. We are committed to providing top-tier academic excellence, holistic character development, and a state-of-the-art learning environment.',
+    images: ['https://www.evershineacadmey.com/assets/images/evershine-social-share.jpg'],
+  },
+}
+
 
 export default function AdmissionsLandingPage() {
   return (

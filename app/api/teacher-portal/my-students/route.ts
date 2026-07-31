@@ -93,17 +93,20 @@ export async function GET(request: NextRequest) {
   if (!parsed.success) return errors.validation(parsed.error)
   const { page, limit, classId, classSectionId, search, enrollmentStatus } = parsed.data
 
-  // Use the explicit section ID when the caller is on the section-based attendance flow.
-  // Fall back to the legacy classId filter for older teacher screens.
-  const selectedClassSectionId = classSectionId ?? classId
+  // An explicit current-engine section filter must not retain the broader
+  // legacy class scope. The classId fallback still accepts a section ID for
+  // older callers that used the legacy parameter name.
+  const effectiveClassIds = classSectionId
+    ? []
+    : classId
+      ? authorisedClassIds.filter(id => id === classId)
+      : authorisedClassIds
 
-  const effectiveClassIds = classId
-    ? authorisedClassIds.filter(id => id === classId)
-    : authorisedClassIds
-
-  const effectiveClassSectionIds = selectedClassSectionId
-    ? authorisedClassSectionIds.filter(id => id === selectedClassSectionId)
-    : authorisedClassSectionIds
+  const effectiveClassSectionIds = classSectionId
+    ? authorisedClassSectionIds.filter(id => id === classSectionId)
+    : classId
+      ? authorisedClassSectionIds.filter(id => id === classId)
+      : authorisedClassSectionIds
 
   if (effectiveClassIds.length === 0 && effectiveClassSectionIds.length === 0) {
     return paginatedResponse([], { page: 1, limit, total: 0 })
@@ -174,7 +177,12 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true, color: true },
         },
         enrollments: {
-          where: { status: 'ACTIVE' },
+          where: {
+            status: 'ACTIVE',
+            ...(effectiveClassSectionIds.length > 0 && {
+              classSectionId: { in: effectiveClassSectionIds },
+            }),
+          },
           select: {
             id: true,
             rollNumber: true,
@@ -188,6 +196,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },

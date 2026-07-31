@@ -25,6 +25,7 @@ import {
   Trash2, Edit2, Award, BarChart3, Eye, AlertCircle,
 } from 'lucide-react'
 import { AccessDenied } from '@/components/AccessDenied'
+import { parseCustomResultFields, type CustomResultField } from '@/lib/academic/result-fields'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,8 +43,6 @@ type SubjectEntry = {
   isNotApplicable: boolean
   remarks: string
 }
-
-type CustomField = { label: string; value: string }
 
 const PERFORMANCE_BATCH_OPTIONS = [
   'Ever Shine',
@@ -90,7 +89,9 @@ function TeacherResultEntryInner() {
   const [studentId, setStudentId] = useState('')
   const [teacherRemarks, setTeacherRemarks] = useState('')
   const [subjectEntries, setSubjectEntries] = useState<SubjectEntry[]>([])
-  const [newField, setNewField] = useState<CustomField>({ label: '', value: '' })
+  const [newField, setNewField] = useState<CustomResultField>({ label: '', value: '' })
+  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null)
+  const [editingField, setEditingField] = useState<CustomResultField>({ label: '', value: '' })
   const [editReason, setEditReason] = useState('')
   const [showDeclareDialog, setShowDeclareDialog] = useState(false)
   const [selectedBatchOverride, setSelectedBatchOverride] = useState('')
@@ -117,14 +118,18 @@ function TeacherResultEntryInner() {
     enabled: !!classSectionId,
   })
 
-  const { data: sectionOfferings = [] } = useQuery<SubjectOffering[]>({
+  const { data: sectionOfferings } = useQuery<SubjectOffering[]>({
     queryKey: ['section-offerings', classSectionId],
     queryFn: () => fetchApi<SubjectOffering[]>(`/api/teacher-portal/sections/${classSectionId}/offerings`),
     enabled: !!classSectionId && !resultId,
   })
 
   useEffect(() => {
-    if (!classSectionId || resultId) return
+    // Keep the loading state as undefined. A destructuring fallback such as
+    // `data: sectionOfferings = []` creates a new array on every render while
+    // the query is pending; because this effect updates state, that produces a
+    // maximum-update-depth loop immediately after a section is selected.
+    if (!classSectionId || resultId || !sectionOfferings) return
     setSubjectEntries(sectionOfferings.map((o) => ({
       subjectOfferingId: o.id,
       subjectName: o.subject.name,
@@ -142,7 +147,7 @@ function TeacherResultEntryInner() {
     declarationStatus?: 'DECLARED' | string
     performanceBatch?: string
     teacherRemarks?: string | null
-    customFields?: CustomField[] | null
+    customFields?: unknown
     subjectResults?: ResultSubject[]
   }
 
@@ -248,11 +253,16 @@ function TeacherResultEntryInner() {
 
   const declareResult = useMutation({
     mutationFn: (resultId: string) =>
-      fetchApi(`/api/teacher-portal/results/${resultId}/declare`, { method: 'POST' }),
-    onSuccess: () => {
-      notify.success('Result declared — students notified')
+      fetchApi<ExistingResult>(`/api/teacher-portal/results/${resultId}/declare`, { method: 'POST' }),
+    onSuccess: (declaredResult) => {
+      qc.setQueryData(
+        ['existing-result', studentId, classSectionId, examSessionId],
+        (current: ExistingResult | null | undefined) =>
+          current ? { ...current, ...declaredResult, declarationStatus: 'DECLARED' } : current
+      )
+      notify.success('Result declared successfully — student notified')
       setShowDeclareDialog(false)
-      qc.invalidateQueries({ queryKey: ['existing-result'] })
+      qc.invalidateQueries({ queryKey: ['existing-result', studentId, classSectionId, examSessionId] })
       if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
     onError: (e: Error) => notify.error(formatApiError(e)),
@@ -273,6 +283,22 @@ function TeacherResultEntryInner() {
     onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
+  const updateCustomField = useMutation({
+    mutationFn: ({ index, field }: { index: number; field: CustomResultField }) =>
+      fetchApi(`/api/teacher-portal/results/${existingResult?.id}/custom-fields`, {
+        method: 'PATCH',
+        body: JSON.stringify({ index, ...field }),
+      }),
+    onSuccess: () => {
+      notify.success('Custom field updated')
+      setEditingFieldIndex(null)
+      setEditingField({ label: '', value: '' })
+      qc.invalidateQueries({ queryKey: ['existing-result'] })
+      if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
+    },
+    onError: (e: Error) => notify.error(formatApiError(e)),
+  })
+
   const deleteCustomField = useMutation({
     mutationFn: (index: number) =>
       fetchApi(`/api/teacher-portal/results/${existingResult?.id}/custom-fields`, {
@@ -281,7 +307,9 @@ function TeacherResultEntryInner() {
       }),
     onSuccess: () => {
       notify.success('Custom field removed')
+      setEditingFieldIndex(null)
       qc.invalidateQueries({ queryKey: ['existing-result'] })
+      if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
     },
     onError: (e: Error) => notify.error(formatApiError(e)),
   })
@@ -307,6 +335,7 @@ function TeacherResultEntryInner() {
 
   const isEditing = !!resultId
   const isDeclared = existingResult?.declarationStatus === 'DECLARED'
+  const existingCustomFields = parseCustomResultFields(existingResult?.customFields)
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -463,7 +492,7 @@ function TeacherResultEntryInner() {
             )}
           </CardHeader>
           <CardContent className="space-y-3">
-            {sectionOfferings.length === 0 && !isEditing && (
+            {sectionOfferings?.length === 0 && !isEditing && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>No assigned subject offerings were found for this section. Ask administration to assign subjects to your teacher profile before entering results.</span>
@@ -481,7 +510,8 @@ function TeacherResultEntryInner() {
                 <span>{pendingEntries.length} subject(s) are pending. Drafts can be saved, but students will not see this result until every subject is marked, Absent, or N/A.</span>
               </div>
             )}
-            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 px-1">
+            {/* Subject Entries Header (Desktop) */}
+            <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 px-1">
               <span className="col-span-3">Subject</span>
               <span className="col-span-2 text-center">Total</span>
               <span className="col-span-2 text-center">Obtained</span>
@@ -490,60 +520,134 @@ function TeacherResultEntryInner() {
               <span className="col-span-1 text-center">Status</span>
               <span className="col-span-2">Remarks</span>
             </div>
-            <Separator />
+            <Separator className="hidden sm:block" />
+
+            {/* Subject Entries List */}
             {subjectEntries.map((entry, idx) => (
-              <div key={entry.subjectOfferingId} className="grid grid-cols-12 gap-2 items-center">
-                <span className="col-span-3 text-sm font-medium text-slate-700 truncate">{entry.subjectName}</span>
-                <div className="col-span-2">
-                  <Input
-                    type="number" min={1} className="h-8 text-center text-xs"
-                    value={entry.totalMarks}
-                    disabled={isDeclared}
-                    onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
-                  />
+              <div key={entry.subjectOfferingId}>
+                {/* Mobile View Card (< sm) */}
+                <div className="block sm:hidden p-3.5 rounded-xl border border-slate-200/80 bg-white space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-slate-900">{entry.subjectName}</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold'
+                        : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }
+                    >
+                      {getEntryStatus(entry)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Total Marks</Label>
+                      <Input
+                        type="number" min={1} className="h-10 text-center text-xs font-semibold border-slate-200"
+                        value={entry.totalMarks}
+                        disabled={isDeclared}
+                        onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">Obtained Marks</Label>
+                      <Input
+                        type="number" min={0} max={entry.totalMarks}
+                        placeholder="Pending" className="h-10 text-center text-xs font-semibold border-slate-200"
+                        value={entry.obtainedMarks}
+                        disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
+                        onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 font-medium cursor-pointer">
+                        <Checkbox
+                          checked={entry.isAbsent}
+                          disabled={isDeclared}
+                          onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
+                        />
+                        Absent
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 font-medium cursor-pointer">
+                        <Checkbox
+                          checked={entry.isNotApplicable}
+                          disabled={isDeclared}
+                          onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
+                        />
+                        N/A
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Input
+                      placeholder="Optional remark..." className="h-9 text-xs border-slate-200"
+                      value={entry.remarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number" min={0} max={entry.totalMarks}
-                    placeholder="Pending" className="h-8 text-center text-xs"
-                    value={entry.obtainedMarks}
-                    disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
-                    onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Checkbox
-                    checked={entry.isAbsent}
-                    disabled={isDeclared}
-                    onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Checkbox
-                    checked={entry.isNotApplicable}
-                    disabled={isDeclared}
-                    onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Badge
-                    variant="outline"
-                    className={
-                      getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                    }
-                  >
-                    {getEntryStatus(entry)}
-                  </Badge>
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    placeholder="Optional remark" className="h-8 text-xs"
-                    value={entry.remarks}
-                    disabled={isDeclared}
-                    onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
-                  />
+
+                {/* Desktop View Row (>= sm) */}
+                <div className="hidden sm:grid grid-cols-12 gap-2 items-center py-1.5">
+                  <span className="col-span-3 text-sm font-semibold text-slate-800 truncate">{entry.subjectName}</span>
+                  <div className="col-span-2">
+                    <Input
+                      type="number" min={1} className="h-9 text-center text-xs font-semibold border-slate-200"
+                      value={entry.totalMarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'totalMarks', parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number" min={0} max={entry.totalMarks}
+                      placeholder="Pending" className="h-9 text-center text-xs font-semibold border-slate-200"
+                      value={entry.obtainedMarks}
+                      disabled={entry.isAbsent || entry.isNotApplicable || isDeclared}
+                      onChange={(e) => updateEntry(idx, 'obtainedMarks', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Checkbox
+                      checked={entry.isAbsent}
+                      disabled={isDeclared}
+                      onCheckedChange={(v) => updateEntry(idx, 'isAbsent', !!v)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Checkbox
+                      checked={entry.isNotApplicable}
+                      disabled={isDeclared}
+                      onCheckedChange={(v) => updateEntry(idx, 'isNotApplicable', !!v)}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Badge
+                      variant="outline"
+                      className={
+                        getEntryStatus(entry) === 'Marked' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold'
+                        : getEntryStatus(entry) === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }
+                    >
+                      {getEntryStatus(entry)}
+                    </Badge>
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      placeholder="Optional remark" className="h-9 text-xs border-slate-200"
+                      value={entry.remarks}
+                      disabled={isDeclared}
+                      onChange={(e) => updateEntry(idx, 'remarks', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -635,39 +739,115 @@ function TeacherResultEntryInner() {
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Existing custom fields */}
-            {(existingResult.customFields as CustomField[] | null)?.map((f, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-                <span className="text-sm font-medium text-slate-700 flex-1">{f.label}</span>
-                <span className="text-sm text-slate-500">{f.value}</span>
-                {!isDeclared && (
-                  <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-rose-500 hover:text-rose-700"
-                    onClick={() => deleteCustomField.mutate(i)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+            {existingCustomFields.map((field, index) => (
+              <div
+                key={`${field.label}-${index}`}
+                className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center"
+              >
+                {editingFieldIndex === index ? (
+                  <>
+                    <Input
+                      aria-label={`Edit label for ${field.label}`}
+                      className="h-9 text-sm sm:flex-1"
+                      maxLength={100}
+                      value={editingField.label}
+                      onChange={(event) => setEditingField((current) => ({
+                        ...current,
+                        label: event.target.value,
+                      }))}
+                    />
+                    <Input
+                      aria-label={`Edit value for ${field.label}`}
+                      className="h-9 text-sm sm:w-48"
+                      maxLength={500}
+                      value={editingField.value}
+                      onChange={(event) => setEditingField((current) => ({
+                        ...current,
+                        value: event.target.value,
+                      }))}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-9"
+                        disabled={!editingField.label.trim() || updateCustomField.isPending}
+                        onClick={() => updateCustomField.mutate({ index, field: editingField })}
+                      >
+                        {updateCustomField.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9"
+                        disabled={updateCustomField.isPending}
+                        onClick={() => setEditingFieldIndex(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium text-slate-700">
+                      {field.label}
+                    </span>
+                    <span className="break-words text-sm text-slate-500 sm:max-w-[40%] sm:text-right">
+                      {field.value || '—'}
+                    </span>
+                    {!isDeclared && (
+                      <div className="flex items-center gap-1 self-end sm:self-auto">
+                        <Button
+                          aria-label={`Edit ${field.label}`}
+                          title={`Edit ${field.label}`}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            setEditingFieldIndex(index)
+                            setEditingField(field)
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          aria-label={`Delete ${field.label}`}
+                          title={`Delete ${field.label}`}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:text-rose-700"
+                          disabled={deleteCustomField.isPending}
+                          onClick={() => deleteCustomField.mutate(index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}
 
             {/* Add new field */}
             {!isDeclared && (
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                 <Input
                   placeholder="Field label (e.g. Co-curricular)"
                   className="text-sm h-9"
+                  maxLength={100}
                   value={newField.label}
                   onChange={(e) => setNewField((f) => ({ ...f, label: e.target.value }))}
                 />
                 <Input
                   placeholder="Value"
-                  className="text-sm h-9 w-40"
+                  className="h-9 text-sm sm:w-48"
+                  maxLength={500}
                   value={newField.value}
                   onChange={(e) => setNewField((f) => ({ ...f, value: e.target.value }))}
                 />
                 <Button
                   variant="outline" size="sm" className="gap-1.5 h-9 px-3"
-                  disabled={!newField.label || addCustomField.isPending}
+                  disabled={!newField.label.trim() || addCustomField.isPending}
                   onClick={() => addCustomField.mutate()}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />

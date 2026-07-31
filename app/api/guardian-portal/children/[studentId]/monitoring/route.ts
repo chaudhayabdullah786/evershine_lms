@@ -4,6 +4,8 @@ import { errors, successResponse } from '@/lib/api-response'
 import { assertGuardianAccessToStudent } from '@/lib/academic/guardian'
 import { buildStudentMonitoringReport, type MonitoringReportKind } from '@/lib/academic/monitoring-report-service'
 
+export const dynamic = 'force-dynamic'
+
 function parseType(value: string | null): MonitoringReportKind {
   return value === 'yearly' || value === 'monthly' || value === 'daily' ? value : 'daily'
 }

@@ -39,6 +39,7 @@ describe('GET /api/teacher-portal/monthly-monitoring', () => {
     mockPrisma.subjectOffering.findMany.mockResolvedValue([
       {
         id: 'offering-physics',
+        classSectionId: 'section-1',
         maxDailyScore: 20,
         subject: { name: 'Physics', code: 'PHY' },
       },
