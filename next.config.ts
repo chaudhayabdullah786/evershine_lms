@@ -19,9 +19,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
 
 
   // Limit build workers and memory footprint to bypass Hostinger's memory/process limits.
