@@ -116,10 +116,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const profile = await prisma.user.findUnique({
           where: { id: user.id },
           select: {
-            admin:      { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
+            admin:      { select: { firstName: true, lastName: true, campusId: true } },
             teacher:    { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
             student:    { select: { firstName: true, lastName: true, profilePicture: true } },
-            accountant: { select: { firstName: true, lastName: true, campusId: true, profilePicture: true } },
+            accountant: { select: { firstName: true, lastName: true, campusId: true } },
           },
         })
 
@@ -137,8 +137,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const profilePicture =
           profile?.student?.profilePicture ??
           profile?.teacher?.profilePicture ??
-          profile?.admin?.profilePicture   ??
-          profile?.accountant?.profilePicture ??
           null
 
         // This object is passed to the jwt() callback as `user`.

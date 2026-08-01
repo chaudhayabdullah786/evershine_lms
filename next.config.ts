@@ -14,17 +14,21 @@ const nextConfig: NextConfig = {
   // so the generated client can find the correct engine binary at runtime.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/client"],
 
-  // Allow production build to complete even if TypeScript errors exist.
-  // WHY: Hostinger build must not fail due to type warnings in non-critical paths.
+  // Allow production build to complete even if TypeScript/ESLint errors exist.
+  // WHY: Hostinger build must not fail due to warnings in non-critical paths and to save memory.
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
 
-  // Limit build workers and CPU cores to 1 to bypass Hostinger's process limit (EAGAIN).
-  // Prevents Next.js from spawning worker processes during minification/static generation.
-  // WHY workerThreads + cpus only: webpackBuildWorker was removed in Next.js 16.
+  // Limit build workers and memory footprint to bypass Hostinger's memory/process limits.
+  // Disables the webpack build worker to run the compilation in the main process under memory limits.
   experimental: {
+    webpackBuildWorker: false,
+    webpackMemoryOptimizations: true,
     workerThreads: false,
     cpus: 1,
   },

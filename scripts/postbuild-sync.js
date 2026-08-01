@@ -208,10 +208,41 @@ async function run() {
     console.log('[postbuild] OK  public/sw.js source placeholder intact.')
   }
 
+  // ── Sync Hostinger-Native Prisma Engine ─────────────────────────────────────
+  syncPrismaEngine()
+
   const { verifyDeploymentArtifact } = require('./verify-deployment-artifact')
   verifyDeploymentArtifact(ROOT)
 
   console.log('[postbuild] Done. Standalone build is deployment-ready.')
+}
+
+function syncPrismaEngine() {
+  const HOSTINGER_NATIVE_PATH = '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node'
+  
+  if (!fs.existsSync(HOSTINGER_NATIVE_PATH)) {
+    console.log('[postbuild] Prisma native engine sync skipped (not on Hostinger production or engine missing).')
+    return
+  }
+
+  const targetDir = path.join(STANDALONE, 'node_modules', '.prisma', 'client')
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true })
+  }
+
+  // 1. Delete wrong engine binaries in standalone to prevent resolution collision
+  const files = fs.readdirSync(targetDir)
+  for (const file of files) {
+    if (file.startsWith('libquery_engine-debian-openssl-3.0.x')) {
+      fs.unlinkSync(path.join(targetDir, file))
+      console.log(`[postbuild] OK  Removed mismatched engine from standalone: ${file}`)
+    }
+  }
+
+  // 2. Copy correct native engine to standalone client
+  const targetPath = path.join(targetDir, 'libquery_engine-debian-openssl-1.1.x.so.node')
+  fs.copyFileSync(HOSTINGER_NATIVE_PATH, targetPath)
+  console.log('[postbuild] OK  Hostinger-native Prisma engine synced successfully into standalone.')
 }
 
 run().catch(err => {
