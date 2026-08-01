@@ -105,6 +105,9 @@ const ResultReportCard = forwardRef<HTMLDivElement, ResultReportCardProps>(
       <div
         ref={ref}
         data-pdf-page
+        data-pdf-physical-unit="mm"
+        data-pdf-physical-width="210"
+        data-pdf-physical-height="297"
         className="w-full max-w-[210mm] mx-auto bg-white border border-[#D9E0E8] overflow-hidden flex flex-col print-container"
         style={{
           fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
@@ -121,6 +124,7 @@ const ResultReportCard = forwardRef<HTMLDivElement, ResultReportCardProps>(
               margin: 0;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
+              background-color: #ffffff !important;
             }
             .print-container {
               border: none !important;
@@ -128,9 +132,19 @@ const ResultReportCard = forwardRef<HTMLDivElement, ResultReportCardProps>(
               width: 210mm !important;
               height: 297mm !important;
               max-width: 210mm !important;
-              padding: 12mm !important;
+              min-height: 297mm !important;
+              padding: 15mm !important;
+              box-sizing: border-box !important;
+              background-color: #ffffff !important;
             }
             .page-break-inside-avoid {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            thead {
+              display: table-header-group !important;
+            }
+            tr {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
@@ -169,7 +183,7 @@ export function ResultCardDocument({
     .every((s) => s.isPassed)
 
   return (
-    <div className="flex-1 flex flex-col bg-white p-4 sm:p-6 md:p-8 space-y-5">
+    <div className="flex-1 flex flex-col bg-white p-6 sm:p-8 space-y-6">
       {/* Header */}
       <ResultCardHeader
         examSessionLabel={result.examSessionLabel}
@@ -206,11 +220,11 @@ export function ResultCardDocument({
       {/* Instructor Remarks */}
       {result.teacherRemarks && (
         <div className="page-break-inside-avoid">
-          <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-lg p-3.5">
-            <p className="text-[10px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+          <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-md p-3">
+            <p className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Teacher Remarks
             </p>
-            <p className="text-xs text-[#172033] italic leading-relaxed">
+            <p className="text-xs text-[#172033] italic leading-relaxed whitespace-normal break-words">
               &ldquo;{result.teacherRemarks}&rdquo;
             </p>
           </div>
@@ -225,9 +239,9 @@ export function ResultCardDocument({
       />
 
       {/* Signature Section */}
-      <div className="mt-auto pt-4 page-break-inside-avoid">
+      <div className="mt-auto pt-6 page-break-inside-avoid">
         <SignatureSection />
-        <div className="mt-5">
+        <div className="mt-6">
           <ResultCardFooter
             termResultId={result.termResultId}
             declaredAt={result.declaredAt}
@@ -258,64 +272,66 @@ export function ResultCardHeader({
   const displayCampus = campusName ?? 'Madina Town Campus'
   
   return (
-    <div className="bg-[#173B7A] text-white px-5 py-4 rounded-lg flex flex-col gap-3.5 select-none page-break-inside-avoid">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div className="bg-[#173B7A] text-white px-6 py-5 rounded-md flex flex-col gap-4 select-none page-break-inside-avoid border border-[#173B7A]">
+      <div className="flex flex-row items-center justify-between gap-4">
         {/* Logo and Academy Title */}
-        <div className="flex items-center gap-3.5">
-          <img
-            src="/brand/logo-crest-web.png"
-            alt="Evershine Academy Logo"
-            className="w-14 h-14 object-contain bg-white p-1 rounded-md"
-            crossOrigin="anonymous"
-          />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white p-1 rounded-md shrink-0 flex items-center justify-center overflow-hidden">
+            <img
+              src="/bglogo.png"
+              alt="Evershine Academy Logo"
+              className="w-full h-full object-contain scale-[1.75]"
+              crossOrigin="anonymous"
+            />
+          </div>
           <div>
-            <h1 className="text-xl font-black tracking-tight leading-none mb-1">
+            <h1 className="text-xl font-extrabold tracking-tight leading-none mb-1 text-white">
               Evershine Academy
             </h1>
-            <p className="text-xs font-bold text-blue-100 uppercase tracking-wider">
+            <p className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">
               {displayCampus}
             </p>
-            <p className="text-[10px] text-blue-200 mt-0.5">
-              Madina Town, Gujranwala
+            <p className="text-[9px] text-blue-200 mt-0.5 font-medium">
+              Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony
             </p>
           </div>
         </div>
 
         {/* Title and Academic Session */}
-        <div className="text-center sm:text-right">
-          <span className="inline-block bg-[#2F66B3] text-white text-xs font-extrabold px-3 py-1 rounded uppercase tracking-wider mb-1.5">
+        <div className="text-right flex flex-col items-end shrink-0">
+          <span className="inline-block bg-[#2F66B3] text-white text-[11px] font-extrabold px-3 py-1 rounded uppercase tracking-wider mb-1.5 border border-[#2F66B3]">
             EXAMINATION REPORT CARD
           </span>
-          <p className="text-[10px] text-blue-200 font-semibold">
+          <p className="text-[10px] text-blue-100 font-semibold">
             Academic Year: {sessionName ?? "—"}
           </p>
         </div>
       </div>
 
       {/* Meta Info Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/20 pt-2.5 text-xs">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center justify-between border-t border-white/20 pt-3 text-xs">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <span className="font-bold text-blue-200">Term:</span>
-            <span>{examSessionLabel}</span>
+            <span className="font-semibold text-white">{examSessionLabel}</span>
           </div>
           <span className="text-white/20">|</span>
           <div className="flex items-center gap-1">
             <span className="font-bold text-blue-200">Class:</span>
-            <span>{sectionLabel}</span>
+            <span className="font-semibold text-white">{sectionLabel}</span>
           </div>
           {shiftName && (
             <>
               <span className="text-white/20">|</span>
               <div className="flex items-center gap-1">
                 <span className="font-bold text-blue-200">Shift:</span>
-                <span>{shiftName}</span>
+                <span className="font-semibold text-white">{shiftName}</span>
               </div>
             </>
           )}
         </div>
         {declaredAt && (
-          <span className="text-[10px] font-medium text-blue-200">
+          <span className="text-[10px] font-semibold text-blue-200">
             Declared: {formatDate(declaredAt)}
           </span>
         )}
@@ -338,38 +354,35 @@ export function StudentInformation({
   const batchStyle = getPerformanceBatchStyle(result.performanceBatch)
 
   return (
-    <div className="flex flex-col md:flex-row gap-5 items-start justify-between py-1 page-break-inside-avoid">
-      <div className="flex-1 flex flex-col sm:flex-row gap-4 items-center sm:items-start text-center sm:text-left w-full">
+    <div className="flex flex-row gap-6 items-stretch justify-between py-1 page-break-inside-avoid">
+      <div className="flex-1 flex flex-row gap-5 items-start">
         {/* Profile Picture / Initials */}
         <div className="flex-shrink-0">
           {hasPhoto ? (
             <img
               src={student.profilePicture!}
               alt={studentName}
-              className="w-24 h-24 rounded-md object-cover border border-[#D9E0E8] shadow-sm"
+              className="w-20 h-24 rounded-md object-cover border border-[#D9E0E8]"
               crossOrigin="anonymous"
             />
           ) : (
-            <div
-              className="w-24 h-24 rounded-md flex items-center justify-center border border-[#D9E0E8] shadow-sm text-white font-black text-3xl select-none"
-              style={{ background: "linear-gradient(135deg, #173B7A, #2F66B3)" }}
-            >
+            <div className="w-20 h-24 rounded-md flex items-center justify-center border border-[#D9E0E8] bg-[#173B7A] text-white font-extrabold text-2xl select-none">
               {getInitials(student.firstName, student.lastName)}
             </div>
           )}
         </div>
 
         {/* Student Fields */}
-        <div className="flex-1 min-w-0 w-full">
-          <h2 className="text-lg font-black text-[#172033] tracking-tight leading-tight mb-2 truncate">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-extrabold text-[#172033] tracking-tight leading-none mb-3 break-words">
             {studentName || "Student Name"}
           </h2>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
             <StudentField label="Father / Guardian" value={student.fatherName} />
             <StudentField label="Reg. Number" value={student.registrationNumber} />
             <StudentField label="Roll Number" value={result.subjects.length > 0 ? (student.rollNumber ?? "—") : "—"} />
-            <StudentField label="Class / Section" value={result.class?.name ?? result.sectionLabel} />
+            <StudentField label="Class / Section" value={student.class?.name ?? result.sectionLabel} />
             <StudentField label="Program / Batch" value={student.batch?.name} />
             <StudentField label="Academic Year" value={sessionName ?? "—"} />
           </div>
@@ -377,22 +390,22 @@ export function StudentInformation({
       </div>
 
       {/* Performance Status Indicators */}
-      <div className="flex-shrink-0 w-full md:w-44 flex flex-row md:flex-col gap-2.5">
-        <div className={`flex-1 p-2 rounded border text-center ${batchStyle.bg} ${batchStyle.border}`}>
-          <p className="text-[8px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-0.5">
+      <div className="flex-shrink-0 w-44 flex flex-col gap-3 justify-center border border-[#D9E0E8] bg-[#F5F7FA] rounded-md p-3">
+        <div className="text-center">
+          <p className="text-[8px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-1">
             Performance Group
           </p>
-          <p className={`text-xs font-black ${batchStyle.text} truncate`}>
+          <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} break-all`}>
             {result.performanceBatch}
-          </p>
+          </span>
         </div>
 
         {result.classPosition !== null && (
-          <div className="flex-1 p-2 rounded border border-[#D9E0E8] bg-[#F5F7FA] text-center">
+          <div className="text-center border-t border-[#D9E0E8] pt-2">
             <p className="text-[8px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-0.5">
               Class Rank
             </p>
-            <p className="text-xs font-black text-[#172033]">
+            <p className="text-sm font-black text-[#172033]">
               #{result.classPosition}
             </p>
           </div>
@@ -406,7 +419,7 @@ function StudentField({ label, value }: { label: string; value: string | null | 
   return (
     <div className="flex flex-col min-w-0 text-left">
       <span className="text-[9px] font-bold uppercase tracking-wider text-[#5F6B7A]">{label}</span>
-      <span className="text-xs font-semibold text-[#172033] truncate mt-0.5">{value ?? "—"}</span>
+      <span className="text-[11px] font-bold text-[#172033] mt-0.5 break-words whitespace-normal">{value ?? "—"}</span>
     </div>
   )
 }
@@ -432,16 +445,16 @@ export function SubjectResultTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#173B7A] text-white text-[10px] font-bold uppercase tracking-wider border-b border-[#173B7A]">
-              <th className="px-4 py-2.5 text-left font-bold">Subject</th>
-              <th className="px-4 py-2.5 text-center font-bold">Obtained Marks</th>
-              <th className="px-4 py-2.5 text-center font-bold">Total Marks</th>
-              <th className="px-4 py-2.5 text-center font-bold">Percentage</th>
-              <th className="px-4 py-2.5 text-center font-bold">Grade</th>
-              <th className="px-4 py-2.5 text-center font-bold">Status</th>
-              <th className="px-4 py-2.5 text-left font-bold max-w-xs">Remarks</th>
+              <th className="px-4 py-2.5 text-left font-extrabold">Subject</th>
+              <th className="px-4 py-2.5 text-center font-extrabold">Obtained Marks</th>
+              <th className="px-4 py-2.5 text-center font-extrabold">Total Marks</th>
+              <th className="px-4 py-2.5 text-center font-extrabold">Percentage</th>
+              <th className="px-4 py-2.5 text-center font-extrabold">Grade</th>
+              <th className="px-4 py-2.5 text-center font-extrabold">Status</th>
+              <th className="px-4 py-2.5 text-left font-extrabold max-w-xs">Remarks</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#D9E0E8] text-xs text-[#172033]">
+          <tbody className="divide-y divide-[#D9E0E8] text-xs text-[#172033] bg-white">
             {subjects.map((sub) => {
               const isAbsent = sub.isAbsent
               const isNA = sub.isNotApplicable
@@ -451,40 +464,40 @@ export function SubjectResultTable({
                 <tr key={sub.subjectId} className="hover:bg-[#F5F7FA] transition-colors page-break-inside-avoid">
                   <td className="px-4 py-2.5">
                     <span className="font-bold text-[#172033] block">{sub.subjectName}</span>
-                    <span className="text-[9px] text-[#5F6B7A] font-mono block mt-0.5">{sub.subjectCode}</span>
+                    <span className="text-[9px] text-[#5F6B7A] font-semibold block mt-0.5">{sub.subjectCode}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-center font-black text-sm">
+                  <td className="px-4 py-2.5 text-center font-extrabold text-xs">
                     {isNA ? "—" : isAbsent ? "Abs" : sub.obtainedMarks}
                   </td>
-                  <td className="px-4 py-2.5 text-center text-[#5F6B7A]">
+                  <td className="px-4 py-2.5 text-center text-[#5F6B7A] font-semibold">
                     {sub.totalMarks}
                   </td>
-                  <td className="px-4 py-2.5 text-center font-black text-[#2F66B3]">
+                  <td className="px-4 py-2.5 text-center font-extrabold text-[#2F66B3]">
                     {isNA || isAbsent ? "—" : `${sub.percentage.toFixed(1)}%`}
                   </td>
-                  <td className={`px-4 py-2.5 text-center font-black ${getGradeColor(sub.grade)}`}>
+                  <td className={`px-4 py-2.5 text-center font-extrabold ${getGradeColor(sub.grade)}`}>
                     {isNA ? "—" : isAbsent ? "Abs" : sub.grade}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     {isNA ? (
-                      <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-[#F5F7FA] text-[#5F6B7A] font-bold border border-[#D9E0E8]">
+                      <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-[#F5F7FA] text-[#5F6B7A] font-bold border border-[#D9E0E8]">
                         N/A
                       </span>
                     ) : isAbsent ? (
-                      <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-[#FFF9E6] text-[#B78103] font-bold border border-[#FFE59E]">
+                      <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-[#FFF9E6] text-[#B78103] font-bold border border-[#FFE59E]">
                         Absent
                       </span>
                     ) : passed ? (
-                      <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-[#E6F4EA] text-[#16835D] font-bold border border-[#A3E2C9]">
+                      <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-[#E6F4EA] text-[#16835D] font-bold border border-[#A3E2C9]">
                         Pass
                       </span>
                     ) : (
-                      <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-[#FCE8E6] text-[#B4233C] font-bold border border-[#F9C2BD]">
+                      <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-[#FCE8E6] text-[#B4233C] font-bold border border-[#F9C2BD]">
                         Fail
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-left max-w-xs whitespace-normal break-words text-[#5F6B7A]">
+                  <td className="px-4 py-2.5 text-left max-w-xs whitespace-normal break-words text-[#5F6B7A] font-medium">
                     {sub.remarks || "—"}
                   </td>
                 </tr>
@@ -493,31 +506,31 @@ export function SubjectResultTable({
           </tbody>
           <tfoot>
             <tr className="bg-[#172033] text-white text-xs font-bold border-t border-[#D9E0E8]">
-              <td className="px-4 py-2.5 font-extrabold uppercase">Total / Summary</td>
-              <td className="px-4 py-2.5 text-center font-black text-sm text-[#A3E2C9]">
+              <td className="px-4 py-3 font-extrabold uppercase">Total / Summary</td>
+              <td className="px-4 py-3 text-center font-black text-[#A3E2C9]">
                 {Math.round(totalObtained * 100) / 100}
               </td>
-              <td className="px-4 py-2.5 text-center text-slate-300">
+              <td className="px-4 py-3 text-center text-slate-300">
                 {totalPossible}
               </td>
-              <td className="px-4 py-2.5 text-center font-black text-sm text-blue-200">
+              <td className="px-4 py-3 text-center font-black text-blue-200">
                 {overallPercentage.toFixed(1)}%
               </td>
-              <td className="px-4 py-2.5 text-center font-black text-sm text-white">
+              <td className="px-4 py-3 text-center font-black text-white">
                 {grade}
               </td>
-              <td className="px-4 py-2.5 text-center">
+              <td className="px-4 py-3 text-center">
                 {overallPassed ? (
-                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded bg-[#E6F4EA] text-[#16835D] font-bold border border-[#A3E2C9]">
+                  <span className="inline-block text-[9px] px-2.5 py-0.5 rounded bg-[#E6F4EA] text-[#16835D] font-bold border border-[#A3E2C9]">
                     Pass
                   </span>
                 ) : (
-                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded bg-[#FCE8E6] text-[#B4233C] font-bold border border-[#F9C2BD]">
+                  <span className="inline-block text-[9px] px-2.5 py-0.5 rounded bg-[#FCE8E6] text-[#B4233C] font-bold border border-[#F9C2BD]">
                     Fail
                   </span>
                 )}
               </td>
-              <td className="px-4 py-2.5"></td>
+              <td className="px-4 py-3"></td>
             </tr>
           </tfoot>
         </table>
@@ -542,20 +555,20 @@ export function CharacterAssessment({
 
   return (
     <div className="page-break-inside-avoid">
-      <h3 className="text-xs font-bold text-[#172033] uppercase tracking-wider mb-2 flex items-center gap-2">
+      <h3 className="text-xs font-bold text-[#172033] uppercase tracking-wider mb-2.5 flex items-center gap-2 select-none">
         <span className="w-1 h-3 bg-[#2F66B3] rounded-sm" />
         Character &amp; Development Assessment
       </h3>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         {fields.map((field) => (
           <div
             key={field.label}
-            className="bg-white border border-[#D9E0E8] rounded-md p-2.5 flex flex-col justify-center shadow-xs"
+            className="bg-white border border-[#D9E0E8] rounded-md p-3 flex flex-col justify-center"
           >
-            <p className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-0.5">
+            <p className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               {field.label}
             </p>
-            <p className="text-xs font-black text-[#172033] leading-tight">
+            <p className="text-xs font-extrabold text-[#172033] leading-tight break-words">
               {field.value}
             </p>
           </div>
@@ -578,48 +591,48 @@ export function PerformanceSummary({
 
   return (
     <div className="page-break-inside-avoid">
-      <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-lg p-4">
-        <h4 className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-widest mb-3">
+      <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-md p-4">
+        <h4 className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-3 select-none">
           Overall Performance Summary
         </h4>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div className="flex flex-col min-w-0">
-            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-0.5">
+            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Marks Obtained
             </span>
-            <span className="text-sm font-black text-[#172033] truncate">
+            <span className="text-sm font-extrabold text-[#172033] truncate">
               {Math.round(totalObtained * 100) / 100} / {totalPossible}
             </span>
           </div>
 
           <div className="flex flex-col min-w-0">
-            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-0.5">
+            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Overall Percentage
             </span>
-            <span className="text-sm font-black text-[#2F66B3] truncate">
+            <span className="text-sm font-extrabold text-[#2F66B3] truncate">
               {result.overallPercentage.toFixed(2)}%
             </span>
           </div>
 
           <div className="flex flex-col min-w-0">
-            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-0.5">
+            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Final Grade
             </span>
-            <span className={`text-sm font-black ${getGradeColor(result.grade)} truncate`}>
+            <span className={`text-sm font-extrabold ${getGradeColor(result.grade)} truncate`}>
               {result.grade}
             </span>
           </div>
 
           <div className="flex flex-col min-w-0 justify-center">
-            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-0.5">
-              Group &amp; Class Rank
+            <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
+              Group &amp; Rank
             </span>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} truncate`}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} truncate`}>
                 {result.performanceBatch}
               </span>
               {result.classPosition !== null && (
-                <span className="font-black text-[#172033] text-xs shrink-0">
+                <span className="font-extrabold text-[#172033] text-xs shrink-0">
                   Rank #{result.classPosition}
                 </span>
               )}
@@ -633,7 +646,7 @@ export function PerformanceSummary({
 
 export function SignatureSection() {
   return (
-    <div className="grid grid-cols-3 gap-6 text-center border-t border-[#D9E0E8] pt-4 mt-2 page-break-inside-avoid">
+    <div className="grid grid-cols-3 gap-6 text-center border-t border-[#D9E0E8] pt-5 mt-2 page-break-inside-avoid">
       <SignatureLine title="Class Teacher" subtitle="Signature & Stamp" />
       <SignatureLine title="Head of Department" subtitle="Signature & Stamp" />
       <SignatureLine title="Principal / Controller" subtitle="Official Seal" />
@@ -661,8 +674,8 @@ export function ResultCardFooter({
   declaredAt: string | null
 }) {
   return (
-    <div className="pt-3.5 border-t border-[#D9E0E8]/60 flex items-center justify-between text-[9px] text-[#5F6B7A] uppercase tracking-wider select-none">
-      <p className="font-semibold">
+    <div className="pt-4 border-t border-[#D9E0E8]/60 flex items-center justify-between text-[9px] text-[#5F6B7A] uppercase tracking-wider select-none font-semibold">
+      <p>
         Official Document of Evershine Academy.
       </p>
       <p className="font-mono font-bold">
