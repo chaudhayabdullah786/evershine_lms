@@ -48,7 +48,7 @@ npx prisma generate
 # ── 4. Build the application ──────────────────────────────────────────────────
 # postbuild (postbuild-sync.js) runs automatically after build via npm lifecycle.
 echo "[DEPLOY] Building Next.js application with memory limits..."
-NODE_OPTIONS="--max-old-space-size=1024" npm run build
+NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 # ── 5. Restart the server ─────────────────────────────────────────────────────
 # WHY pkill: Hostinger uses Phusion Passenger which auto-restarts next-server.
