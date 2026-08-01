@@ -74,8 +74,39 @@ console.log('[SERVER] Build ID:', fs.readFileSync(BUILD_ID, 'utf8').trim())
 if (!fs.existsSync(STANDALONE)) {
   console.error('[SERVER] ERROR: .next/standalone missing.')
   console.error('[SERVER] Ensure next.config.ts has output: "standalone"')
+  console.error('')
+  console.error('[SERVER] ─────────────────────────────────────────────────────')
+  console.error('[SERVER]  HOW TO FIX: Run the following on your Hostinger SSH:')
+  console.error('[SERVER]    git pull origin main')
+  console.error('[SERVER]    export PATH="/opt/alt/alt-nodejs20/root/bin:$PATH"')
+  console.error('[SERVER]    npm run build')
+  console.error('[SERVER] ─────────────────────────────────────────────────────')
   process.exit(1)
 }
+
+// ── Stale-build detection ────────────────────────────────────────────────────
+// WHY: When a PR is merged and Hostinger restarts the app, the source code
+// updates but .next/ still reflects the previous build. This guard reads the
+// .next/BUILD_ID mtime and compares it to the source package.json mtime. If
+// package.json is significantly newer than BUILD_ID, the build is stale.
+// This prevents cryptic runtime errors from stale chunk hashes.
+;(function warnIfStaleBuild() {
+  try {
+    const buildIdMtime  = fs.statSync(BUILD_ID).mtimeMs
+    const packageMtime  = fs.statSync(path.join(ROOT, 'package.json')).mtimeMs
+    // If package.json was modified more than 60 s after the last build, warn.
+    if (packageMtime - buildIdMtime > 60_000) {
+      console.warn('')
+      console.warn('[SERVER] ⚠  STALE BUILD DETECTED')
+      console.warn('[SERVER]    Source code is newer than the last .next build.')
+      console.warn('[SERVER]    The app will start, but pages may reflect old code.')
+      console.warn('[SERVER]    Run: npm run build && node server.js')
+      console.warn('')
+    }
+  } catch {
+    // Non-fatal: if we cannot stat files, skip the check silently.
+  }
+})()
 
 // ── 3. Sync static assets into standalone (THE CRITICAL FIX) ────────────────
 // WHY: `next build` with output:"standalone" creates .next/standalone/server.js
