@@ -16,6 +16,8 @@ import { useState as useLocalState } from 'react'
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import { downloadPdf } from '@/lib/pdf'
 import ResultReportCard, { type ReportCardResult, type ReportCardStudent } from '@/components/academic/ResultReportCard'
+import { TaskMarksPanel, type TaskResultItem } from '@/components/academic/TaskMarksPanel'
+import { MonthlyMonitoringGrid } from '@/components/academic/MonthlyMonitoringGrid'
 
 type AttendanceData = {
   academicYear: { name: string } | null
@@ -100,6 +102,7 @@ type ResultsData = {
       }
     }>
   }
+  taskResults: TaskResultItem[]
 }
 
 type TargetItem = {
@@ -203,7 +206,7 @@ const statusBadge: Record<string, string> = {
   REJECTED: 'bg-red-100 text-red-800',
 }
 
-const PORTAL_TABS = ['courses', 'attendance', 'results', 'targets'] as const
+const PORTAL_TABS = ['courses', 'attendance', 'results', 'tasks', 'targets'] as const
 type PortalTab = (typeof PORTAL_TABS)[number]
 
 // ── Monitoring Component ──────────────────────────────────────────────────────
@@ -300,74 +303,9 @@ function MonitoringCard({ results }: { results: ResultsData | undefined }) {
               No academic monthly sheets declared yet for this session.
             </p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-4">
               {(results?.monitoringReports?.monthly ?? []).map((report) => (
-                <div
-                  key={report.id}
-                  className="rounded-xl border border-slate-200 p-4 bg-white hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between border-b pb-3 mb-3">
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        {new Date(report.year, report.month - 1, 1).toLocaleString('en', {
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Declared: {report.declaredAt ? new Date(report.declaredAt).toLocaleDateString('en-PK') : '—'}
-                      </p>
-                    </div>
-                    <Badge className="bg-indigo-100 hover:bg-indigo-100 text-indigo-800 font-bold border border-indigo-200">
-                      {report.student.performanceBatch} · Rank {report.student.rank}
-                    </Badge>
-                  </div>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-2xl font-black text-indigo-600">
-                      {report.student.obtainedMarks}
-                    </span>
-                    <span className="text-slate-400 text-sm">/ {report.student.totalMarks} marks</span>
-                    <span className="ml-auto text-sm font-bold text-slate-800">
-                      {report.student.percentage.toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="grid gap-2 text-xs">
-                    {report.columns.map((column) => {
-                      if (column.type === 'COURSE') {
-                        const marks = report.student.courseMarks[column.id]
-                        return (
-                          <div
-                            key={column.id}
-                            className="flex justify-between items-center rounded-lg bg-slate-50/70 p-2 border border-slate-100"
-                          >
-                            <span className="font-semibold text-slate-700">{column.label}</span>
-                            <span className="font-bold text-slate-800">
-                              {marks?.obtainedMarks ?? 0} / {marks?.totalMarks ?? 0}
-                            </span>
-                          </div>
-                        )
-                      } else {
-                        const value = report.student.customValues[column.id]
-                        if (!value) return null
-                        return (
-                          <div
-                            key={column.id}
-                            className="flex justify-between items-center rounded-lg bg-slate-50/70 p-2 border border-slate-100"
-                          >
-                            <span className="font-semibold text-slate-700">{column.label}</span>
-                            <span className="font-bold text-slate-800">{value}</span>
-                          </div>
-                        )
-                      }
-                    })}
-                  </div>
-                  {report.student.remarks && (
-                    <div className="mt-3 bg-slate-50 p-2.5 rounded-lg border text-xs text-slate-600">
-                      <p className="font-bold text-slate-700 mb-0.5">Instructor Remarks:</p>
-                      {report.student.remarks}
-                    </div>
-                  )}
-                </div>
+                <MonthlyMonitoringGrid key={report.id} report={report} />
               ))}
             </div>
           )}
@@ -780,9 +718,10 @@ function StudentEnrollmentPageInner() {
         }}
       >
         <TabsList>
-          <TabsTrigger value="courses">Courses & Timetable</TabsTrigger>
+          <TabsTrigger value="courses">Courses &amp; Timetable</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="results">Results</TabsTrigger>
+          <TabsTrigger value="tasks">Task Marks</TabsTrigger>
           <TabsTrigger value="targets">My Targets</TabsTrigger>
         </TabsList>
 
@@ -1079,6 +1018,20 @@ function StudentEnrollmentPageInner() {
             student={data?.student}
             sessionName={data?.activeYear?.name}
           />
+        </TabsContent>
+
+        {/* ── Task Marks Tab ────────────────────────────────────────── */}
+        <TabsContent value="tasks" className="mt-4 space-y-4">
+          <div className="flex items-center gap-2 px-1 mb-2">
+            <ClipboardCheck className="w-5 h-5 text-teal-600" />
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Task &amp; Assignment Marks</h3>
+              <p className="text-xs text-slate-500">
+                Subject-wise breakdown of all tasks graded by your teachers.
+              </p>
+            </div>
+          </div>
+          <TaskMarksPanel taskResults={results?.taskResults ?? []} />
         </TabsContent>
 
         <TabsContent value="targets" className="mt-4 space-y-4">

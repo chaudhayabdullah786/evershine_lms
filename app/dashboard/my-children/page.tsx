@@ -18,6 +18,8 @@ import Link from 'next/link'
 import { FeePaymentDialog } from '@/components/features/guardian/FeePaymentDialog'
 import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
 import ResultReportCard, { type ReportCardResult, type ReportCardStudent } from '@/components/academic/ResultReportCard'
+import { TaskMarksPanel, type TaskResultItem } from '@/components/academic/TaskMarksPanel'
+import { MonthlyMonitoringGrid } from '@/components/academic/MonthlyMonitoringGrid'
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -639,34 +641,19 @@ export default function MyChildrenPage() {
                   })()}
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <ClipboardCheck className="w-5 h-5 text-violet-600" />
-                      Assignments & Task Marks
-                    </CardTitle>
-                    <CardDescription>Saved task marks for this child, including obtained marks, total marks, percentage, and teacher remarks.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {academic.taskResults.length === 0 ? (
-                      <p className="text-sm text-gray-500">No assignment or task marks have been published yet.</p>
-                    ) : academic.taskResults.map((task) => (
-                      <div key={task.id} className="flex flex-col gap-2 rounded border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="font-semibold text-slate-900">{task.title}</p>
-                          <p className="text-xs text-slate-500">
-                            {task.subjectName} · {task.classLabel}{task.shiftName ? <> · {task.shiftName}</> : null}{task.dueDate ? <> · Due {new Date(task.dueDate).toLocaleDateString('en-PK')}</> : null}
-                          </p>
-                          {task.remarks && <p className="mt-1 text-xs text-slate-600">Remarks: {task.remarks}</p>}
-                        </div>
-                        <div className="flex items-center gap-2 sm:justify-end">
-                          <span className="font-semibold text-slate-900">{task.obtainedMarks}/{task.maxMarks}</span>
-                          <Badge variant={task.percentage >= 60 ? 'default' : 'destructive'}>{task.percentage.toFixed(1)}%</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                {/* ── Task & Assignment Marks ─────────────────────────── */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="w-5 h-5 text-violet-600" />
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Assignments &amp; Task Marks</h3>
+                      <p className="text-xs text-slate-500">
+                        Subject-wise breakdown of all graded tasks assigned by the teacher.
+                      </p>
+                    </div>
+                  </div>
+                  <TaskMarksPanel taskResults={(academic.taskResults as TaskResultItem[])} />
+                </div>
 
                 <Card>
                   <CardHeader>
@@ -691,18 +678,18 @@ export default function MyChildrenPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="mb-2 text-sm font-semibold text-slate-800">Declared monthly monitoring</h3>
-                      {academic.monitoringReports.monthly.length === 0 ? <p className="text-sm text-gray-500">No monthly monitoring report has been declared yet.</p> : (
-                        <div className="space-y-3">
+                      <h3 className="mb-3 text-sm font-semibold text-slate-800 flex items-center gap-2">
+                        <span className="flex h-2 w-2 rounded-full bg-emerald-600" />
+                        Declared Monthly Performance Sheets
+                      </h3>
+                      {academic.monitoringReports.monthly.length === 0 ? (
+                        <p className="text-sm text-slate-500 bg-slate-50 border border-dashed rounded-lg p-6 text-center">
+                          No monthly monitoring report has been declared yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
                           {academic.monitoringReports.monthly.map((report) => (
-                            <div key={report.id} className="rounded-lg border p-4">
-                              <div className="flex flex-wrap justify-between gap-2"><p className="font-semibold">{new Date(report.year, report.month - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' })}</p><Badge>{report.student.performanceBatch} · Rank {report.student.rank}</Badge></div>
-                              <p className="mt-2 font-semibold text-slate-800">{report.student.obtainedMarks}/{report.student.totalMarks} · {report.student.percentage.toFixed(2)}%</p>
-                              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                                {report.columns.map((column) => column.type === 'COURSE' ? <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.courseMarks[column.id]?.obtainedMarks ?? 0}/{report.student.courseMarks[column.id]?.totalMarks ?? 0}</p> : report.student.customValues[column.id] ? <p key={column.id} className="rounded bg-slate-50 px-3 py-2"><span className="font-medium">{column.label}:</span> {report.student.customValues[column.id]}</p> : null)}
-                              </div>
-                              {report.student.remarks && <p className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-800">Teacher remarks:</span> {report.student.remarks}</p>}
-                            </div>
+                            <MonthlyMonitoringGrid key={report.id} report={report} />
                           ))}
                         </div>
                       )}
