@@ -18,7 +18,7 @@ import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import {
   Calendar, Clock, Layers, Users, BookOpen, CalendarDays,
   MapPin, CheckSquare, BarChart, HardDrive, GraduationCap, Layout,
-  AlertCircle, Zap, Info, Trash2
+  AlertCircle, Zap, Info, Trash2, Pencil, Check, X
 } from 'lucide-react'
 
 // WHY: Shift-aware labels for section dropdowns to distinguish same-name
@@ -218,6 +218,27 @@ export default function AcademicEnginePage() {
     queryFn: () => fetchApi<ShiftOption[]>('/api/shifts'),
   })
   const [shiftEdits, setShiftEdits] = useState<Record<string, { startTime: string; endTime: string }>>({})
+
+  // ── Section edit state ────────────────────────────────────────────────────
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingSectionForm, setEditingSectionForm] = useState({
+    className: '', sectionName: '', capacity: 40,
+    deliveryMode: 'PHYSICAL' as DeliveryMode, curriculumMode: 'FIXED' as CurriculumMode,
+  })
+
+  // ── Offering edit state ───────────────────────────────────────────────────
+  const [editingOfferingId, setEditingOfferingId] = useState<string | null>(null)
+  const [editingOfferingTeacherId, setEditingOfferingTeacherId] = useState('')
+
+  // ── Timetable slot edit state ─────────────────────────────────────────────
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null)
+  const [editingSlotForm, setEditingSlotForm] = useState({
+    dayOfWeek: 1, startTime: '', endTime: '', teacherId: '', roomId: 'none',
+  })
+
+  // ── Room edit state ───────────────────────────────────────────────────────
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
+  const [editingRoomForm, setEditingRoomForm] = useState({ name: '', capacity: 40 })
 
   const saveShift = useMutation({
     mutationFn: (payload: { id: string; startTime: string; endTime: string }) =>
@@ -604,6 +625,82 @@ export default function AcademicEnginePage() {
       qc.invalidateQueries({ queryKey: ['class-sections'] })
     },
     onError: (e: Error) => notify.error(e.message || 'Failed to delete class section'),
+  })
+
+  const updateSection = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof editingSectionForm }) =>
+      fetchApi(`/api/class-sections/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      notify.success('Section updated')
+      qc.invalidateQueries({ queryKey: ['class-sections'] })
+      setEditingSectionId(null)
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to update section'),
+  })
+
+  const deleteOffering = useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/subject-offerings/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      notify.success('Subject offering removed')
+      qc.invalidateQueries({ queryKey: ['subject-offerings'] })
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to delete offering'),
+  })
+
+  const updateOffering = useMutation({
+    mutationFn: ({ id, teacherId }: { id: string; teacherId: string | null }) =>
+      fetchApi(`/api/subject-offerings/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ teacherId }),
+      }),
+    onSuccess: () => {
+      notify.success('Teacher assignment updated')
+      qc.invalidateQueries({ queryKey: ['subject-offerings'] })
+      setEditingOfferingId(null)
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to update offering'),
+  })
+
+  const deleteSlot = useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/timetable/slots/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      notify.success('Timetable slot removed')
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to delete slot'),
+  })
+
+  const updateSlot = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof editingSlotForm }) =>
+      fetchApi(`/api/timetable/slots/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...data, roomId: data.roomId === 'none' ? null : data.roomId }),
+      }),
+    onSuccess: () => {
+      notify.success('Slot updated')
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      setEditingSlotId(null)
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to update slot'),
+  })
+
+  const updateRoom = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof editingRoomForm }) =>
+      fetchApi(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      notify.success('Room updated')
+      qc.invalidateQueries({ queryKey: ['rooms'] })
+      setEditingRoomId(null)
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to update room'),
+  })
+
+  const deleteRoom = useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/rooms/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      notify.success('Room deleted')
+      qc.invalidateQueries({ queryKey: ['rooms'] })
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to delete room'),
   })
 
   if (status === 'loading') return null
@@ -998,38 +1095,96 @@ export default function AcademicEnginePage() {
                       <span className="flex-1 border-t border-slate-100" />
                       <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{group.sections.length}</span>
                     </div>
-                    {group.sections.map((s: { id: string; className: string; sectionName: string; campus?: { name: string }; batch?: { name: string }; shift?: { name: string; code: string }; deliveryMode: string; curriculumMode?: string }) => (
-                      <div key={s.id} className="border border-gray-100 bg-gray-50/50 rounded-xl p-3 hover:border-violet-200 hover:bg-violet-50/30 transition-colors ml-2">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <p className="font-bold text-gray-900 text-base">{s.className}-{s.sectionName}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md bg-gray-200 text-gray-600">
-                              {s.curriculumMode ?? 'FIXED'}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-red-600 hover:bg-red-50"
-                              onClick={() => {
-                                if (!confirm(`Delete class section ${s.className}-${s.sectionName}? This will hide it from active lists.`)) return
-                                deleteSection.mutate(s.id)
-                              }}
-                              disabled={deleteSection.isPending}
-                              title="Delete class section"
-                            >
-                              <Trash2 className="w-4 h-4 mr-1" /> Delete
-                            </Button>
+                    {group.sections.map((s: { id: string; className: string; sectionName: string; campus?: { name: string }; batch?: { name: string }; shift?: { name: string; code: string }; deliveryMode: string; curriculumMode?: string; capacity?: number }) => {
+                      const isEditingThis = editingSectionId === s.id
+                      return (
+                        <div key={s.id} className="border border-gray-100 bg-gray-50/50 rounded-xl overflow-hidden hover:border-violet-200 transition-colors ml-2">
+                          <div className="p-3">
+                            <div className="flex items-center justify-between mb-1 gap-2">
+                              <p className="font-bold text-gray-900 text-base">{s.className}-{s.sectionName}</p>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md bg-gray-200 text-gray-600">
+                                  {s.curriculumMode ?? 'FIXED'}
+                                </span>
+                                <Button
+                                  type="button" variant="ghost" size="sm"
+                                  className={`h-7 w-7 p-0 ${isEditingThis ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'}`}
+                                  title="Edit section"
+                                  onClick={() => {
+                                    if (isEditingThis) { setEditingSectionId(null); return }
+                                    setEditingSectionId(s.id)
+                                    setEditingSectionForm({
+                                      className: s.className, sectionName: s.sectionName,
+                                      capacity: s.capacity ?? 40,
+                                      deliveryMode: s.deliveryMode as DeliveryMode,
+                                      curriculumMode: (s.curriculumMode ?? 'FIXED') as CurriculumMode,
+                                    })
+                                  }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  type="button" variant="ghost" size="sm"
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => {
+                                    if (!confirm(`Delete ${s.className}-${s.sectionName}? This is irreversible if no active enrollments exist.`)) return
+                                    deleteSection.mutate(s.id)
+                                  }}
+                                  disabled={deleteSection.isPending}
+                                  title="Delete section"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 font-medium">
+                              <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" />{s.campus?.name}</span>
+                              <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-gray-400" />{s.batch?.name}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" />{s.shift?.name}</span>
+                              <span className="flex items-center gap-1"><Layout className="w-3 h-3 text-gray-400" />{s.deliveryMode}</span>
+                            </div>
                           </div>
+                          {isEditingThis && (
+                            <div className="border-t border-violet-100 bg-violet-50/40 px-3 py-3 space-y-2">
+                              <p className="text-xs font-semibold text-violet-800">Edit section</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1"><Label className="text-[10px]">Class</Label><Input className="h-8 text-xs" value={editingSectionForm.className} onChange={(e) => setEditingSectionForm((f) => ({ ...f, className: e.target.value }))} /></div>
+                                <div className="space-y-1"><Label className="text-[10px]">Section</Label><Input className="h-8 text-xs" value={editingSectionForm.sectionName} onChange={(e) => setEditingSectionForm((f) => ({ ...f, sectionName: e.target.value }))} /></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Delivery</Label>
+                                  <Select value={editingSectionForm.deliveryMode} onValueChange={(v) => setEditingSectionForm((f) => ({ ...f, deliveryMode: v as DeliveryMode }))}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="PHYSICAL">Physical</SelectItem>
+                                      <SelectItem value="ONLINE">Online</SelectItem>
+                                      <SelectItem value="HYBRID">Hybrid</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Curriculum</Label>
+                                  <Select value={editingSectionForm.curriculumMode} onValueChange={(v) => setEditingSectionForm((f) => ({ ...f, curriculumMode: v as CurriculumMode }))}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="FIXED">Fixed</SelectItem>
+                                      <SelectItem value="ELECTIVE">Elective</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <Button size="sm" className="h-8 gap-1 text-xs flex-1" disabled={updateSection.isPending} onClick={() => updateSection.mutate({ id: s.id, data: editingSectionForm })}>
+                                  {updateSection.isPending ? 'Saving…' : <><Check className="w-3.5 h-3.5" /> Save</>}
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingSectionId(null)}><X className="w-3.5 h-3.5" /></Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 font-medium">
-                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" />{s.campus?.name}</span>
-                          <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-gray-400" />{s.batch?.name}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" />{s.shift?.name}</span>
-                          <span className="flex items-center gap-1"><Layout className="w-3 h-3 text-gray-400" />{s.deliveryMode}</span>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ))}
               </CardContent>
@@ -1252,21 +1407,69 @@ export default function AcademicEnginePage() {
                   {(offerings ?? []).length === 0 && (
                     <p className="text-gray-400 text-sm py-4 text-center">No offerings assigned yet.</p>
                   )}
-                  {(offerings ?? []).map((o: { id: string; isMandatory: boolean; subject: { name: string }; teacher?: { firstName: string; lastName: string } }) => (
-                    <div key={o.id} className="border border-gray-100 bg-gray-50/50 rounded-xl p-3 hover:border-pink-200 hover:bg-pink-50/30 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-gray-900">{o.subject.name}</p>
-                        {o.isMandatory ? (
-                          <span className="text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">CORE</span>
-                        ) : (
-                          <span className="text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">ELECTIVE</span>
+                  {(offerings ?? []).map((o: { id: string; isMandatory: boolean; teacherId?: string | null; subject: { name: string }; teacher?: { firstName: string; lastName: string } | null }) => {
+                    const isEditingOff = editingOfferingId === o.id
+                    return (
+                      <div key={o.id} className="border border-gray-100 bg-gray-50/50 rounded-xl overflow-hidden hover:border-pink-200 transition-colors">
+                        <div className="flex items-center justify-between p-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-900 truncate">{o.subject.name}</p>
+                            <p className="text-xs font-medium text-gray-500 mt-1">
+                              Teacher: {o.teacher ? <span className="text-gray-700">{o.teacher.firstName} {o.teacher.lastName}</span> : <span className="text-gray-400 italic">Unassigned</span>}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {o.isMandatory ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">CORE</span>
+                            ) : (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">ELECTIVE</span>
+                            )}
+                            <Button variant="ghost" size="sm" className={`h-7 w-7 p-0 ${isEditingOff ? 'text-pink-600' : 'text-slate-400 hover:text-pink-600'}`}
+                              title="Reassign teacher"
+                              onClick={() => {
+                                if (isEditingOff) { setEditingOfferingId(null); return }
+                                setEditingOfferingId(o.id)
+                                setEditingOfferingTeacherId(o.teacherId ?? '')
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              title="Delete offering"
+                              disabled={deleteOffering.isPending}
+                              onClick={() => {
+                                if (!confirm(`Remove ${o.subject.name} offering? This will also remove any timetable slots for this offering.`)) return
+                                deleteOffering.mutate(o.id)
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {isEditingOff && (
+                          <div className="border-t border-pink-100 bg-pink-50/40 px-3 py-2.5 flex gap-2 items-end">
+                            <div className="flex-1 space-y-1">
+                              <Label className="text-xs">Reassign teacher</Label>
+                              <Select value={editingOfferingTeacherId || '__none__'} onValueChange={(v) => setEditingOfferingTeacherId(v === '__none__' ? '' : v)}>
+                                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">Unassigned</SelectItem>
+                                  {teachers.map(t => (
+                                    <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}{t.designation ? ` · ${t.designation}` : ''}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button size="sm" className="h-8 gap-1 text-xs" disabled={updateOffering.isPending}
+                              onClick={() => updateOffering.mutate({ id: o.id, teacherId: editingOfferingTeacherId || null })}>
+                              {updateOffering.isPending ? 'Saving…' : <><Check className="w-3.5 h-3.5" /> Save</>}
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingOfferingId(null)}><X className="w-3.5 h-3.5" /></Button>
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs font-medium text-gray-500 mt-1">
-                        Teacher: {o.teacher ? <span className="text-gray-700">{o.teacher.firstName} {o.teacher.lastName}</span> : <span className="text-gray-400 italic">Unassigned</span>}
-                      </p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </CardContent>
               </Card>
             </div>
@@ -1416,19 +1619,87 @@ export default function AcademicEnginePage() {
                   {(timetableSlots ?? []).length === 0 ? (
                     <p className="text-gray-400">No slots yet. Add a slot on the left to begin.</p>
                   ) : (
-                    (timetableSlots ?? []).map((sl: { id: string; dayOfWeek: number; startTime: string; endTime: string; isPublished: boolean; subjectOffering: { subject: { name: string } }; teacher?: { firstName: string; lastName: string } }) => (
-                      <div key={sl.id} className="border border-slate-100 rounded-lg p-3 flex justify-between items-center shadow-sm hover:border-blue-200 transition-colors">
-                        <span className="font-medium text-slate-700">
-                          <span className="inline-block min-w-[32px] text-slate-500">{DAY_NAMES[sl.dayOfWeek] || `D${sl.dayOfWeek}`}</span>
-                          &nbsp;{sl.startTime}–{sl.endTime}
-                          &nbsp;<span className="text-blue-600 font-semibold">· {sl.subjectOffering.subject.name}</span>
-                          {sl.teacher && <span className="text-slate-400 font-normal"> · {sl.teacher.firstName} {sl.teacher.lastName}</span>}
-                        </span>
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap ${sl.isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {sl.isPublished ? '✓ Published' : 'Draft'}
-                        </span>
-                      </div>
-                    ))
+                    (timetableSlots ?? []).map((sl: { id: string; dayOfWeek: number; startTime: string; endTime: string; isPublished: boolean; subjectOfferingId?: string; teacherId?: string | null; roomId?: string | null; subjectOffering: { subject: { name: string } }; teacher?: { firstName: string; lastName: string } | null }) => {
+                      const isEditingSlot = editingSlotId === sl.id
+                      return (
+                        <div key={sl.id} className="border border-slate-100 rounded-xl overflow-hidden shadow-sm hover:border-blue-200 transition-colors">
+                          <div className="flex items-center justify-between p-3 gap-2">
+                            <div className="min-w-0">
+                              <span className="font-medium text-slate-700 text-sm">
+                                <span className="inline-block min-w-[32px] text-slate-500">{DAY_NAMES[sl.dayOfWeek] || `D${sl.dayOfWeek}`}</span>
+                                &nbsp;{sl.startTime}–{sl.endTime}
+                                &nbsp;<span className="text-blue-600 font-semibold">· {sl.subjectOffering.subject.name}</span>
+                              </span>
+                              {sl.teacher && <p className="text-xs text-slate-400 mt-0.5">{sl.teacher.firstName} {sl.teacher.lastName}</p>}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap ${sl.isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                {sl.isPublished ? '✓ Published' : 'Draft'}
+                              </span>
+                              <Button variant="ghost" size="sm" className={`h-7 w-7 p-0 ${isEditingSlot ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}
+                                title="Edit slot"
+                                onClick={() => {
+                                  if (isEditingSlot) { setEditingSlotId(null); return }
+                                  setEditingSlotId(sl.id)
+                                  setEditingSlotForm({
+                                    dayOfWeek: sl.dayOfWeek, startTime: sl.startTime, endTime: sl.endTime,
+                                    teacherId: sl.teacherId ?? '', roomId: sl.roomId ?? 'none',
+                                  })
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                title="Delete slot"
+                                disabled={deleteSlot.isPending}
+                                onClick={() => {
+                                  if (!confirm('Delete this timetable slot? Published slots will be unpublished automatically.')) return
+                                  deleteSlot.mutate(sl.id)
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {isEditingSlot && (
+                            <div className="border-t border-blue-100 bg-blue-50/40 px-3 py-2.5 space-y-2">
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="space-y-1"><Label className="text-[10px]">Day (1–7)</Label><Input type="number" min={1} max={7} className="h-8 text-xs" value={editingSlotForm.dayOfWeek} onChange={(e) => setEditingSlotForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))} /></div>
+                                <div className="space-y-1"><Label className="text-[10px]">Start</Label><Input className="h-8 text-xs" placeholder="09:00" value={editingSlotForm.startTime} onChange={(e) => setEditingSlotForm((f) => ({ ...f, startTime: e.target.value }))} /></div>
+                                <div className="space-y-1"><Label className="text-[10px]">End</Label><Input className="h-8 text-xs" placeholder="09:45" value={editingSlotForm.endTime} onChange={(e) => setEditingSlotForm((f) => ({ ...f, endTime: e.target.value }))} /></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Teacher</Label>
+                                  <Select value={editingSlotForm.teacherId} onValueChange={(v) => setEditingSlotForm((f) => ({ ...f, teacherId: v }))}>
+                                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Teacher" /></SelectTrigger>
+                                    <SelectContent>
+                                      {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Room</Label>
+                                  <Select value={editingSlotForm.roomId} onValueChange={(v) => setEditingSlotForm((f) => ({ ...f, roomId: v }))}>
+                                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No room</SelectItem>
+                                      {(rooms ?? []).map((r: { id: string; name: string }) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" className="h-8 gap-1 text-xs flex-1" disabled={updateSlot.isPending} onClick={() => updateSlot.mutate({ id: sl.id, data: editingSlotForm })}>
+                                  {updateSlot.isPending ? 'Saving…' : <><Check className="w-3.5 h-3.5" /> Save</>}
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingSlotId(null)}><X className="w-3.5 h-3.5" /></Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
                   )}
                 </CardContent>
               </Card>
@@ -1478,12 +1749,55 @@ export default function AcademicEnginePage() {
                   {(rooms ?? []).length === 0 ? (
                     <EmptyState icon={MapPin} title="No rooms created" description="Add a room to assign it to timetable slots and campus schedules." />
                   ) : (
-                    (rooms ?? []).map((r: { id: string; name: string; capacity: number; campus?: { name: string } }) => (
-                      <div key={r.id} className="border rounded p-2 flex justify-between">
-                        <span>{r.name} · {r.campus?.name}</span>
-                        <span className="text-gray-500">Cap {r.capacity}</span>
-                      </div>
-                    ))
+                    (rooms ?? []).map((r: { id: string; name: string; capacity: number; campus?: { name: string } }) => {
+                      const isEditingRoom = editingRoomId === r.id
+                      return (
+                        <div key={r.id} className="border rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between p-3 gap-2">
+                            <div>
+                              <p className="font-semibold text-sm text-gray-900">{r.name}</p>
+                              <p className="text-xs text-gray-400">{r.campus?.name} · Cap {r.capacity}</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" className={`h-7 w-7 p-0 ${isEditingRoom ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-600'}`}
+                                onClick={() => {
+                                  if (isEditingRoom) { setEditingRoomId(null); return }
+                                  setEditingRoomId(r.id)
+                                  setEditingRoomForm({ name: r.name, capacity: r.capacity })
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                disabled={deleteRoom.isPending}
+                                onClick={() => {
+                                  if (!confirm(`Delete room "${r.name}"? Any timetable slots using this room must be reassigned first.`)) return
+                                  deleteRoom.mutate(r.id)
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {isEditingRoom && (
+                            <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-2.5 flex gap-2 items-end">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-xs">Name</Label>
+                                <Input className="h-8 text-xs" value={editingRoomForm.name} onChange={(e) => setEditingRoomForm((f) => ({ ...f, name: e.target.value }))} />
+                              </div>
+                              <div className="w-24 space-y-1">
+                                <Label className="text-xs">Capacity</Label>
+                                <Input type="number" className="h-8 text-xs" value={editingRoomForm.capacity} onChange={(e) => setEditingRoomForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
+                              </div>
+                              <Button size="sm" className="h-8 gap-1 text-xs" disabled={updateRoom.isPending} onClick={() => updateRoom.mutate({ id: r.id, data: editingRoomForm })}>
+                                {updateRoom.isPending ? 'Saving…' : <><Check className="w-3.5 h-3.5" /> Save</>}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingRoomId(null)}><X className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
                   )}
                 </div>
               </CardContent>
