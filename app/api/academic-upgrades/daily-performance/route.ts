@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import type { Role } from '@prisma/client'
 import { decodeMonitoringRemarks } from '@/lib/academic/monitoring'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -50,26 +51,10 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const enrollments = await prisma.studentEnrollment.findMany({
-          where: {
-            classSectionId: offering.classSectionId,
-            status: 'ACTIVE',
-          },
-          include: {
-            student: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                rollNumber: true,
-              },
-            },
-          },
-          orderBy: [
-            { rollNumber: 'asc' },
-            { student: { firstName: 'asc' } },
-          ],
-        })
+        const { enrollments } = await getOrSyncSectionEnrollments(
+          offering.classSectionId,
+          offering.academicYearId
+        )
 
         const parsedDate = new Date(date)
         const existingScores = await prisma.dailyPerformanceScore.findMany({
