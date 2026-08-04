@@ -41,18 +41,20 @@ export async function GET(request: NextRequest) {
   }
 
   // Build where clause with optional filters
-  const where: any = {
-    academicYearId: activeYear.id,
+  const baseWhere: any = {
     classSectionId,
     status: 'ACTIVE',
   }
 
-  if (batchId) where.classSection = { batch: { id: batchId } }
-  if (shiftId) where.classSection = { ...where.classSection, shift: { id: shiftId } }
-  if (houseId) where.student = { house: { id: houseId } }
+  if (batchId) baseWhere.classSection = { batch: { id: batchId } }
+  if (shiftId) baseWhere.classSection = { ...baseWhere.classSection, shift: { id: shiftId } }
+  if (houseId) baseWhere.student = { house: { id: houseId } }
 
-  const enrollments = await prisma.studentEnrollment.findMany({
-    where,
+  let enrollments = await prisma.studentEnrollment.findMany({
+    where: {
+      ...baseWhere,
+      academicYearId: activeYear.id,
+    },
     include: {
       classSection: {
         select: {
@@ -77,6 +79,36 @@ export async function GET(request: NextRequest) {
     },
     orderBy: { rollNumber: 'asc' },
   })
+
+  // Fallback: If 0 enrollments under activeYear.id, search across any academic year for this section
+  if (enrollments.length === 0) {
+    enrollments = await prisma.studentEnrollment.findMany({
+      where: baseWhere,
+      include: {
+        classSection: {
+          select: {
+            batch: { select: { id: true, name: true } },
+            shift: { select: { id: true, name: true } },
+          },
+        },
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            rollNumber: true,
+            profilePicture: true,
+            house: { select: { id: true, name: true, color: true } },
+          },
+        },
+        attendanceRecords: {
+          where: { attendanceDate },
+          take: 1,
+        },
+      },
+      orderBy: { rollNumber: 'asc' },
+    })
+  }
 
   // Calculate statistics by house
   const byHouse: Record<string, { total: number; present: number; absent: number }> = {}
