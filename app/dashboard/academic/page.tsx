@@ -92,7 +92,7 @@ type TimetableSlotRow = {
   startTime: string
   endTime: string
   isPublished: boolean
-  subjectOffering: { subject: { name: string } }
+  subjectOffering: { subject: { name: string; code?: string } }
   teacher?: { firstName: string; lastName: string } | null
 }
 type GradingSchemeRow = {
@@ -177,6 +177,18 @@ export default function AcademicEnginePage() {
     endTime: '09:45',
   })
   const [slotError, setSlotError] = useState<string | null>(null)
+  // Multi-select subject offerings for bulk slot creation
+  const [selectedOfferingIds, setSelectedOfferingIds] = useState<string[]>([])
+  const [bulkResults, setBulkResults] = useState<Array<{ subjectOfferingId: string; status: string; conflicts?: string[] }>>([])
+  // Period block state (Break / Prayer / Lunch / Assembly)
+  const [periodForm, setPeriodForm] = useState({
+    periodCode: '__BREAK__' as '__BREAK__' | '__PRAYER__' | '__LUNCH__' | '__ASSEMBLY__',
+    dayOfWeek: 1,
+    startTime: '10:30',
+    endTime: '11:00',
+  })
+  const [periodError, setPeriodError] = useState<string | null>(null)
+
 
   const [roomForm, setRoomForm] = useState({ campusId: '', name: '', capacity: 40 })
   const [roomCampusFilter, setRoomCampusFilter] = useState('all')
@@ -217,7 +229,7 @@ export default function AcademicEnginePage() {
     queryKey: ['shifts'],
     queryFn: () => fetchApi<ShiftOption[]>('/api/shifts'),
   })
-  const [shiftEdits, setShiftEdits] = useState<Record<string, { startTime: string; endTime: string }>>({})
+  const [shiftEdits, setShiftEdits] = useState<Record<string, { startTime: string; endTime: string; lateGraceMinutes?: number }>>({})
 
   // ── Section edit state ────────────────────────────────────────────────────
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
@@ -241,16 +253,17 @@ export default function AcademicEnginePage() {
   const [editingRoomForm, setEditingRoomForm] = useState({ name: '', capacity: 40 })
 
   const saveShift = useMutation({
-    mutationFn: (payload: { id: string; startTime: string; endTime: string }) =>
+    mutationFn: (payload: { id: string; startTime: string; endTime: string; lateGraceMinutes?: number }) =>
       fetchApi(`/api/shifts/${payload.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           startTime: payload.startTime,
           endTime: payload.endTime,
+          ...(payload.lateGraceMinutes !== undefined && { lateGraceMinutes: payload.lateGraceMinutes }),
         }),
       }),
     onSuccess: () => {
-      notify.success('Shift times updated')
+      notify.success('Shift settings updated globally')
       refetchShifts()
     },
     onError: (e: Error) => notify.error(e.message),
@@ -512,6 +525,84 @@ export default function AcademicEnginePage() {
     },
   })
 
+  const bulkCreateSlots = useMutation({
+    mutationFn: () => {
+      if (!slotFilterSection || !activeYear?.id || selectedOfferingIds.length === 0) {
+        throw new Error('Select a section, day/time, and at least one subject offering.')
+      }
+      const slots = selectedOfferingIds.map((offeringId) => {
+        const off = (slotOfferings ?? []).find((o: { id: string; teacherId?: string | null }) => o.id === offeringId)
+        return {
+          academicYearId: activeYear.id,
+          classSectionId: slotFilterSection,
+          subjectOfferingId: offeringId,
+          teacherId: slotForm.teacherId || off?.teacherId || '',
+          roomId: slotForm.roomId === 'none' ? null : slotForm.roomId,
+          dayOfWeek: slotForm.dayOfWeek,
+          startTime: slotForm.startTime,
+          endTime: slotForm.endTime,
+        }
+      })
+      return fetchApi<{ results: Array<{ subjectOfferingId: string; status: string; conflicts?: string[] }>; summary: { total: number; created: number; failed: number } }>(
+        '/api/timetable/slots/bulk',
+        { method: 'POST', body: JSON.stringify({ slots }) }
+      )
+    },
+    onSuccess: (res: { results: Array<{ subjectOfferingId: string; status: string; conflicts?: string[] }>; summary: { total: number; created: number; failed: number } }) => {
+      setSlotError(null)
+      setBulkResults(res.results)
+      setSelectedOfferingIds([])
+      notify.success(`${res.summary.created} slot(s) created, ${res.summary.failed} skipped`)
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+    },
+    onError: (e: Error) => {
+      const message = formatApiFormError(e, 'Unable to create slots.')
+      setSlotError(message)
+      notify.error(message)
+    },
+  })
+
+  const addPeriodBlock = useMutation({
+    mutationFn: async () => {
+      if (!slotFilterSection || !activeYear?.id) throw new Error('Select a section first.')
+      // Step 1: seed the period offering for this section/year
+      const seeded = await fetchApi<Array<{ id: string; code: string; name: string }>>('/api/timetable/periods', {
+        method: 'POST',
+        body: JSON.stringify({
+          classSectionId: slotFilterSection,
+          academicYearId: activeYear.id,
+          periodCodes: [periodForm.periodCode],
+        }),
+      })
+      if (!seeded || seeded.length === 0) throw new Error('Failed to initialize period block.')
+      const offeringId = seeded[0].id
+      // Step 2: create the timetable slot for the seeded offering
+      return fetchApi('/api/timetable/slots', {
+        method: 'POST',
+        body: JSON.stringify({
+          academicYearId: activeYear.id,
+          classSectionId: slotFilterSection,
+          subjectOfferingId: offeringId,
+          teacherId: slotForm.teacherId || 'none',
+          roomId: slotForm.roomId === 'none' ? null : slotForm.roomId,
+          dayOfWeek: periodForm.dayOfWeek,
+          startTime: periodForm.startTime,
+          endTime: periodForm.endTime,
+        }),
+      })
+    },
+    onSuccess: () => {
+      setPeriodError(null)
+      notify.success('Period block added to timetable')
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+    },
+    onError: (e: Error) => {
+      const msg = formatApiFormError(e, 'Failed to add period block.')
+      setPeriodError(msg)
+      notify.error(msg)
+    },
+  })
+
   const publishTimetable = useMutation({
     mutationFn: () =>
       fetchApi('/api/timetable/slots', {
@@ -531,6 +622,7 @@ export default function AcademicEnginePage() {
       notify.error(message)
     },
   })
+
 
   const { data: gradingSchemes } = useQuery({
     queryKey: ['grading-schemes', activeYear?.id, gradingSectionId],
@@ -926,52 +1018,81 @@ export default function AcademicEnginePage() {
                   <EmptyState icon={Clock} title="No Shifts Found" description="Use Quick Bootstrap on the Years tab to initialize default shifts." />
                 </div>
               )}
-              {(shifts ?? []).map((s: { id: string; code: string; name: string; startTime: string; endTime: string }) => {
-                const edit = shiftEdits[s.id] ?? { startTime: s.startTime, endTime: s.endTime }
+              {(shifts ?? []).map((s: { id: string; code: string; name: string; startTime: string; endTime: string; lateGraceMinutes?: number }) => {
+                const edit = shiftEdits[s.id] ?? { startTime: s.startTime, endTime: s.endTime, lateGraceMinutes: s.lateGraceMinutes ?? 15 }
                 return (
                   <div key={s.id} className="border border-blue-100 bg-blue-50/30 rounded-2xl p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow">
-                    <p className="font-bold text-blue-900 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      {SESSION_SHIFT_LABELS[s.code as keyof typeof SESSION_SHIFT_LABELS] ?? s.name}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-blue-900 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        {SESSION_SHIFT_LABELS[s.code as keyof typeof SESSION_SHIFT_LABELS] ?? s.name}
+                      </p>
+                      <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full font-mono">
+                        {s.startTime}–{s.endTime}
+                      </span>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Time</Label>
+                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Time (HH:MM)</Label>
                         <Input
-                          type="time"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="09:00"
+                          pattern="^\d{2}:\d{2}$"
                           value={edit.startTime}
                           onChange={(e) =>
                             setShiftEdits((prev) => ({
                               ...prev,
-                              [s.id]: { ...edit, startTime: e.target.value.slice(0, 5) },
+                              [s.id]: { ...edit, startTime: e.target.value },
                             }))
                           }
-                          className="border-gray-200 focus:border-blue-400 focus:ring-blue-100 h-9"
+                          className="border-gray-200 focus:border-blue-400 focus:ring-blue-100 h-9 font-mono"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">End Time</Label>
+                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">End Time (HH:MM)</Label>
                         <Input
-                          type="time"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="13:00"
+                          pattern="^\d{2}:\d{2}$"
                           value={edit.endTime}
                           onChange={(e) =>
                             setShiftEdits((prev) => ({
                               ...prev,
-                              [s.id]: { ...edit, endTime: e.target.value.slice(0, 5) },
+                              [s.id]: { ...edit, endTime: e.target.value },
                             }))
                           }
-                          className="border-gray-200 focus:border-blue-400 focus:ring-blue-100 h-9"
+                          className="border-gray-200 focus:border-blue-400 focus:ring-blue-100 h-9 font-mono"
                         />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Late Grace Period (minutes)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={edit.lateGraceMinutes ?? 15}
+                          onChange={(e) =>
+                            setShiftEdits((prev) => ({
+                              ...prev,
+                              [s.id]: { ...edit, lateGraceMinutes: Number(e.target.value) },
+                            }))
+                          }
+                          className="border-gray-200 focus:border-blue-400 h-9 w-24"
+                        />
+                        <span className="text-xs text-gray-400">min after shift start before LATE</span>
                       </div>
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="w-full text-blue-600 border-blue-200 hover:bg-blue-100 h-9"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white h-9 gap-2"
                       disabled={saveShift.isPending}
                       onClick={() => saveShift.mutate({ id: s.id, ...edit })}
                     >
-                      {saveShift.isPending ? 'Saving...' : 'Save Times'}
+                      {saveShift.isPending ? 'Saving...' : <><Check className="w-3.5 h-3.5" /> Save Shift Settings</>}
                     </Button>
                   </div>
                 )
@@ -1541,26 +1662,56 @@ export default function AcademicEnginePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select
-                    value={slotForm.subjectOfferingId}
-                    onValueChange={(v) => {
-                      const off = (slotOfferings ?? []).find((o: { id: string; teacherId?: string }) => o.id === v)
-                      setSlotForm({
-                        ...slotForm,
-                        subjectOfferingId: v,
-                        classSectionId: slotFilterSection,
-                        teacherId: off?.teacherId ?? slotForm.teacherId,
-                      })
-                    }}
-                    disabled={!slotFilterSection}
-                  >
-                    <SelectTrigger><SelectValue placeholder="2. Choose subject offering" /></SelectTrigger>
-                    <SelectContent>
-                      {(slotOfferings ?? []).map((o: { id: string; subject: { name: string } }) => (
-                        <SelectItem key={o.id} value={o.id}>{o.subject.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Multi-select subject offerings */}
+                  <div>
+                    <Label className="text-xs font-bold text-slate-600">2. Select subject offerings (multi-select)</Label>
+                    {!slotFilterSection ? (
+                      <p className="text-xs text-slate-400 mt-1 border border-dashed rounded-lg p-3 text-center">Choose a section first to load subject offerings.</p>
+                    ) : (slotOfferings ?? []).filter((o: { id: string; subject: { name: string; code?: string } }) => !o.subject.code?.startsWith('__')).length === 0 ? (
+                      <p className="text-xs text-amber-600 mt-1">No subject offerings for this section. Create offerings in the Subjects tab first.</p>
+                    ) : (
+                      <div className="mt-1.5 border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                        <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Subject · Teacher</span>
+                          <button
+                            type="button"
+                            className="text-[10px] text-indigo-600 font-semibold hover:underline"
+                            onClick={() => {
+                              const ids = (slotOfferings ?? []).filter((o: { id: string; subject: { name: string; code?: string } }) => !o.subject.code?.startsWith('__')).map((o: { id: string }) => o.id)
+                              setSelectedOfferingIds(prev => prev.length === ids.length ? [] : ids)
+                            }}
+                          >
+                            {selectedOfferingIds.length === (slotOfferings ?? []).filter((o: { id: string; subject: { name: string; code?: string } }) => !o.subject.code?.startsWith('__')).length ? 'Deselect All' : 'Select All'}
+                          </button>
+                        </div>
+                        {(slotOfferings ?? []).filter((o: { id: string; subject: { name: string; code?: string } }) => !o.subject.code?.startsWith('__')).map((o: { id: string; subject: { name: string }; teacher?: { firstName: string; lastName: string } | null; teacherId?: string | null }) => (
+                          <label key={o.id} className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-indigo-50/50 transition-colors ${selectedOfferingIds.includes(o.id) ? 'bg-indigo-50' : ''}`}>
+                            <input
+                              type="checkbox"
+                              className="accent-indigo-600 w-4 h-4 flex-shrink-0"
+                              checked={selectedOfferingIds.includes(o.id)}
+                              onChange={(e) => {
+                                setSelectedOfferingIds(prev =>
+                                  e.target.checked ? [...prev, o.id] : prev.filter(id => id !== o.id)
+                                )
+                                // auto-set single offering for legacy single-slot flow
+                                if (e.target.checked && selectedOfferingIds.length === 0) {
+                                  setSlotForm(f => ({ ...f, subjectOfferingId: o.id, teacherId: o.teacherId ?? f.teacherId }))
+                                }
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800 leading-tight">{o.subject.name}</p>
+                              {o.teacher && <p className="text-xs text-slate-400">{o.teacher.firstName} {o.teacher.lastName}</p>}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {selectedOfferingIds.length > 0 && (
+                      <p className="text-xs text-indigo-600 font-semibold mt-1">{selectedOfferingIds.length} offering(s) selected</p>
+                    )}
+                  </div>
                   <div>
                     <Label>Teacher for this slot (Required)</Label>
                     <Select
@@ -1603,12 +1754,76 @@ export default function AcademicEnginePage() {
                       <p className="text-xs text-amber-600 mt-1">⚠ No rooms found. Go to the <strong>Rooms</strong> tab to create one first.</p>
                     )}
                   </div>
-                  <div className="flex gap-2 pt-1">
-                    <Button onClick={() => createSlot.mutate()} disabled={!slotForm.subjectOfferingId || !slotFilterSection || !slotForm.teacherId || createSlot.isPending}>
-                      {createSlot.isPending ? 'Adding...' : 'Add slot'}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      onClick={() => bulkCreateSlots.mutate()}
+                      disabled={selectedOfferingIds.length === 0 || !slotFilterSection || !slotForm.teacherId || bulkCreateSlots.isPending}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                    >
+                      {bulkCreateSlots.isPending ? 'Adding…' : `Add ${selectedOfferingIds.length > 1 ? `${selectedOfferingIds.length} slots` : 'slot'}`}
                     </Button>
                     <Button variant="secondary" onClick={() => publishTimetable.mutate()} disabled={!slotFilterSection || publishTimetable.isPending}>
                       {publishTimetable.isPending ? 'Publishing...' : 'Publish timetable for section'}
+                    </Button>
+                  </div>
+                  {/* Bulk creation results feedback */}
+                  {bulkResults.length > 0 && (
+                    <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-3 py-1.5">Bulk Create Results</p>
+                      {bulkResults.map((r, i) => (
+                        <div key={i} className={`flex items-center gap-2 px-3 py-1.5 text-xs border-t border-slate-100 ${r.status === 'created' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          <span>{r.status === 'created' ? '✓' : '✗'}</span>
+                          <span>{r.subjectOfferingId.slice(-6)}: {r.status}</span>
+                          {r.conflicts && <span className="text-red-600">{r.conflicts[0]}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* ── Period Block Panel ─────────────────────────────────── */}
+                  <div className="border-t border-slate-100 pt-3 mt-1">
+                    <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">🕐 Add Period Block <span className="font-normal text-slate-400">(Break / Prayer / Lunch / Assembly)</span></p>
+                    {periodError && (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-2">{periodError}</div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] text-slate-500">Period Type</Label>
+                        <Select
+                          value={periodForm.periodCode}
+                          onValueChange={(v) => setPeriodForm(f => ({ ...f, periodCode: v as typeof periodForm.periodCode }))}
+                        >
+                          <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__BREAK__">☕ Break</SelectItem>
+                            <SelectItem value="__PRAYER__">🕌 Prayer</SelectItem>
+                            <SelectItem value="__LUNCH__">🍽 Lunch</SelectItem>
+                            <SelectItem value="__ASSEMBLY__">📢 Assembly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-slate-500">Day (1=Mon … 7=Sun)</Label>
+                        <Input type="number" min={1} max={7} className="h-9 text-xs" value={periodForm.dayOfWeek} onChange={(e) => setPeriodForm(f => ({ ...f, dayOfWeek: Number(e.target.value) }))} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <Label className="text-[10px] text-slate-500">Start Time</Label>
+                        <Input placeholder="10:30" className="h-9 text-xs font-mono" value={periodForm.startTime} onChange={(e) => setPeriodForm(f => ({ ...f, startTime: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-slate-500">End Time</Label>
+                        <Input placeholder="11:00" className="h-9 text-xs font-mono" value={periodForm.endTime} onChange={(e) => setPeriodForm(f => ({ ...f, endTime: e.target.value }))} />
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 w-full border-slate-300 text-slate-700 hover:bg-slate-50 gap-1.5"
+                      disabled={!slotFilterSection || addPeriodBlock.isPending}
+                      onClick={() => addPeriodBlock.mutate()}
+                    >
+                      {addPeriodBlock.isPending ? 'Adding period…' : '+ Add Period Block'}
                     </Button>
                   </div>
                 </CardContent>
@@ -1621,17 +1836,22 @@ export default function AcademicEnginePage() {
                   ) : (
                     (timetableSlots ?? []).map((sl: { id: string; dayOfWeek: number; startTime: string; endTime: string; isPublished: boolean; subjectOfferingId?: string; teacherId?: string | null; roomId?: string | null; subjectOffering: { subject: { name: string } }; teacher?: { firstName: string; lastName: string } | null }) => {
                       const isEditingSlot = editingSlotId === sl.id
+                      const isPeriodBlock = (sl.subjectOffering?.subject as { name: string; code?: string } | undefined)?.code?.startsWith('__') ?? false
                       return (
-                        <div key={sl.id} className="border border-slate-100 rounded-xl overflow-hidden shadow-sm hover:border-blue-200 transition-colors">
+                        <div key={sl.id} className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${isPeriodBlock ? 'border-gray-200 bg-gray-50/60 hover:border-gray-300' : 'border-slate-100 hover:border-blue-200'}`}>
                           <div className="flex items-center justify-between p-3 gap-2">
                             <div className="min-w-0">
                               <span className="font-medium text-slate-700 text-sm">
                                 <span className="inline-block min-w-[32px] text-slate-500">{DAY_NAMES[sl.dayOfWeek] || `D${sl.dayOfWeek}`}</span>
                                 &nbsp;{sl.startTime}–{sl.endTime}
-                                &nbsp;<span className="text-blue-600 font-semibold">· {sl.subjectOffering.subject.name}</span>
+                                &nbsp;<span className={isPeriodBlock ? 'text-gray-500 font-semibold' : 'text-blue-600 font-semibold'}>
+                                  {isPeriodBlock ? '🕐 ' : '· '}{sl.subjectOffering.subject.name}
+                                </span>
                               </span>
                               {sl.teacher && <p className="text-xs text-slate-400 mt-0.5">{sl.teacher.firstName} {sl.teacher.lastName}</p>}
+                              {isPeriodBlock && <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Period Block</p>}
                             </div>
+
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap ${sl.isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                                 {sl.isPublished ? '✓ Published' : 'Draft'}

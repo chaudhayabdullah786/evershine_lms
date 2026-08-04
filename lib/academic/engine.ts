@@ -82,7 +82,12 @@ export async function validateTimetableSlot(params: {
     })
   }
 
-  if (!isWithinShiftWindow(params.startTime, params.endTime, section.shift.startTime, section.shift.endTime)) {
+  // WHY: Period block subjects (Break, Prayer, Lunch, Assembly) use reserved codes
+  // prefixed with __ (e.g. __BREAK__). They are non-academic slots that may span
+  // shift boundaries. We exempt them from the isWithinShiftWindow check.
+  const isPeriodBlock = subjectOffering.subject.code?.startsWith('__') ?? false
+
+  if (!isPeriodBlock && !isWithinShiftWindow(params.startTime, params.endTime, section.shift.startTime, section.shift.endTime)) {
     conflicts.push({
       type: 'SHIFT',
       message: `Enter a time within ${section.shift.name} (${section.shift.startTime}-${section.shift.endTime}). Use 24-hour time, for example 15:00 for 3 PM.`,
