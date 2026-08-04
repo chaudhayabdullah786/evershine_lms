@@ -25,12 +25,27 @@ export const createFeedbackQuestionSchema = z.object({
   orderIndex: z.number().int().min(0).optional(),
 })
 
-export const updateShiftTimesSchema = z.object({
-  name: z.string().min(2).max(50).optional(),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
-  lateGraceMinutes: z.number().int().min(0).max(120).optional(),
-})
+export const updateShiftTimesSchema = z
+  .object({
+    name: z.string().min(2).max(50).optional(),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Use HH:mm format, e.g. 09:00')
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Use HH:mm format, e.g. 13:00')
+      .optional(),
+    lateGraceMinutes: z.number().int().min(0).max(120).optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.startTime !== undefined ||
+      data.endTime !== undefined ||
+      data.lateGraceMinutes !== undefined,
+    { message: 'At least one field (name, startTime, endTime, lateGraceMinutes) must be provided.' }
+  )
 
 export const LIKERT_LABELS: Record<
   'STRONGLY_AGREE' | 'AGREE' | 'NEUTRAL' | 'DISAGREE',
