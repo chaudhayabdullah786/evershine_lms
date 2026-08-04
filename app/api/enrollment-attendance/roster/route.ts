@@ -4,6 +4,7 @@ import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getTeacherByUserId, teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 import type { Role } from '@prisma/client'
 
 /** Active enrollments in a class section for attendance marking with batch/shift/house filters. */
@@ -40,75 +41,28 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Build where clause with optional filters
-  const baseWhere: any = {
+  const { targetClassSectionId, enrollments: rawEnrollments } = await getOrSyncSectionEnrollments(
     classSectionId,
-    status: 'ACTIVE',
-  }
+    activeYear?.id,
+    { batchId: batchId || undefined, shiftId: shiftId || undefined, houseId: houseId || undefined }
+  )
 
-  if (batchId) baseWhere.classSection = { batch: { id: batchId } }
-  if (shiftId) baseWhere.classSection = { ...baseWhere.classSection, shift: { id: shiftId } }
-  if (houseId) baseWhere.student = { house: { id: houseId } }
-
-  let enrollments = await prisma.studentEnrollment.findMany({
+  // Attach attendance records for attendanceDate
+  const enrollmentIds = rawEnrollments.map((e) => e.id)
+  const attendanceRecords = await prisma.enrollmentAttendanceRecord.findMany({
     where: {
-      ...baseWhere,
-      academicYearId: activeYear.id,
+      studentEnrollmentId: { in: enrollmentIds },
+      attendanceDate,
     },
-    include: {
-      classSection: {
-        select: {
-          batch: { select: { id: true, name: true } },
-          shift: { select: { id: true, name: true } },
-        },
-      },
-      student: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          rollNumber: true,
-          profilePicture: true,
-          house: { select: { id: true, name: true, color: true } },
-        },
-      },
-      attendanceRecords: {
-        where: { attendanceDate },
-        take: 1,
-      },
-    },
-    orderBy: { rollNumber: 'asc' },
   })
 
-  // Fallback: If 0 enrollments under activeYear.id, search across any academic year for this section
-  if (enrollments.length === 0) {
-    enrollments = await prisma.studentEnrollment.findMany({
-      where: baseWhere,
-      include: {
-        classSection: {
-          select: {
-            batch: { select: { id: true, name: true } },
-            shift: { select: { id: true, name: true } },
-          },
-        },
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            rollNumber: true,
-            profilePicture: true,
-            house: { select: { id: true, name: true, color: true } },
-          },
-        },
-        attendanceRecords: {
-          where: { attendanceDate },
-          take: 1,
-        },
-      },
-      orderBy: { rollNumber: 'asc' },
-    })
-  }
+  const enrollments = rawEnrollments.map((e) => {
+    const rec = attendanceRecords.find((r) => r.studentEnrollmentId === e.id)
+    return {
+      ...e,
+      attendanceRecords: rec ? [rec] : [],
+    }
+  })
 
   // Calculate statistics by house
   const byHouse: Record<string, { total: number; present: number; absent: number }> = {}

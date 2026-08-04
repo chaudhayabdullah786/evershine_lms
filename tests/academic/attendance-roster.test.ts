@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { NextRequest } from 'next/server'
 
-const { studentEnrollmentFindMany, timetableSlotFindFirst, subjectOfferingFindFirst } = vi.hoisted(() => ({
+const { studentEnrollmentFindMany, timetableSlotFindFirst, subjectOfferingFindFirst, classSectionFindUnique, enrollmentAttendanceRecordFindMany } = vi.hoisted(() => ({
   studentEnrollmentFindMany: vi.fn(),
   timetableSlotFindFirst: vi.fn(),
   subjectOfferingFindFirst: vi.fn(),
+  classSectionFindUnique: vi.fn(),
+  enrollmentAttendanceRecordFindMany: vi.fn(),
 }))
 
 const { requireSessionMock, requirePermissionMock, getTeacherByUserIdMock, teacherCanAccessClassSectionMock } = vi.hoisted(() => ({
@@ -16,9 +18,14 @@ const { requireSessionMock, requirePermissionMock, getTeacherByUserIdMock, teach
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    studentEnrollment: { findMany: studentEnrollmentFindMany },
+    studentEnrollment: { findMany: studentEnrollmentFindMany, upsert: vi.fn() },
     timetableSlot: { findFirst: timetableSlotFindFirst },
     subjectOffering: { findFirst: subjectOfferingFindFirst },
+    classSection: { findUnique: classSectionFindUnique, findFirst: vi.fn() },
+    class: { findUnique: vi.fn() },
+    student: { findMany: vi.fn() },
+    enrollmentAttendanceRecord: { findMany: enrollmentAttendanceRecordFindMany },
+    academicYear: { findUnique: vi.fn() },
   },
 }))
 
@@ -47,6 +54,7 @@ describe('attendance roster API', () => {
     teacherCanAccessClassSectionMock.mockResolvedValue(true)
     timetableSlotFindFirst.mockResolvedValue({ id: 'slot-1' })
     subjectOfferingFindFirst.mockResolvedValue(null)
+    enrollmentAttendanceRecordFindMany.mockResolvedValue([])
     studentEnrollmentFindMany.mockResolvedValue([
       {
         id: 'enroll-1',

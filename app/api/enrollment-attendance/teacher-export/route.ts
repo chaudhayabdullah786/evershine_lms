@@ -4,6 +4,7 @@ import { errors } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getTeacherByUserId, teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 import type { Role } from '@prisma/client'
 import ExcelJS from 'exceljs'
 
@@ -47,50 +48,26 @@ export async function POST(request: NextRequest) {
     const attendanceDate = new Date(date)
     attendanceDate.setHours(0, 0, 0, 0)
 
-    let enrollments = await prisma.studentEnrollment.findMany({
+    const { enrollments: rawEnrollments } = await getOrSyncSectionEnrollments(
+      classSectionId,
+      activeYear.id
+    )
+
+    const enrollmentIds = rawEnrollments.map((e) => e.id)
+    const attendanceRecords = await prisma.enrollmentAttendanceRecord.findMany({
       where: {
-        academicYearId: activeYear.id,
-        classSectionId,
-        status: 'ACTIVE',
+        studentEnrollmentId: { in: enrollmentIds },
+        attendanceDate,
       },
-      include: {
-        student: {
-          select: {
-            firstName: true,
-            lastName: true,
-            house: { select: { name: true } },
-          },
-        },
-        attendanceRecords: {
-          where: { attendanceDate },
-          take: 1,
-        },
-      },
-      orderBy: { rollNumber: 'asc' },
     })
 
-    if (enrollments.length === 0) {
-      enrollments = await prisma.studentEnrollment.findMany({
-        where: {
-          classSectionId,
-          status: 'ACTIVE',
-        },
-        include: {
-          student: {
-            select: {
-              firstName: true,
-              lastName: true,
-              house: { select: { name: true } },
-            },
-          },
-          attendanceRecords: {
-            where: { attendanceDate },
-            take: 1,
-          },
-        },
-        orderBy: { rollNumber: 'asc' },
-      })
-    }
+    const enrollments = rawEnrollments.map((e) => {
+      const rec = attendanceRecords.find((r) => r.studentEnrollmentId === e.id)
+      return {
+        ...e,
+        attendanceRecords: rec ? [rec] : [],
+      }
+    })
 
     // Create workbook
     const workbook = new ExcelJS.Workbook()
