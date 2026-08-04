@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { z } from 'zod'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 
 const markSubmissionSchema = z.object({
   records: z.array(z.object({
@@ -38,13 +40,19 @@ type TaskWithResults = Awaited<ReturnType<typeof getScopedTask>>
 
 async function getTaskRoster(task: NonNullable<TaskWithResults>) {
   if (task.classSectionId) {
-    const enrollments = await prisma.studentEnrollment.findMany({
+    let enrollments = await prisma.studentEnrollment.findMany({
       where: { classSectionId: task.classSectionId, status: 'ACTIVE' },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, registrationNumber: true, rollNumber: true } },
       },
       orderBy: [{ rollNumber: 'asc' }, { student: { firstName: 'asc' } }],
     })
+
+    if (enrollments.length === 0) {
+      const activeYear = await getActiveAcademicYear()
+      const resolved = await getOrSyncSectionEnrollments(task.classSectionId, activeYear?.id)
+      enrollments = resolved.enrollments as typeof enrollments
+    }
 
     return enrollments.map((enrollment) => ({
       studentId: enrollment.studentId,

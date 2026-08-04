@@ -32,6 +32,12 @@ interface TeacherClassRecord {
   legacyClassId?: string | null
 }
 
+interface TeacherSectionRecord {
+  id: string
+  className: string
+  sectionName: string
+}
+
 /* ─── Status config ─────────────────────────────────────────────── */
 const STATUS_CONFIG: Record<AttStatus, { label: string; icon: React.ReactNode; active: string; idle: string }> = {
   PRESENT: {
@@ -104,7 +110,23 @@ export default function TeacherAttendancePage() {
   /* ── Queries ── */
   const { data: teacherClassesRaw } = useQuery({
     queryKey: ['teacher-portal-classes-attendance'],
-    queryFn:  () => fetchApi<TeacherClassRecord[]>('/api/teacher-portal/classes'),
+    queryFn:  async () => {
+      if (session?.user?.role !== 'TEACHER') {
+        return fetchApi<TeacherClassRecord[]>('/api/teacher-portal/classes')
+      }
+
+      // Attendance must submit a ClassSection ID. The legacy classes endpoint
+      // can legitimately return a legacy-only assignment, which is not a
+      // valid identifier for the section-scoped roster authorization check.
+      const sections = await fetchApi<TeacherSectionRecord[]>('/api/teacher-portal/sections')
+      return sections.map((section) => ({
+        id: section.id,
+        name: section.className,
+        section: section.sectionName,
+        classSectionId: section.id,
+        legacyClassId: null,
+      }))
+    },
     enabled:  !!session?.user,
     staleTime: 5 * 60 * 1000,
   })

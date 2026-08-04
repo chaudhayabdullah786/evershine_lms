@@ -14,8 +14,15 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
   return { mockAuth, mockPrisma }
 })
 
+const { getActiveAcademicYearMock, getOrSyncSectionEnrollmentsMock } = vi.hoisted(() => ({
+  getActiveAcademicYearMock: vi.fn(),
+  getOrSyncSectionEnrollmentsMock: vi.fn(),
+}))
+
 vi.mock('@/lib/auth', () => ({ auth: mockAuth }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/academic/engine', () => ({ getActiveAcademicYear: getActiveAcademicYearMock }))
+vi.mock('@/lib/academic/roster-helper', () => ({ getOrSyncSectionEnrollments: getOrSyncSectionEnrollmentsMock }))
 
 import { GET, POST } from '../app/api/teacher-portal/tasks/[id]/marks/route'
 
@@ -61,6 +68,8 @@ describe('/api/teacher-portal/tasks/[id]/marks', () => {
     mockPrisma.student.findMany.mockResolvedValue([])
     mockPrisma.taskResult.upsert.mockImplementation((args) => Promise.resolve(args))
     mockPrisma.$transaction.mockImplementation((ops) => Promise.all(ops))
+    getActiveAcademicYearMock.mockResolvedValue({ id: 'year-1' })
+    getOrSyncSectionEnrollmentsMock.mockResolvedValue({ enrollments: roster })
   })
 
   it('lists the active enrolled students for a section-scoped task', async () => {
@@ -98,6 +107,19 @@ describe('/api/teacher-portal/tasks/[id]/marks', () => {
     expect(response.status).toBe(403)
     expect(json.error.message).toBe('One or more students are not enrolled in this task section.')
     expect(mockPrisma.taskResult.upsert).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the shared roster resolver when enrollment rows are missing', async () => {
+    mockPrisma.studentEnrollment.findMany.mockResolvedValueOnce([])
+
+    const response = await GET(new NextRequest('http://localhost/api/teacher-portal/tasks/task-1/marks'), {
+      params: Promise.resolve({ id: 'task-1' }),
+    })
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(getOrSyncSectionEnrollmentsMock).toHaveBeenCalledWith('section-1', 'year-1')
+    expect(json.data).toHaveLength(2)
   })
 
   it('saves marks only for enrolled students and enforces task max marks', async () => {

@@ -8,13 +8,16 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
     studentEnrollment: { findMany: vi.fn() },
     subjectOffering: { findMany: vi.fn(), findFirst: vi.fn() },
     dailyPerformanceScore: { findMany: vi.fn() },
-    monthlyMonitoringReport: { upsert: vi.fn() },
+    monthlyMonitoringReport: { upsert: vi.fn(), findUnique: vi.fn() },
   }
   return { mockAuth, mockPrisma }
 })
 
+const getOrSyncSectionEnrollmentsMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/auth', () => ({ auth: mockAuth }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/academic/roster-helper', () => ({ getOrSyncSectionEnrollments: getOrSyncSectionEnrollmentsMock }))
 
 import { GET } from '@/app/api/teacher-portal/monthly-monitoring/route'
 
@@ -44,6 +47,19 @@ describe('GET /api/teacher-portal/monthly-monitoring', () => {
         subject: { name: 'Physics', code: 'PHY' },
       },
     ])
+    mockPrisma.monthlyMonitoringReport.findUnique.mockResolvedValue(null)
+    getOrSyncSectionEnrollmentsMock.mockResolvedValue({
+      enrollments: [{
+        studentId: 'student-1',
+        student: {
+          id: 'student-1',
+          firstName: 'Rizwan',
+          lastName: 'Ali',
+          fatherName: 'Nazeer Ahmad',
+          rollNumber: '2100',
+        },
+      }],
+    })
   })
 
   it('returns qualitative daily labels and remarks only for the assigned teacher subject', async () => {
@@ -122,5 +138,17 @@ describe('GET /api/teacher-portal/monthly-monitoring', () => {
     const response = await GET(new NextRequest('http://localhost/api/teacher-portal/monthly-monitoring?classSectionId=section-2&academicYearId=year-1&type=monthly&month=7&year=2026'))
 
     expect(response.status).toBe(403)
+  })
+
+  it('builds a monthly roster through the shared resolver when the selected year has no enrollment rows', async () => {
+    mockPrisma.studentEnrollment.findMany.mockResolvedValueOnce([])
+
+    const response = await GET(new NextRequest('http://localhost/api/teacher-portal/monthly-monitoring?classSectionId=section-1&academicYearId=year-1&type=monthly&month=7&year=2026'))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(getOrSyncSectionEnrollmentsMock).toHaveBeenCalledWith('section-1', 'year-1')
+    expect(json.data.students).toHaveLength(1)
+    expect(json.data.students[0].studentId).toBe('student-1')
   })
 })

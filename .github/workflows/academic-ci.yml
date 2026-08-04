@@ -152,8 +152,11 @@ jobs:
       - name: Verify runtime HTML and static assets
         run: npm run verify:runtime-assets -- --base-url=http://localhost:5000
 
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        # The GitHub-hosted Ubuntu runner already includes Chromium runtime
+        # libraries. Avoid the heavyweight apt dependency installation; the
+        # academic API suite only launches Chromium.
+        run: npx playwright install chromium
 
       - name: Academic API smoke tests
         timeout-minutes: 5
