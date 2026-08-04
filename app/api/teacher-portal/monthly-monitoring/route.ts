@@ -16,6 +16,7 @@ import { derivePerformanceBatch } from '@/lib/academic/result-utils'
 import { type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
 import { decodeMonitoringRemarks, stripCourseNameFromMonitoringRemarks } from '@/lib/academic/monitoring'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 
 export const dynamic = 'force-dynamic'
 
@@ -173,7 +174,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Get all active enrollments for section
-    const enrollments = await prisma.studentEnrollment.findMany({
+    let enrollments = await prisma.studentEnrollment.findMany({
       where: { classSectionId, academicYearId, status: 'ACTIVE' },
       include: {
         student: {
@@ -188,6 +189,11 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { rollNumber: 'asc' },
     })
+
+    if (enrollments.length === 0) {
+      const resolved = await getOrSyncSectionEnrollments(classSectionId, academicYearId)
+      enrollments = resolved.enrollments as typeof enrollments
+    }
 
     // 2. Get all SubjectOfferings for this section
     if (teacherId) {
@@ -400,10 +406,14 @@ export async function POST(req: NextRequest) {
     const parsed = saveSchema.safeParse(body)
     if (!parsed.success) return errors.validation(parsed.error)
 
-    const enrollments = await prisma.studentEnrollment.findMany({
+    let enrollments = await prisma.studentEnrollment.findMany({
       where: { classSectionId: parsed.data.classSectionId, academicYearId: parsed.data.academicYearId, status: 'ACTIVE' },
       include: { student: { select: { firstName: true, lastName: true, fatherName: true, rollNumber: true } } },
     })
+    if (enrollments.length === 0) {
+      const resolved = await getOrSyncSectionEnrollments(parsed.data.classSectionId, parsed.data.academicYearId)
+      enrollments = resolved.enrollments as typeof enrollments
+    }
     if (!enrollments.length) return errors.badRequest('No active students are enrolled in this section.')
     if (session.user.role === 'TEACHER') {
       const teacher = await prisma.teacher.findUnique({ where: { userId: session.user.id }, select: { id: true } })

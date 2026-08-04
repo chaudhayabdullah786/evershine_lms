@@ -9,6 +9,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 
 export async function GET(
   _req: NextRequest,
@@ -30,7 +32,7 @@ export async function GET(
     const canAccess = await teacherCanAccessClassSection(teacher.id, classSectionId)
     if (!canAccess) return errors.forbidden('You are not assigned to this class section')
 
-    const enrollments = await prisma.studentEnrollment.findMany({
+    let enrollments = await prisma.studentEnrollment.findMany({
       where: {
         classSectionId,
         status: 'ACTIVE',
@@ -47,6 +49,16 @@ export async function GET(
       },
       orderBy: [{ rollNumber: 'asc' }, { student: { firstName: 'asc' } }],
     })
+
+    // Migrated campuses can still have active Student records without a
+    // corresponding StudentEnrollment row. Reuse the roster resolver used by
+    // attendance/daily scores so every teacher workflow sees the same roster
+    // and the enrollment is safely synchronized to the active year.
+    if (enrollments.length === 0) {
+      const activeYear = await getActiveAcademicYear()
+      const resolved = await getOrSyncSectionEnrollments(classSectionId, activeYear?.id)
+      enrollments = resolved.enrollments as typeof enrollments
+    }
 
     const studentsList = enrollments.map((e) => ({
       id: e.student.id,
