@@ -232,7 +232,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     })
     if (!section) return errors.notFound('Class Section')
     if (section.campusId !== teacher.campusId) {
-      return errors.forbidden('Class section does not belong to the teacher\'s campus')
+      if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+        // Auto-align teacher's primary campus when Superadmin/Admin assigns section from another campus
+        await prisma.teacher.update({
+          where: { id },
+          data: { campusId: section.campusId },
+        })
+      } else {
+        return errors.forbidden('Class section does not belong to the teacher\'s campus')
+      }
     }
 
     // Find the active academic year matching the year string
@@ -386,7 +394,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   })
   if (!cls) return errors.notFound('Class')
   if (cls.campusId !== teacher.campusId) {
-    return errors.forbidden('Class does not belong to the teacher\'s campus')
+    if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+      await prisma.teacher.update({
+        where: { id },
+        data: { campusId: cls.campusId },
+      })
+    } else {
+      return errors.forbidden('Class does not belong to the teacher\'s campus')
+    }
   }
 
   // Check for existing assignment — prevent duplicate

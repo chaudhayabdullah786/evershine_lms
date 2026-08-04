@@ -36,8 +36,37 @@ export async function GET(req: NextRequest) {
     where: { userId: session.user.id },
     select: { id: true },
   })
-  // Non-teacher roles (admin previewing the portal) have no Teacher record — return empty list gracefully
-  if (!teacher) return successResponse([])
+  if (!teacher) {
+    if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+      const allSections = await prisma.classSection.findMany({
+        where: { isActive: true },
+        include: {
+          shift: true,
+          campus: { select: { name: true, code: true } },
+          batch: { select: { name: true, code: true } },
+        },
+      })
+      return successResponse(
+        allSections.map((s) => ({
+          id: s.id,
+          name: s.className,
+          section: s.sectionName,
+          classSectionId: s.id,
+          legacyClassId: null,
+          grade: s.grade ?? 0,
+          shift: s.shift?.code ?? 'MORNING',
+          batchId: s.batchId,
+          campusId: s.campusId,
+          campus: s.campus,
+          batch: s.batch,
+          isClassTeacher: true,
+          isSubjectTeacher: true,
+          subjects: [],
+        }))
+      )
+    }
+    return successResponse([])
+  }
 
   const activeYear = await getActiveAcademicYear()
   const activeYearName = activeYear?.name ?? null
@@ -333,6 +362,56 @@ export async function GET(req: NextRequest) {
   }
 
   let classes = Array.from(classMap.values())
+
+  // Fallback: If active year query yielded 0 classes for an active teacher, fetch across all academic years
+  if (classes.length === 0) {
+    const allOfferings = await prisma.subjectOffering.findMany({
+      where: { teacherId: teacher.id },
+      include: {
+        subject: { select: { id: true, name: true, code: true } },
+        classSection: {
+          select: {
+            id: true,
+            className: true,
+            sectionName: true,
+            grade: true,
+            shiftId: true,
+            batchId: true,
+            campusId: true,
+            shift: { select: { name: true, code: true } },
+            campus: { select: { name: true, code: true } },
+            batch: { select: { name: true, code: true } },
+          },
+        },
+      },
+    })
+    for (const row of allOfferings) {
+      const cls = row.classSection
+      if (!cls) continue
+      const shiftCode = normalizeShiftValue(cls.shift?.name ?? cls.shift?.code)
+      const key = createClassKey(cls.grade ?? 0, cls.sectionName ?? '', cls.campusId, cls.batchId, shiftCode)
+      if (!classMap.has(key)) {
+        classMap.set(key, {
+          id: cls.id,
+          name: cls.className,
+          section: cls.sectionName,
+          classSectionId: cls.id,
+          legacyClassId: null,
+          grade: cls.grade ?? 0,
+          shift: shiftCode || 'Unknown',
+          batchId: cls.batchId,
+          campusId: cls.campusId,
+          campus: cls.campus,
+          batch: cls.batch as any,
+          isClassTeacher: false,
+          isSubjectTeacher: true,
+          subjects: [{ id: row.subject.id, name: row.subject.name, code: row.subject.code }],
+        })
+      }
+    }
+    classes = Array.from(classMap.values())
+  }
+
   if (shiftFilter?.success) {
     classes = classes.filter((c) => c.shift === shiftFilter.data)
   }

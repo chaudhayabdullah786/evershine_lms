@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const attendanceDate = new Date(date)
     attendanceDate.setHours(0, 0, 0, 0)
 
-    const enrollments = await prisma.studentEnrollment.findMany({
+    let enrollments = await prisma.studentEnrollment.findMany({
       where: {
         academicYearId: activeYear.id,
         classSectionId,
@@ -68,6 +68,29 @@ export async function POST(request: NextRequest) {
       },
       orderBy: { rollNumber: 'asc' },
     })
+
+    if (enrollments.length === 0) {
+      enrollments = await prisma.studentEnrollment.findMany({
+        where: {
+          classSectionId,
+          status: 'ACTIVE',
+        },
+        include: {
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              house: { select: { name: true } },
+            },
+          },
+          attendanceRecords: {
+            where: { attendanceDate },
+            take: 1,
+          },
+        },
+        orderBy: { rollNumber: 'asc' },
+      })
+    }
 
     // Create workbook
     const workbook = new ExcelJS.Workbook()
@@ -151,7 +174,7 @@ export async function POST(request: NextRequest) {
     // Add summary at bottom
     const summaryRow = enrollments.length + 7
     const totalPresent = enrollments.filter(
-      (e) => e.attendanceRecords[0]?.status === 'PRESENT'
+      (e) => ['PRESENT', 'LATE'].includes(e.attendanceRecords[0]?.status ?? '')
     ).length
     const totalAbsent = enrollments.filter(
       (e) => e.attendanceRecords[0]?.status === 'ABSENT'
