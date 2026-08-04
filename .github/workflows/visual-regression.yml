@@ -69,8 +69,12 @@ jobs:
           echo "Server failed to start within 120 s"
           exit 1
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        # GitHub-hosted Ubuntu runners already provide the system libraries
+        # required by Chromium. Installing every browser plus 181 apt packages
+        # makes this job spend 15+ minutes in apt and can be cancelled before
+        # the actual visual test starts. The visual suite only uses Chromium.
+        run: npx playwright install chromium
 
       - name: Run Playwright visual tests
         timeout-minutes: 10
