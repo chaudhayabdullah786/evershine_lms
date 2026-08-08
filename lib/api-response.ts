@@ -138,6 +138,9 @@ export const errors = {
   internal: () =>
     errorResponse('INTERNAL_ERROR', 'An unexpected error occurred. Please try again.', 500),
 
+  schemaOutOfDate: (message = 'The application database schema is out of date. Please run the production schema sync and try again.') =>
+    errorResponse('SCHEMA_OUT_OF_DATE', message, 503),
+
   /**
    * Converts a Zod validation error into a structured 400 response.
    * WHY: Zod errors include field-level detail that clients need to display
