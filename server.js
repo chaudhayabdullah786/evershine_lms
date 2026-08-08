@@ -178,6 +178,17 @@ if (fs.existsSync(standaloneSW)) {
 syncPrismaEngine()
 
 // ── 4. Start Next.js standalone server ──────────────────────────────────────
+// WHY: Hostinger Passenger passes a UNIX domain socket path (e.g. /tmp/passenger.xxx.socket)
+// in process.env.PORT. The compiled Next.js standalone server.js calls:
+//   parseInt(process.env.PORT, 10) || 3000
+// which parses a socket path as NaN, falls back to 3000, and crashes with EADDRINUSE
+// because port 3000 is occupied by another tenant on the shared server.
+//
+// STRATEGY: Detect whether PORT is a UNIX socket path. If so:
+//   1. Patch the inner standalone/server.js at runtime to natively support socket binding.
+//   2. Set process.env.PORT to the socket path so Next.js binds to the correct socket.
+// If PORT is a numeric TCP port, pass it through unchanged.
+
 const serverPath = path.join(STANDALONE, 'server.js')
 if (!fs.existsSync(serverPath)) {
   console.error('[SERVER] ERROR: .next/standalone/server.js not found.')
@@ -185,16 +196,70 @@ if (!fs.existsSync(serverPath)) {
   process.exit(1)
 }
 
-const PORT = process.env.PORT || 3000
-process.env.PORT = String(PORT)
+const rawPort = process.env.PORT
 
-console.log(`[SERVER] Starting Next.js on port ${PORT}...`)
+// Determine if Passenger is passing a UNIX socket path.
+// UNIX socket paths are non-empty strings that are NOT purely numeric.
+const isUnixSocket = typeof rawPort === 'string' && rawPort.length > 0 && isNaN(Number(rawPort))
+
+if (isUnixSocket) {
+  console.log(`[SERVER] UNIX socket mode detected. Socket path: ${rawPort}`)
+
+  // ── Runtime-patch the inner standalone server.js for UNIX socket support ──
+  // WHY: We patch at runtime (not just build time) so this works regardless
+  // of which build archive was deployed — even a stale one without the build-time patch.
+  try {
+    let innerContent = fs.readFileSync(serverPath, 'utf8')
+    const portTarget   = 'const currentPort = parseInt(process.env.PORT, 10) || 3000'
+    const portReplace  = [
+      'const isUnixSocket = process.env.PORT && isNaN(parseInt(process.env.PORT, 10));',
+      'const currentPort = isUnixSocket ? process.env.PORT : (parseInt(process.env.PORT, 10) || 3000);'
+    ].join('\n')
+
+    // Handle both single-quote and double-quote variants emitted by Next.js compilers
+    const hostTargetSQ = "const hostname = process.env.HOSTNAME || '0.0.0.0'"
+    const hostTargetDQ = 'const hostname = process.env.HOSTNAME || "0.0.0.0"'
+    const hostReplace  = "const hostname = isUnixSocket ? undefined : (process.env.HOSTNAME || '0.0.0.0')"
+
+    if (innerContent.includes(portTarget)) {
+      innerContent = innerContent.replace(portTarget, portReplace)
+      if (innerContent.includes(hostTargetSQ)) {
+        innerContent = innerContent.replace(hostTargetSQ, hostReplace)
+      } else if (innerContent.includes(hostTargetDQ)) {
+        innerContent = innerContent.replace(hostTargetDQ, hostReplace)
+      }
+      fs.writeFileSync(serverPath, innerContent, 'utf8')
+      console.log('[SERVER] OK  inner standalone/server.js patched for UNIX socket compatibility')
+    } else if (innerContent.includes('isUnixSocket')) {
+      console.log('[SERVER] OK  inner standalone/server.js already patched — skipping')
+    } else {
+      console.warn('[SERVER] WARN: Could not find port declaration in inner server.js — using pass-through')
+    }
+  } catch (patchErr) {
+    console.warn('[SERVER] WARN: Failed to patch inner server.js:', patchErr.message)
+  }
+
+  // Pass the UNIX socket path through to the inner server
+  process.env.PORT = rawPort
+
+} else {
+  // Standard TCP port mode (local development or direct-port deployment)
+  const numericPort = parseInt(rawPort, 10) || 3000
+  process.env.PORT = String(numericPort)
+  console.log(`[SERVER] TCP port mode. Port: ${numericPort}`)
+}
+
+console.log(`[SERVER] Starting Next.js standalone server...`)
 require(serverPath)
 
 function syncPrismaEngine() {
-  const HOSTINGER_NATIVE_PATH = '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node'
+  const PATHS = [
+    '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
+    '/home/u668799501/domains/evershineacadmey.com/node_modules/@prisma/engines/libquery_engine-debian-openssl-1.1.x.so.node'
+  ]
+  const sourcePath = PATHS.find(p => fs.existsSync(p))
   
-  if (!fs.existsSync(HOSTINGER_NATIVE_PATH)) {
+  if (!sourcePath) {
     console.log('[SERVER] Prisma native engine sync skipped (not on Hostinger production or engine missing).')
     return
   }
@@ -205,16 +270,25 @@ function syncPrismaEngine() {
   }
 
   // 1. Delete wrong engine binaries in standalone to prevent resolution collision
-  const files = fs.readdirSync(targetDir)
-  for (const file of files) {
-    if (file.startsWith('libquery_engine-debian-openssl-3.0.x')) {
-      fs.unlinkSync(path.join(targetDir, file))
-      console.log(`[SERVER] OK  Removed mismatched engine from standalone: ${file}`)
+  try {
+    const files = fs.readdirSync(targetDir)
+    for (const file of files) {
+      if (
+        file.startsWith('libquery_engine-debian-openssl-3.0.x') ||
+        file.startsWith('libquery_engine-rhel') ||
+        file.startsWith('libquery_engine-darwin') ||
+        file.startsWith('libquery_engine-windows')
+      ) {
+        fs.unlinkSync(path.join(targetDir, file))
+        console.log(`[SERVER] OK  Removed mismatched engine from standalone: ${file}`)
+      }
     }
+  } catch (err) {
+    console.warn('[SERVER] Warning cleaning up standalone engines:', err)
   }
 
   // 2. Copy correct native engine to standalone client
   const targetPath = path.join(targetDir, 'libquery_engine-debian-openssl-1.1.x.so.node')
-  fs.copyFileSync(HOSTINGER_NATIVE_PATH, targetPath)
-  console.log('[SERVER] OK  Hostinger-native Prisma engine synced successfully into standalone.')
+  fs.copyFileSync(sourcePath, targetPath)
+  console.log(`[SERVER] OK  Hostinger-native Prisma engine synced successfully from ${sourcePath} into standalone.`)
 }

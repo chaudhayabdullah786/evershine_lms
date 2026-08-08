@@ -147,7 +147,7 @@ async function sendAnnouncementEmails({
   // Query users with verified emails matching the target role
   const where: Prisma.UserWhereInput = {
     isActive: true,
-    email: { not: null },
+    email: { not: '' },
     ...(targetRole ? { role: targetRole as Role } : {}),
   }
 

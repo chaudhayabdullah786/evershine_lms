@@ -171,9 +171,13 @@ export async function getOrSyncSectionEnrollments(
       isActive: true,
       NOT: { enrollmentStatus: 'WITHDRAWN' },
       OR: [
+<<<<<<< HEAD
         // Path A1: Linked via modern classSectionId on Student model
         { classSectionId: targetClassSectionId },
         // Path A2: Linked via classId matching targetClassSectionId
+=======
+        // Path A: Directly linked to target ClassSection ID
+>>>>>>> origin/main
         { classId: targetClassSectionId },
         // Path B: Linked to any matching legacy Class IDs
         ...(legacyClassIds.length ? [{ classId: { in: legacyClassIds } }] : []),
