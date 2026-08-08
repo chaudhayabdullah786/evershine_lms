@@ -91,7 +91,10 @@ describe('POST /api/teacher-portal/tasks', () => {
       where: {
         teacherId: 'teacher-1',
         classSectionId: 'section-1',
-        subjectId: 'academic-subject-1',
+        OR: [
+          { subjectId: 'academic-subject-1' },
+          { id: 'academic-subject-1' },
+        ],
       },
       select: { id: true },
     })
