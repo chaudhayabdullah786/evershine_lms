@@ -8,6 +8,9 @@ const { mockAuth, mockPrisma, mockGuardianAccess } = vi.hoisted(() => ({
     studentEnrollment: { findMany: vi.fn() },
     termResult: { findMany: vi.fn() },
     taskResult: { findMany: vi.fn() },
+    // WHY: prisma.result.findMany is now queried by the student portal results
+    // route to expose individual exam marks. Must be present in the mock.
+    result: { findMany: vi.fn() },
     enrollmentAttendanceRecord: { findMany: vi.fn() },
     feeInvoice: { findMany: vi.fn() },
     timetableSlot: { findMany: vi.fn() },
@@ -67,6 +70,7 @@ describe('declared result portal visibility', () => {
     vi.clearAllMocks()
     mockPrisma.studentEnrollment.findMany.mockResolvedValue([])
     mockPrisma.taskResult.findMany.mockResolvedValue([])
+    mockPrisma.result.findMany.mockResolvedValue([])
     mockPrisma.enrollmentAttendanceRecord.findMany.mockResolvedValue([])
     mockPrisma.feeInvoice.findMany.mockResolvedValue([])
     mockPrisma.termResult.findMany.mockResolvedValue([declaredResult])

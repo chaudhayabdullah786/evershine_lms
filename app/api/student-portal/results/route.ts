@@ -73,7 +73,7 @@ export async function GET() {
   })
 
   // ── Monitoring reports (daily 90-day window + declared monthly) ──────────
-  const [dailyMonitoring, monthlyMonitoring, taskResults] = await Promise.all([
+  const [dailyMonitoring, monthlyMonitoring, taskResults, dbExamResults] = await Promise.all([
     classSectionIds.length > 0 && activeYear
       ? prisma.dailyPerformanceScore.findMany({
           where: {
@@ -117,6 +117,32 @@ export async function GET() {
       },
       orderBy: { updatedAt: 'desc' },
       take: 100,
+    }),
+    prisma.result.findMany({
+      where: { studentId: student.id },
+      include: {
+        exam: {
+          select: {
+            id: true,
+            name: true,
+            startDate: true,
+            endDate: true,
+            totalMarks: true,
+          },
+        },
+        details: {
+          include: {
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     }),
   ])
 
@@ -220,10 +246,36 @@ export async function GET() {
     ],
   }))
 
+  const mappedExamResults = dbExamResults.map((r) => ({
+    id: r.id,
+    examId: r.examId,
+    examName: r.exam.name,
+    startDate: r.exam.startDate.toISOString(),
+    endDate: r.exam.endDate.toISOString(),
+    totalMarks: r.totalMarks,
+    obtainedMarks: r.obtainedMarks,
+    percentage: Number(r.percentage.toString()),
+    grade: r.grade,
+    isPassed: r.isPassed,
+    remarks: r.remarks,
+    details: r.details.map((d) => ({
+      id: d.id,
+      subjectId: d.subjectId,
+      subjectName: d.subject.name,
+      subjectCode: d.subject.code,
+      totalMarks: d.totalMarks,
+      obtainedMarks: d.obtainedMarks,
+      grade: d.grade,
+      isPassed: d.isPassed,
+    })),
+  }))
+
   return successResponse({
     academicYear: activeYear,
     // Enhanced multi-session results
     declaredResults,
+    // Individual exam-level results
+    examResults: mappedExamResults,
     // Legacy single-session results (for backward-compat with existing Results tab)
     results: legacyResults,
     overallPercentage: latest?.overallPercentage ?? null,
