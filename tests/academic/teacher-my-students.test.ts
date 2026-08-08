@@ -27,6 +27,7 @@ const {
 // correctness is covered by tests/academic/teacher-scope.test.ts.
 // Here we only care that my-students correctly uses its output.
 const getTeacherClassSectionIdsMock = vi.hoisted(() => vi.fn())
+const resolveClassContextMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 
@@ -49,6 +50,9 @@ vi.mock('@/lib/academic/engine', () => ({
 // triggering its own prisma calls (covered in teacher-scope.test.ts).
 vi.mock('@/lib/academic/teacher-scope', () => ({
   getTeacherClassSectionIds: getTeacherClassSectionIdsMock,
+}))
+vi.mock('@/lib/teacher-access', () => ({
+  resolveClassContext: resolveClassContextMock,
 }))
 
 import { GET } from '@/app/api/teacher-portal/my-students/route'
@@ -91,6 +95,7 @@ describe('teacher-portal/my-students', () => {
     academicYearFindFirstMock.mockResolvedValue(ACTIVE_YEAR)
     studentCountMock.mockReturnValue({ type: 'count' })
     studentFindManyMock.mockReturnValue({ type: 'findMany' })
+    resolveClassContextMock.mockResolvedValue({ legacyClassId: 'legacy-class-1', classSectionId: 'section-1' })
   })
 
   it('accepts classSectionId and returns the teacher roster for that section', async () => {
@@ -140,6 +145,23 @@ describe('teacher-portal/my-students', () => {
     expect(json.pagination.total).toBe(0)
     expect(transactionMock).not.toHaveBeenCalled()
     expect(studentFindManyMock).not.toHaveBeenCalled()
+  })
+
+  it('bridges a legacy exam classId to the canonical teacher class section', async () => {
+    getTeacherClassSectionIdsMock.mockResolvedValue(['section-1'])
+    transactionMock.mockResolvedValue([1, [STUDENT_FIXTURE]])
+
+    const response = await GET(
+      new Request(
+        'http://localhost/api/teacher-portal/my-students?classId=legacy-class-1&limit=10'
+      ) as unknown as NextRequest
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data).toHaveLength(1)
+    expect(resolveClassContextMock).toHaveBeenCalledWith('legacy-class-1')
+    expect(transactionMock).toHaveBeenCalled()
   })
 
   it('returns an empty result when the teacher has no class section assignments', async () => {
