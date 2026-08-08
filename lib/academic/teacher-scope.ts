@@ -180,8 +180,8 @@ export async function getTeacherClassSectionIds(
   const yearLabel = activeYear?.name ?? academicYearId
 
   const [
-    subjectOfferings,
-    timetableSlots,
+    activeYearSubjectOfferings,
+    activeYearTimetableSlots,
     activeClassTeacherRows,
     allClassTeacherRows,
     subjectTeacherRows,
@@ -223,6 +223,31 @@ export async function getTeacherClassSectionIds(
       distinct: ['classSectionId'],
     }) ?? [],
   ])
+
+  // WHY year-agnostic fallback for SubjectOffering and TimetableSlot:
+  // These records are created per academic year. When the active year is
+  // switched (e.g. 2025-2026 → 2026-2027) but teacher assignments have not
+  // yet been re-created for the new year, the year-specific query returns 0
+  // rows — causing the sections dropdown, attendance, grade entry, and my-students
+  // to all appear empty. The fallback activates ONLY when the active year has
+  // no assignments, matching the existing allClassTeacherRows pattern below.
+  // TRADEOFF: Widens scope across years — acceptable because section visibility
+  // is still constrained by ClassSection.isActive and enrollment checks downstream.
+  const subjectOfferings = (activeYearSubjectOfferings.length > 0 || !yearId)
+    ? activeYearSubjectOfferings
+    : (await prisma.subjectOffering?.findMany?.({
+        where: { teacherId },
+        select: { classSectionId: true },
+        distinct: ['classSectionId'],
+      }) ?? [])
+
+  const timetableSlots = (activeYearTimetableSlots.length > 0 || !yearId)
+    ? activeYearTimetableSlots
+    : (await prisma.timetableSlot?.findMany?.({
+        where: { teacherId },
+        select: { classSectionId: true },
+        distinct: ['classSectionId'],
+      }) ?? [])
 
   const classTeacherRows = activeClassTeacherRows.length > 0
     ? activeClassTeacherRows

@@ -35,16 +35,15 @@ export async function GET() {
         // sections remain excluded.
         OR: [
           { isActive: true },
-          ...(activeYear
-            ? [{
-                enrollments: {
-                  some: {
-                    academicYearId: activeYear.id,
-                    status: 'ACTIVE' as const,
-                  },
-                },
-              }]
-            : []),
+          // WHY any-year fallback: sections with prior-year enrollments (e.g. 2025-2026
+          // data when active year is 2026-2027) must still be visible to assigned
+          // teachers. The isActive flag is the primary gate; this catches inactive
+          // sections that still carry live students pending year-rollover.
+          {
+            enrollments: {
+              some: { status: 'ACTIVE' as const },
+            },
+          },
         ],
       },
       select: {
