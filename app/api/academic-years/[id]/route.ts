@@ -74,7 +74,7 @@ export async function PATCH(
       data: dataToUpdate as Parameters<typeof tx.academicYear.update>[0]['data'],
     })
     if (row.isActive) {
-      await ensureSingleActiveAcademicYear(row.id)
+      await ensureSingleActiveAcademicYear(row.id, tx)
     }
     await tx.auditLog.create({
       data: {

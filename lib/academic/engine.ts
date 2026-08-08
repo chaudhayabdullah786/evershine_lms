@@ -179,8 +179,11 @@ export function calculatePenaltyAmount(
   return Math.round(penalty * 100) / 100
 }
 
-export async function ensureSingleActiveAcademicYear(activeId: string): Promise<void> {
-  await prisma.academicYear.updateMany({
+export async function ensureSingleActiveAcademicYear(
+  activeId: string,
+  dbClient: any = prisma
+): Promise<void> {
+  await dbClient.academicYear.updateMany({
     where: { isActive: true, NOT: { id: activeId } },
     data: { isActive: false },
   })
