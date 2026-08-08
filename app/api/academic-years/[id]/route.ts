@@ -36,23 +36,25 @@ export async function PATCH(
   const { id } = await params
   const existing = await prisma.academicYear.findUnique({ where: { id } })
   if (!existing) return errors.notFound('Academic year')
-  if (existing.isLocked) return errors.forbidden('Locked academic years cannot be modified')
 
-  const parsed = patchSchema.safeParse(await request.json())
+  const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+  if (existing.isLocked && !isSuperAdmin) {
+    return errors.forbidden('Locked academic years cannot be modified')
+  }
+
+  const body = await request.json()
+  const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  // Guard: Prevent startDate changes on the active year.
-  // WHY: Changing startDate mid-year shifts the attendance window, breaking
-  // historical attendance percentage calculations for already-recorded days.
-  // endDate is safe to extend (e.g. extending the year due to holidays).
-  if (parsed.data.startDate && existing.isActive) {
+  // Guard: Prevent startDate changes on active year unless SuperAdmin
+  if (parsed.data.startDate && existing.isActive && !isSuperAdmin) {
     return errors.forbidden(
       'Cannot change the start date of the currently active academic year. Extend the end date instead.'
     )
   }
 
   // Guard: Unique year name
-  if (parsed.data.name) {
+  if (parsed.data.name && parsed.data.name !== existing.name) {
     const nameCollision = await prisma.academicYear.findFirst({
       where: { name: parsed.data.name, id: { not: id } },
       select: { id: true },
@@ -67,8 +69,13 @@ export async function PATCH(
   if (dataToUpdate.endDate)   dataToUpdate.endDate   = new Date(parsed.data.endDate as string)
 
   const updated = await prisma.$transaction(async (tx) => {
-    const row = await tx.academicYear.update({ where: { id }, data: dataToUpdate as Parameters<typeof tx.academicYear.update>[0]['data'] })
-    if (row.isActive) await ensureSingleActiveAcademicYear(row.id)
+    const row = await tx.academicYear.update({
+      where: { id },
+      data: dataToUpdate as Parameters<typeof tx.academicYear.update>[0]['data'],
+    })
+    if (row.isActive) {
+      await ensureSingleActiveAcademicYear(row.id)
+    }
     await tx.auditLog.create({
       data: {
         userId:     session.user.id,
@@ -82,4 +89,25 @@ export async function PATCH(
   })
 
   return successResponse(updated, 'Academic year updated successfully')
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { session, error } = await requireSession()
+  if (error || !session) return error!
+  const denied = requirePermission(session.user.role as Role, 'academic_years', 'delete')
+  if (denied) return denied
+
+  const { id } = await params
+  const existing = await prisma.academicYear.findUnique({ where: { id } })
+  if (!existing) return errors.notFound('Academic year')
+
+  if (existing.isActive) {
+    return errors.forbidden('Cannot delete the active academic year. Activate another academic year first.')
+  }
+
+  await prisma.academicYear.delete({ where: { id } })
+  return successResponse(null, 'Academic year deleted successfully')
 }
