@@ -227,124 +227,157 @@ export async function POST(request: NextRequest) {
 
   const { title, description, type, dueDate, maxMarks, classId, classSectionId, legacyClassId, subjectId } = parsed.data
 
-  const context = await resolveClassContext(classId)
-  let resolvedClassId = legacyClassId ?? context.legacyClassId
-  let resolvedClassSectionId = classSectionId ?? context.classSectionId
+  try {
+    const context = await resolveClassContext(classId)
+    let resolvedClassId = legacyClassId ?? context.legacyClassId
+    let resolvedClassSectionId = classSectionId ?? context.classSectionId
 
-  if (!resolvedClassId) {
-    const section = await prisma.classSection.findUnique({
-      where: { id: classId },
-      select: {
-        id: true,
-        grade: true,
-        className: true,
-        sectionName: true,
-        campusId: true,
-        batchId: true,
-        shift: { select: { code: true, name: true } },
-      },
-    })
-
-    if (section) {
-      resolvedClassSectionId = section.id
-      const shiftCode = (section.shift?.code ?? section.shift?.name ?? '')
-        .toUpperCase()
-        .replace(/\s+/g, '')
-        .replace(/SHIFT$/, '')
-      const legacyShift: SessionShift = sessionShiftSchema.safeParse(shiftCode).success
-        ? (shiftCode as SessionShift)
-        : 'MORNING'
-
-      const legacyClass = await findLegacyClassForSection({
-        grade: section.grade,
-        sectionName: section.sectionName,
-        campusId: section.campusId,
-        batchId: section.batchId,
-        shiftCode,
+    if (!resolvedClassId) {
+      const section = await prisma.classSection.findUnique({
+        where: { id: classId },
+        select: {
+          id: true,
+          grade: true,
+          className: true,
+          sectionName: true,
+          campusId: true,
+          batchId: true,
+          shift: { select: { code: true, name: true } },
+        },
       })
 
-      if (legacyClass) {
-        resolvedClassId = legacyClass.id
-      } else {
-        // Dynamically create/upsert the legacy Class record for this new engine ClassSection
-        const activeYear = await getActiveAcademicYear()
-        const academicYearName = activeYear?.name ?? '2024-2025'
+      if (section) {
+        resolvedClassSectionId = section.id
+        const rawShift = (section.shift?.code ?? section.shift?.name ?? '')
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/SHIFT$/, '')
+        const shiftParseResult = sessionShiftSchema.safeParse(rawShift)
+        const legacyShift: SessionShift = shiftParseResult.success
+          ? shiftParseResult.data
+          : 'MORNING'
 
-        const newLegacyClass = await prisma.class.upsert({
-          where: {
-            grade_section_campusId_academicYear_shift: {
-              grade: section.grade ?? 0,
-              section: section.sectionName ?? '',
-              campusId: section.campusId,
-              academicYear: academicYearName,
-              shift: legacyShift,
-            }
-          },
-          update: {},
-          create: {
-            name: `${section.className ?? `Class ${section.grade}`} - ${shiftCode} (${section.sectionName ?? 'A'})`,
-            grade: section.grade ?? 0,
-            section: section.sectionName ?? '',
-            campusId: section.campusId,
-            batchId: section.batchId,
-            academicYear: academicYearName,
-            shift: legacyShift,
-            isActive: true,
-          },
-          select: { id: true }
+        // Extract bare section letter from names like "Morning (A)" → "A"
+        const rawSectionName = section.sectionName ?? ''
+        const sectionLetterMatch = rawSectionName.match(/\(([^)]+)\)/)
+        const normalizedSection = sectionLetterMatch
+          ? sectionLetterMatch[1].trim()
+          : rawSectionName.trim()
+
+        const legacyClass = await findLegacyClassForSection({
+          grade: section.grade,
+          sectionName: rawSectionName,
+          campusId: section.campusId,
+          batchId: section.batchId,
+          shiftCode: rawShift,
         })
-        resolvedClassId = newLegacyClass.id
+
+        if (legacyClass) {
+          resolvedClassId = legacyClass.id
+        } else {
+          // Dynamically create/upsert the legacy Class record for this new engine ClassSection
+          const activeYear = await getActiveAcademicYear()
+          const academicYearName = activeYear?.name ?? '2024-2025'
+          const gradeVal = section.grade ?? 0
+
+          try {
+            const newLegacyClass = await prisma.class.upsert({
+              where: {
+                grade_section_campusId_academicYear_shift: {
+                  grade: gradeVal,
+                  section: normalizedSection,
+                  campusId: section.campusId,
+                  academicYear: academicYearName,
+                  shift: legacyShift,
+                }
+              },
+              update: {},
+              create: {
+                name: `${section.className ?? `Class ${gradeVal}`} - ${rawShift} (${normalizedSection})`,
+                grade: gradeVal,
+                section: normalizedSection,
+                campusId: section.campusId,
+                batchId: section.batchId,
+                academicYear: academicYearName,
+                shift: legacyShift,
+                isActive: true,
+              },
+              select: { id: true }
+            })
+            resolvedClassId = newLegacyClass.id
+          } catch (upsertErr) {
+            // If upsert failed due to constraint race, attempt a plain findFirst
+            const existingCls = await prisma.class.findFirst({
+              where: {
+                grade: gradeVal,
+                section: normalizedSection,
+                campusId: section.campusId,
+                shift: legacyShift,
+                isActive: true,
+              },
+              select: { id: true }
+            })
+            if (existingCls) {
+              resolvedClassId = existingCls.id
+            }
+            // If still null, continue — the final guard below will catch it
+          }
+        }
       }
     }
-  }
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true }
-  })
-  if (!teacher) return errors.notFound('Teacher profile not found')
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true }
+    })
+    if (!teacher) return errors.notFound('Teacher profile not found')
 
-  if (!resolvedClassId) {
-    return errors.validation({ errors: [{ path: ['classId'], message: 'Class could not be resolved for this teacher assignment' }] } as never)
-  }
-
-  const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)
-  const isAssigned = isSuperOrAdmin || await teacherCanCreateTaskForSubject({
-    teacherId: teacher.id,
-    legacyClassId: resolvedClassId,
-    classSectionId: resolvedClassSectionId,
-    subjectId,
-  })
-
-  if (!isAssigned) {
-    return errors.forbidden('You are not authorized to create tasks for this class/subject')
-  }
-
-  const legacySubject = await findOrCreateLegacySubject(resolvedClassId, subjectId)
-  const resolvedSubjectId = legacySubject?.id ?? null
-
-  if (!resolvedSubjectId) {
-    return errors.validation({ errors: [{ path: ['subjectId'], message: 'Subject could not be resolved for this teacher assignment' }] } as never)
-  }
-
-  const task = await prisma.classTask.create({
-    data: {
-      title,
-      description,
-      type,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      maxMarks,
-      classId: resolvedClassId,
-      classSectionId: resolvedClassSectionId,
-      subjectId: resolvedSubjectId,
-      teacherId: teacher.id,
-    },
-    include: {
-      class: { select: { name: true, section: true } },
-      classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
-      subject: { select: { name: true, code: true } }
+    if (!resolvedClassId) {
+      return errors.validation({ errors: [{ path: ['classId'], message: 'Class could not be resolved for this teacher assignment' }] } as never)
     }
-  })
 
-  return createdResponse(task, 'Task created successfully')
+    const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)
+    const isAssigned = isSuperOrAdmin || await teacherCanCreateTaskForSubject({
+      teacherId: teacher.id,
+      legacyClassId: resolvedClassId,
+      classSectionId: resolvedClassSectionId,
+      subjectId,
+    })
+
+    if (!isAssigned) {
+      return errors.forbidden('You are not authorized to create tasks for this class/subject')
+    }
+
+    const legacySubject = await findOrCreateLegacySubject(resolvedClassId, subjectId)
+    const resolvedSubjectId = legacySubject?.id ?? null
+
+    if (!resolvedSubjectId) {
+      return errors.validation({ errors: [{ path: ['subjectId'], message: 'Subject could not be resolved for this teacher assignment' }] } as never)
+    }
+
+    const task = await prisma.classTask.create({
+      data: {
+        title,
+        description,
+        type,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        maxMarks,
+        classId: resolvedClassId,
+        classSectionId: resolvedClassSectionId,
+        subjectId: resolvedSubjectId,
+        teacherId: teacher.id,
+      },
+      include: {
+        class: { select: { name: true, section: true } },
+        classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+        subject: { select: { name: true, code: true } }
+      }
+    })
+
+    return createdResponse(task, 'Task created successfully')
+  } catch (err) {
+    console.error('[TEACHER_TASK_CREATE]', err)
+    return errors.internal()
+  }
 }
+
