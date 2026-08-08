@@ -169,9 +169,11 @@ export async function getOrSyncSectionEnrollments(
     // Build multi-path query to locate all students belonging to this section/grade
     const directStudentWhere: Record<string, unknown> = {
       isActive: true,
-      enrollmentStatus: 'ACTIVE',
+      NOT: { enrollmentStatus: 'WITHDRAWN' },
       OR: [
-        // Path A: Directly linked to target ClassSection ID
+        // Path A1: Linked via modern classSectionId on Student model
+        { classSectionId: targetClassSectionId },
+        // Path A2: Linked via classId matching targetClassSectionId
         { classId: targetClassSectionId },
         // Path B: Linked to any matching legacy Class IDs
         ...(legacyClassIds.length ? [{ classId: { in: legacyClassIds } }] : []),

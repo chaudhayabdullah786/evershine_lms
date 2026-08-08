@@ -211,16 +211,47 @@ async function run() {
   // ── Sync Hostinger-Native Prisma Engine ─────────────────────────────────────
   syncPrismaEngine()
 
+  // ── Patch Standalone Server for UNIX Sockets ──────────────────────────────
+  patchStandaloneServer()
+
   const { verifyDeploymentArtifact } = require('./verify-deployment-artifact')
   verifyDeploymentArtifact(ROOT)
 
   console.log('[postbuild] Done. Standalone build is deployment-ready.')
 }
 
-function syncPrismaEngine() {
-  const HOSTINGER_NATIVE_PATH = '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node'
+function patchStandaloneServer() {
+  const standaloneServerPath = path.join(STANDALONE, 'server.js')
+  if (!fs.existsSync(standaloneServerPath)) {
+    console.warn('[postbuild] SKIP: standalone server.js not found for patching')
+    return
+  }
+
+  let content = fs.readFileSync(standaloneServerPath, 'utf8')
   
-  if (!fs.existsSync(HOSTINGER_NATIVE_PATH)) {
+  const targetPort = "const currentPort = parseInt(process.env.PORT, 10) || 3000"
+  const replacementPort = "const isUnixSocket = process.env.PORT && isNaN(parseInt(process.env.PORT, 10));\nconst currentPort = isUnixSocket ? process.env.PORT : (parseInt(process.env.PORT, 10) || 3000);"
+  
+  const targetHost = "const hostname = process.env.HOSTNAME || '0.0.0.0'"
+  const replacementHost = "const hostname = isUnixSocket ? undefined : (process.env.HOSTNAME || '0.0.0.0')"
+
+  if (content.includes(targetPort) && content.includes(targetHost)) {
+    content = content.replace(targetPort, replacementPort).replace(targetHost, replacementHost)
+    fs.writeFileSync(standaloneServerPath, content, 'utf8')
+    console.log('[postbuild] OK  standalone server.js patched for UNIX socket compatibility')
+  } else {
+    console.warn('[postbuild] WARNING: Could not find target port/host declarations in standalone server.js')
+  }
+}
+
+function syncPrismaEngine() {
+  const PATHS = [
+    '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
+    '/home/u668799501/domains/evershineacadmey.com/node_modules/@prisma/engines/libquery_engine-debian-openssl-1.1.x.so.node'
+  ]
+  const sourcePath = PATHS.find(p => fs.existsSync(p))
+  
+  if (!sourcePath) {
     console.log('[postbuild] Prisma native engine sync skipped (not on Hostinger production or engine missing).')
     return
   }
@@ -231,18 +262,27 @@ function syncPrismaEngine() {
   }
 
   // 1. Delete wrong engine binaries in standalone to prevent resolution collision
-  const files = fs.readdirSync(targetDir)
-  for (const file of files) {
-    if (file.startsWith('libquery_engine-debian-openssl-3.0.x')) {
-      fs.unlinkSync(path.join(targetDir, file))
-      console.log(`[postbuild] OK  Removed mismatched engine from standalone: ${file}`)
+  try {
+    const files = fs.readdirSync(targetDir)
+    for (const file of files) {
+      if (
+        file.startsWith('libquery_engine-debian-openssl-3.0.x') ||
+        file.startsWith('libquery_engine-rhel') ||
+        file.startsWith('libquery_engine-darwin') ||
+        file.startsWith('libquery_engine-windows')
+      ) {
+        fs.unlinkSync(path.join(targetDir, file))
+        console.log(`[postbuild] OK  Removed mismatched engine from standalone: ${file}`)
+      }
     }
+  } catch (err) {
+    console.warn('[postbuild] Warning cleaning up standalone engines:', err)
   }
 
   // 2. Copy correct native engine to standalone client
   const targetPath = path.join(targetDir, 'libquery_engine-debian-openssl-1.1.x.so.node')
-  fs.copyFileSync(HOSTINGER_NATIVE_PATH, targetPath)
-  console.log('[postbuild] OK  Hostinger-native Prisma engine synced successfully into standalone.')
+  fs.copyFileSync(sourcePath, targetPath)
+  console.log(`[postbuild] OK  Hostinger-native Prisma engine synced successfully from ${sourcePath} into standalone.`)
 }
 
 run().catch(err => {
