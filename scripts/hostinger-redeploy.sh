@@ -11,7 +11,7 @@
 #   1. Sets up Node 20 in PATH (Hostinger requirement)
 #   2. Pulls the latest code from the main branch
 #   3. Installs any new dependencies without rebuilding native modules
-#   4. Regenerates the Prisma client to match the current schema
+#   4. Synchronizes additive MySQL schema changes and regenerates Prisma
 #   5. Runs the full Next.js production build
 #   6. Kills any running server process so Passenger can restart cleanly
 #   7. Prints a confirmation with the new BUILD_ID
@@ -41,7 +41,13 @@ git pull origin main
 echo "[DEPLOY] Installing dependencies..."
 npm ci --ignore-scripts
 
-# ── 3. Regenerate Prisma client ───────────────────────────────────────────────
+# ── 3. Synchronize the additive MySQL schema, then regenerate Prisma client ───
+# WHY: Hostinger uses MySQL while the historical migration lock predates the
+# MySQL deployment. `db push` applies reviewed additive schema changes such as
+# ClassTask.classSectionId without attempting to replay PostgreSQL migrations.
+echo "[DEPLOY] Synchronizing MySQL schema..."
+npx prisma db push --skip-generate
+
 echo "[DEPLOY] Generating Prisma client..."
 npx prisma generate
 

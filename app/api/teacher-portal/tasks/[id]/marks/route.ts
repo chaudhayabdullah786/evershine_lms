@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 import { resolveClassContext } from '@/lib/teacher-access'
+import { isSchemaOutOfDateError } from '@/lib/db-errors'
 
 const markSubmissionSchema = z.object({
   records: z.array(z.object({
@@ -118,6 +119,9 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
     return successResponse(buildRows(task, roster))
   } catch (err) {
     console.error('[TEACHER_TASK_MARKS_GET]', err)
+    if (isSchemaOutOfDateError(err)) {
+      return errors.schemaOutOfDate('The task marks database schema is out of date. Please run the production schema sync and try again.')
+    }
     return errors.internal()
   }
 }
@@ -166,6 +170,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     return successResponse(null, 'Marks saved successfully')
   } catch (err) {
     console.error('[TEACHER_TASK_MARKS_POST]', err)
+    if (isSchemaOutOfDateError(err)) {
+      return errors.schemaOutOfDate('The task marks database schema is out of date. Please run the production schema sync and try again.')
+    }
     return errors.internal()
   }
 }

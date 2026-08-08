@@ -5,6 +5,7 @@ import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { findLegacyClassForSection, findOrCreateLegacySubject, resolveClassContext } from '@/lib/teacher-access'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { sessionShiftSchema, type SessionShift } from '@/lib/validation/shift'
+import { isSchemaOutOfDateError } from '@/lib/db-errors'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -78,9 +79,10 @@ async function teacherCanCreateTaskForSubject(params: {
     const mappedLegacySubject = await prisma.subject.findFirst({
       where: {
         classId: params.legacyClassId,
+        // MySQL Prisma clients do not support Prisma's `mode` string filter.
+        // The production collation is case-insensitive; explicit variants
+        // below also keep this lookup portable across existing records.
         OR: [
-          { code: { equals: academicSubject.code, mode: 'insensitive' } },
-          { name: { equals: academicSubject.name, mode: 'insensitive' } },
           { code: academicSubject.code },
           { code: academicSubject.code.toLowerCase() },
           { code: academicSubject.code.toUpperCase() },
@@ -110,9 +112,8 @@ async function teacherCanCreateTaskForSubject(params: {
   if (legacySub) {
     const acadSub = await prisma.academicSubject.findFirst({
       where: {
+        // Keep this compatible with the MySQL Prisma client (no `mode` filter).
         OR: [
-          { code: { equals: legacySub.code, mode: 'insensitive' } },
-          { name: { equals: legacySub.name, mode: 'insensitive' } },
           { code: legacySub.code },
           { code: legacySub.code.toLowerCase() },
           { code: legacySub.code.toUpperCase() },
@@ -177,39 +178,47 @@ export async function GET(request: NextRequest) {
   if (!session?.user) return errors.unauthorized()
   if (session.user.role !== 'TEACHER') return errors.forbidden('Only teachers can access this')
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true }
-  })
-  if (!teacher) return errors.notFound('Teacher profile not found')
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true }
+    })
+    if (!teacher) return errors.notFound('Teacher profile not found')
 
-  const { searchParams } = new URL(request.url)
-  const parsed = querySchema.safeParse(Object.fromEntries(searchParams))
-  if (!parsed.success) return errors.validation(parsed.error)
-  const { page, limit, classId, subjectId } = parsed.data
+    const { searchParams } = new URL(request.url)
+    const parsed = querySchema.safeParse(Object.fromEntries(searchParams))
+    if (!parsed.success) return errors.validation(parsed.error)
+    const { page, limit, classId, subjectId } = parsed.data
 
-  const where = {
-    teacherId: teacher.id,
-    ...(classId ? { OR: [{ classId }, { classSectionId: classId }] } : {}),
-    ...(subjectId && { subjectId }),
+    const where = {
+      teacherId: teacher.id,
+      ...(classId ? { OR: [{ classId }, { classSectionId: classId }] } : {}),
+      ...(subjectId && { subjectId }),
+    }
+
+    const [total, tasks] = await prisma.$transaction([
+      prisma.classTask.count({ where }),
+      prisma.classTask.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          class: { select: { name: true, section: true } },
+          classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
+          subject: { select: { name: true, code: true } }
+        }
+      }),
+    ])
+
+    return paginatedResponse(tasks, { page, limit, total })
+  } catch (err) {
+    console.error('[TEACHER_TASK_LIST]', err)
+    if (isSchemaOutOfDateError(err)) {
+      return errors.schemaOutOfDate('The task database schema is out of date. Please run the production schema sync and try again.')
+    }
+    return errors.internal()
   }
-
-  const [total, tasks] = await prisma.$transaction([
-    prisma.classTask.count({ where }),
-    prisma.classTask.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        class: { select: { name: true, section: true } },
-        classSection: { select: { id: true, className: true, sectionName: true, shift: { select: { code: true, name: true } } } },
-        subject: { select: { name: true, code: true } }
-      }
-    }),
-  ])
-
-  return paginatedResponse(tasks, { page, limit, total })
 }
 
 export async function POST(request: NextRequest) {
@@ -305,7 +314,7 @@ export async function POST(request: NextRequest) {
               select: { id: true }
             })
             resolvedClassId = newLegacyClass.id
-          } catch (upsertErr) {
+          } catch {
             // If upsert failed due to constraint race, attempt a plain findFirst
             const existingCls = await prisma.class.findFirst({
               where: {
@@ -377,7 +386,9 @@ export async function POST(request: NextRequest) {
     return createdResponse(task, 'Task created successfully')
   } catch (err) {
     console.error('[TEACHER_TASK_CREATE]', err)
+    if (isSchemaOutOfDateError(err)) {
+      return errors.schemaOutOfDate('The task database schema is out of date. Please run the production schema sync and try again.')
+    }
     return errors.internal()
   }
 }
-

@@ -112,4 +112,31 @@ describe('POST /api/teacher-portal/tasks', () => {
       },
     })
   })
+
+  it('returns an actionable schema error when the task section column is missing', async () => {
+    mockPrisma.subjectOffering.findFirst.mockResolvedValue({ id: 'offering-1' })
+    mockPrisma.subject.findUnique.mockResolvedValue(null)
+    mockPrisma.academicSubject.findUnique.mockResolvedValue({ code: 'BIO', name: 'Biology' })
+    mockPrisma.subject.findFirst.mockResolvedValue({ id: 'legacy-subject-1', name: 'Biology', code: 'BIO', classId: 'legacy-class-1' })
+    mockPrisma.classTask.create.mockRejectedValue({ code: 'P2022' })
+
+    const response = await POST(new NextRequest('http://localhost/api/teacher-portal/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Cell Biology Activity',
+        type: 'ASSIGNMENT',
+        maxMarks: 20,
+        classId: 'legacy-class-1',
+        legacyClassId: 'legacy-class-1',
+        classSectionId: 'section-1',
+        subjectId: 'academic-subject-1',
+      }),
+      headers: { 'content-type': 'application/json' },
+    }))
+    const json = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(json.error.code).toBe('SCHEMA_OUT_OF_DATE')
+    expect(json.error.message).toContain('task database schema is out of date')
+  })
 })
