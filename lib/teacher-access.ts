@@ -30,13 +30,15 @@ function extractSectionLetter(sectionName: string): string {
 }
 
 async function resolveClassSectionIdForLegacyClass(legacyClass: { grade: number; section: string | null; campusId: string; batchId: string | null; shift: string }) {
+  const upperShift = legacyClass.shift.toUpperCase().trim()
+  const isValidSessionShift = upperShift === 'MORNING' || upperShift === 'EVENING' || upperShift === 'NIGHT'
+
   const shift = await prisma.shift.findFirst({
     where: {
       OR: [
-        { code: legacyClass.shift as SessionShift },
-        { code: legacyClass.shift.toLowerCase() as SessionShift },
-        { code: legacyClass.shift.toUpperCase() as SessionShift },
+        ...(isValidSessionShift ? [{ code: upperShift as SessionShift }] : []),
         { name: legacyClass.shift },
+        { name: upperShift },
       ]
     },
     select: { id: true },
