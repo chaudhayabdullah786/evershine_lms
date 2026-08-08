@@ -69,7 +69,6 @@ describe('teacher-portal/sections', () => {
             {
               enrollments: {
                 some: {
-                  academicYearId: 'year-1',
                   status: 'ACTIVE',
                 },
               },
