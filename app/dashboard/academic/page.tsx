@@ -965,37 +965,84 @@ export default function AcademicEnginePage() {
                         {!y.isActive && !y.isLocked && <span className="text-[10px] text-gray-400">Inactive</span>}
                       </div>
                     </div>
-                    {!y.isLocked ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-7"
-                        onClick={async () => {
-                          try {
-                            await fetchApi(`/api/academic-years/${y.id}/lock`, { method: 'POST' })
-                            notify.success('Year locked')
-                            qc.invalidateQueries({ queryKey: ['academic-years'] })
-                          } catch (e) {
-                            notify.error(e instanceof Error ? e.message : 'Lock failed')
-                          }
-                        }}
-                      >Lock</Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="text-xs h-7"
-                        onClick={async () => {
-                          try {
-                            await fetchApi(`/api/academic-years/${y.id}/unlock`, { method: 'POST' })
-                            notify.success('Year unlocked')
-                            qc.invalidateQueries({ queryKey: ['academic-years'] })
-                          } catch (e) {
-                            notify.error(e instanceof Error ? e.message : 'Unlock failed')
-                          }
-                        }}
-                      >Unlock</Button>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {!y.isActive && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          onClick={async () => {
+                            try {
+                              await fetchApi(`/api/academic-years/${y.id}`, {
+                                method: 'PATCH',
+                                body: JSON.stringify({ isActive: true }),
+                              })
+                              notify.success(`Academic Year ${y.name} activated`)
+                              qc.invalidateQueries({ queryKey: ['academic-years'] })
+                            } catch (e) {
+                              notify.error(e instanceof Error ? e.message : 'Activation failed')
+                            }
+                          }}
+                        >
+                          Activate
+                        </Button>
+                      )}
+                      {!y.isLocked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={async () => {
+                            try {
+                              await fetchApi(`/api/academic-years/${y.id}/lock`, { method: 'POST' })
+                              notify.success('Year locked')
+                              qc.invalidateQueries({ queryKey: ['academic-years'] })
+                            } catch (e) {
+                              notify.error(e instanceof Error ? e.message : 'Lock failed')
+                            }
+                          }}
+                        >
+                          Lock
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="text-xs h-7"
+                          onClick={async () => {
+                            try {
+                              await fetchApi(`/api/academic-years/${y.id}/unlock`, { method: 'POST' })
+                              notify.success('Year unlocked')
+                              qc.invalidateQueries({ queryKey: ['academic-years'] })
+                            } catch (e) {
+                              notify.error(e instanceof Error ? e.message : 'Unlock failed')
+                            }
+                          }}
+                        >
+                          Unlock
+                        </Button>
+                      )}
+                      {!y.isActive && !y.isLocked && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          title="Delete Academic Year"
+                          onClick={async () => {
+                            if (!confirm(`Delete ${y.name}? This action cannot be undone.`)) return
+                            try {
+                              await fetchApi(`/api/academic-years/${y.id}`, { method: 'DELETE' })
+                              notify.success(`Academic Year ${y.name} deleted`)
+                              qc.invalidateQueries({ queryKey: ['academic-years'] })
+                            } catch (e) {
+                              notify.error(e instanceof Error ? e.message : 'Delete failed')
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </CardContent>
