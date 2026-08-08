@@ -66,15 +66,29 @@ export async function getOrSyncSectionEnrollments(
     }
   }
 
+  let legacyClassIds: string[] = []
+
+  if (section) {
+    // Find any legacy Class rows matching this section's campus and grade/section
+    const matchingLegacy = await prisma.class?.findMany?.({
+      where: {
+        campusId: section.campusId,
+        ...(section.grade ? { grade: section.grade } : {}),
+      },
+      select: { id: true },
+    }) ?? []
+    legacyClassIds = matchingLegacy.map((c) => c.id)
+    if (legacyClassId && !legacyClassIds.includes(legacyClassId)) {
+      legacyClassIds.push(legacyClassId)
+    }
+  }
+
   // 2. Fetch existing StudentEnrollment records for this ClassSection.
-  //    Filters are applied at the DB level to prevent over-fetching.
   const baseWhere: Record<string, unknown> = {
     classSectionId: targetClassSectionId,
     status: 'ACTIVE',
   }
 
-  // WHY separate nested objects: Prisma does not allow merging nested
-  // `classSection` objects; we must build one nested filter object.
   const classSectionFilter: Record<string, unknown> = {}
   if (filters?.batchId) classSectionFilter.batch = { id: filters.batchId }
   if (filters?.shiftId) classSectionFilter.shift = { id: filters.shiftId }
@@ -113,10 +127,8 @@ export async function getOrSyncSectionEnrollments(
       })
     : []
 
-  // 3. Fallback: Query across all academic years if the specific year yielded 0.
-  //    WHY: Some campuses enrolled students in a prior year and haven't run
-  //    a year-rollover. We tolerate a year mismatch to avoid empty rosters.
-  if (enrollments.length === 0 && academicYearId && prisma.studentEnrollment?.findMany) {
+  // 3. Fallback: Query across ALL academic years if specific year returned 0 enrollments.
+  if (enrollments.length === 0 && prisma.studentEnrollment?.findMany) {
     enrollments = await prisma.studentEnrollment.findMany({
       where: baseWhere,
       include: {
@@ -143,12 +155,8 @@ export async function getOrSyncSectionEnrollments(
     })
   }
 
-  // 4. Global Auto-Sync: If StudentEnrollment is still empty, find direct
-  //    Student records and auto-enroll them. This handles campuses that
-  //    admitted students via the legacy admission flow (Student.classId).
-  //
-  //    SECURITY: We strictly filter by grade AND shift code to prevent a
-  //    Morning-shift teacher from seeing Evening-shift students in their roster.
+  // 4. Global Auto-Sync: If StudentEnrollment is still empty, find direct Student records
+  //    and auto-enroll them into this ClassSection.
   if (enrollments.length === 0 && prisma.student?.findMany) {
     const activeYear = academicYearId
       ? (prisma.academicYear?.findUnique
@@ -156,47 +164,32 @@ export async function getOrSyncSectionEnrollments(
           : null)
       : await getActiveAcademicYear()
 
-    // Build a shift-aware where clause for direct students.
-    // WHY `class: { grade: section.grade }` and NOT `lastClassPassed`:
-    //   `lastClassPassed` stores the grade the student passed BEFORE admission
-    //   and is not updated during the academic year. `class.grade` is the grade
-    //   the student is CURRENTLY enrolled in, which is what we need here.
+    const fallbackActiveYear = activeYear || (await prisma.academicYear?.findFirst?.({ where: { isActive: true } })) || (await prisma.academicYear?.findFirst?.({ orderBy: { startDate: 'desc' } }))
+
+    // Build multi-path query to locate all students belonging to this section/grade
     const directStudentWhere: Record<string, unknown> = {
       isActive: true,
       enrollmentStatus: 'ACTIVE',
       OR: [
-        // Path A: Student directly linked to this ClassSection ID (modern path).
+        // Path A: Directly linked to target ClassSection ID
         { classId: targetClassSectionId },
-        // Path B: Student linked to legacy Class ID.
-        ...(legacyClassId ? [{ classId: legacyClassId }] : []),
-        // Path C: Structural match — campus + grade + section + shift.
-        //   This is the primary path for legacy admissions.
-        //   Shift enforcement is mandatory to prevent cross-shift leakage.
-        ...(section
+        // Path B: Linked to any matching legacy Class IDs
+        ...(legacyClassIds.length ? [{ classId: { in: legacyClassIds } }] : []),
+        // Path C: Campus + Grade match on Student.class
+        ...(section?.campusId && section?.grade
           ? [
               {
                 campusId: section.campusId,
-                ...(section.batchId ? { batchId: section.batchId } : {}),
-                ...(section.sectionName
-                  ? { section: section.sectionName }
-                  : {}),
-                // WHY single `class` filter: both grade AND shift must be
-                // in the same nested object. JavaScript object spread would
-                // silently overwrite an earlier `class` key, causing the grade
-                // constraint to be dropped when shift is also present.
-                // SHIFT ENFORCEMENT: Only students whose Class record shares
-                // the same shift code as the target ClassSection are eligible.
-                // This is the primary defence against cross-shift data leakage.
-                ...((section.grade || section.shift?.code)
-                  ? {
-                      class: {
-                        ...(section.grade ? { grade: section.grade } : {}),
-                        ...(section.shift?.code
-                          ? { shift: section.shift.code }
-                          : {}),
-                      },
-                    }
-                  : {}),
+                class: { grade: section.grade },
+              },
+            ]
+          : []),
+        // Path D: Campus + Section name match
+        ...(section?.campusId && section?.sectionName
+          ? [
+              {
+                campusId: section.campusId,
+                section: { contains: section.sectionName },
               },
             ]
           : []),
@@ -211,20 +204,20 @@ export async function getOrSyncSectionEnrollments(
       orderBy: { rollNumber: 'asc' },
     })
 
-    if (directStudents.length > 0 && activeYear && targetClassSectionId && prisma.studentEnrollment?.upsert) {
+    if (directStudents.length > 0 && fallbackActiveYear && targetClassSectionId && prisma.studentEnrollment?.upsert) {
       for (const st of directStudents) {
         try {
           await prisma.studentEnrollment.upsert({
             where: {
               studentId_academicYearId_classSectionId: {
                 studentId: st.id,
-                academicYearId: activeYear.id,
+                academicYearId: fallbackActiveYear.id,
                 classSectionId: targetClassSectionId,
               },
             },
             create: {
               studentId: st.id,
-              academicYearId: activeYear.id,
+              academicYearId: fallbackActiveYear.id,
               classSectionId: targetClassSectionId,
               rollNumber: st.rollNumber || '1',
               status: 'ACTIVE',
