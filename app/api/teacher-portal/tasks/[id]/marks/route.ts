@@ -107,14 +107,19 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
   if (!session?.user) return errors.unauthorized()
   if (session.user.role !== 'TEACHER') return errors.forbidden('Only teachers can access this')
 
-  const teacher = await getTeacherId(session.user.id)
-  if (!teacher) return errors.notFound('Teacher profile not found')
+  try {
+    const teacher = await getTeacherId(session.user.id)
+    if (!teacher) return errors.notFound('Teacher profile not found')
 
-  const task = await getScopedTask(params.id, teacher.id)
-  if (!task) return errors.notFound('Task not found or access denied')
+    const task = await getScopedTask(params.id, teacher.id)
+    if (!task) return errors.notFound('Task not found or access denied')
 
-  const roster = await getTaskRoster(task)
-  return successResponse(buildRows(task, roster))
+    const roster = await getTaskRoster(task)
+    return successResponse(buildRows(task, roster))
+  } catch (err) {
+    console.error('[TEACHER_TASK_MARKS_GET]', err)
+    return errors.internal()
+  }
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -131,31 +136,36 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   const parsed = markSubmissionSchema.safeParse(body)
   if (!parsed.success) return errors.validation(parsed.error)
 
-  const teacher = await getTeacherId(session.user.id)
-  if (!teacher) return errors.notFound('Teacher profile not found')
+  try {
+    const teacher = await getTeacherId(session.user.id)
+    if (!teacher) return errors.notFound('Teacher profile not found')
 
-  const task = await getScopedTask(params.id, teacher.id)
-  if (!task) return errors.notFound('Task not found or access denied')
+    const task = await getScopedTask(params.id, teacher.id)
+    if (!task) return errors.notFound('Task not found or access denied')
 
-  const invalidMarks = parsed.data.records.find((record) => record.obtainedMarks > task.maxMarks)
-  if (invalidMarks) {
-    return errors.validation({ errors: [{ path: ['obtainedMarks'], message: `Marks cannot exceed max marks (${task.maxMarks})` }] } as never)
+    const invalidMarks = parsed.data.records.find((record) => record.obtainedMarks > task.maxMarks)
+    if (invalidMarks) {
+      return errors.validation({ errors: [{ path: ['obtainedMarks'], message: `Marks cannot exceed max marks (${task.maxMarks})` }] } as never)
+    }
+
+    const roster = await getTaskRoster(task)
+    const allowedStudentIds = new Set(roster.map((row) => row.studentId))
+    const unauthorizedStudent = parsed.data.records.find((record) => !allowedStudentIds.has(record.studentId))
+    if (unauthorizedStudent) {
+      return errors.forbidden('One or more students are not enrolled in this task section.')
+    }
+
+    await prisma.$transaction(
+      parsed.data.records.map((record) => prisma.taskResult.upsert({
+        where: { taskId_studentId: { taskId: task.id, studentId: record.studentId } },
+        update: { obtainedMarks: record.obtainedMarks, remarks: record.remarks ?? null },
+        create: { taskId: task.id, studentId: record.studentId, obtainedMarks: record.obtainedMarks, remarks: record.remarks ?? null },
+      })),
+    )
+
+    return successResponse(null, 'Marks saved successfully')
+  } catch (err) {
+    console.error('[TEACHER_TASK_MARKS_POST]', err)
+    return errors.internal()
   }
-
-  const roster = await getTaskRoster(task)
-  const allowedStudentIds = new Set(roster.map((row) => row.studentId))
-  const unauthorizedStudent = parsed.data.records.find((record) => !allowedStudentIds.has(record.studentId))
-  if (unauthorizedStudent) {
-    return errors.forbidden('One or more students are not enrolled in this task section.')
-  }
-
-  await prisma.$transaction(
-    parsed.data.records.map((record) => prisma.taskResult.upsert({
-      where: { taskId_studentId: { taskId: task.id, studentId: record.studentId } },
-      update: { obtainedMarks: record.obtainedMarks, remarks: record.remarks ?? null },
-      create: { taskId: task.id, studentId: record.studentId, obtainedMarks: record.obtainedMarks, remarks: record.remarks ?? null },
-    })),
-  )
-
-  return successResponse(null, 'Marks saved successfully')
 }
