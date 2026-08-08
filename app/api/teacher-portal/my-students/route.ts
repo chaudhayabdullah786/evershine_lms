@@ -27,12 +27,16 @@ import { prisma } from '@/lib/prisma'
 import { errors, paginatedResponse } from '@/lib/api-response'
 import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { resolveClassContext } from '@/lib/teacher-access'
 import { z } from 'zod'
 
 const querySchema = z.object({
   page:             z.coerce.number().int().min(1).default(1),
   limit:            z.coerce.number().int().min(1).max(100).default(25),
   classSectionId:   z.string().optional(),
+  // Legacy exam/result screens still submit Exam.classId. Resolve it to the
+  // canonical section before applying the teacher scope check below.
+  classId:          z.string().optional(),
   search:           z.string().optional(),
   enrollmentStatus: z.enum(['ACTIVE', 'SUSPENDED', 'GRADUATED', 'WITHDRAWN', 'ON_LEAVE']).optional(),
 })
@@ -71,14 +75,20 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams))
   if (!parsed.success) return errors.validation(parsed.error)
-  const { page, limit, classSectionId, search, enrollmentStatus } = parsed.data
+  const { page, limit, classSectionId, classId, search, enrollmentStatus } = parsed.data
+
+  let requestedClassSectionId = classSectionId
+  if (!requestedClassSectionId && classId) {
+    const resolved = await resolveClassContext(classId)
+    requestedClassSectionId = resolved.classSectionId ?? undefined
+  }
 
   // Validate that a requested classSectionId falls within the teacher's scope.
   // SECURITY: A teacher cannot bypass this by injecting a foreign ID in the
   // query string — the allowed set is resolved server-side from DB assignments.
-  const effectiveClassSectionIds = classSectionId
-    ? authorisedClassSectionIds.includes(classSectionId)
-      ? [classSectionId]
+  const effectiveClassSectionIds = requestedClassSectionId
+    ? authorisedClassSectionIds.includes(requestedClassSectionId)
+      ? [requestedClassSectionId]
       : []
     : authorisedClassSectionIds
 
