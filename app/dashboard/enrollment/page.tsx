@@ -64,6 +64,32 @@ type DeclaredResult = {
   subjects: DeclaredSubject[]
 }
 
+type ExamResultDetail = {
+  id: string
+  subjectId: string
+  subjectName: string
+  subjectCode: string
+  totalMarks: number
+  obtainedMarks: number
+  grade: string
+  isPassed: boolean
+}
+
+type ExamResultItem = {
+  id: string
+  examId: string
+  examName: string
+  startDate: string
+  endDate: string
+  totalMarks: number
+  obtainedMarks: number
+  percentage: number
+  grade: string
+  isPassed: boolean
+  remarks: string | null
+  details: ExamResultDetail[]
+}
+
 type ResultsData = {
   academicYear: { name: string } | null
   overallPercentage: number | null
@@ -73,6 +99,7 @@ type ResultsData = {
   latestClassPosition: number | null
   latestTeacherRemarks: string | null
   declaredResults: DeclaredResult[]
+  examResults: ExamResultItem[]
   results: Array<{
     subjectName: string
     subjectCode: string
@@ -335,11 +362,13 @@ function ResultsTabContent({
   sessionName?: string | null
 }) {
   const [expandedSession, setExpandedSession] = useLocalState<string | null>(null)
+  const [expandedExam, setExpandedExam] = useLocalState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   // Refs keyed by termResultId for per-session DOM capture
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const hasDeclared = (results?.declaredResults ?? []).length > 0
+  const hasExamResults = (results?.examResults ?? []).length > 0
 
   const cardStudent: ReportCardStudent = {
     firstName: student?.firstName,
@@ -351,6 +380,15 @@ function ResultsTabContent({
     campus: student?.campus,
     batch: student?.batch,
     class: student?.class,
+  }
+
+  function formatDate(dateStr: string) {
+    if (!dateStr) return '—'
+    try {
+      return new Date(dateStr).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })
+    } catch {
+      return dateStr
+    }
   }
 
   async function handleDownload(sessionResult: ReportCardResult) {
@@ -377,134 +415,308 @@ function ResultsTabContent({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Section header */}
-      <div className="flex items-center gap-2 px-1">
-        <BarChart2 className="w-5 h-5 text-purple-600" />
-        <div>
-          <h3 className="text-base font-bold text-slate-900">Declared Exam Results</h3>
-          <p className="text-xs text-slate-500">
-            Official marks sheets published and verified by the administration.
-          </p>
+    <div className="space-y-6">
+      {/* Declared Term Results Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 px-1">
+          <BarChart2 className="w-5 h-5 text-purple-600" />
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Declared Term Results</h3>
+            <p className="text-xs text-slate-500">
+              Official marks sheets published and verified by the administration.
+            </p>
+          </div>
         </div>
-      </div>
 
-      {!hasDeclared ? (
-        <Card>
-          <CardContent className="pt-12 pb-12">
-            <div className="text-center">
-              <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Your results for this session have not been declared yet. Results appear here immediately after the administration declares them.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        (results?.declaredResults ?? []).map((sessionResult) => {
-          const isExpanded = expandedSession === sessionResult.termResultId
-          const isDownloading = downloadingId === sessionResult.termResultId
+        {!hasDeclared ? (
+          <Card>
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center">
+                <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-slate-900">No Declared Results Found</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  Your results for this session have not been declared yet. Results appear here immediately after the administration declares them.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          (results?.declaredResults ?? []).map((sessionResult) => {
+            const isExpanded = expandedSession === sessionResult.termResultId
+            const isDownloading = downloadingId === sessionResult.termResultId
 
-          const batchColorClass =
-            sessionResult.performanceBatch === 'Ever Shine'
-              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-              : sessionResult.performanceBatch === 'Quaid'
-              ? 'bg-blue-100 text-blue-800 border-blue-200'
-              : sessionResult.performanceBatch === 'Iqbal'
-              ? 'bg-amber-100 text-amber-800 border-amber-200'
-              : 'bg-rose-100 text-rose-800 border-rose-200'
+            const batchColorClass =
+              sessionResult.performanceBatch === 'Ever Shine'
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                : sessionResult.performanceBatch === 'Quaid'
+                ? 'bg-blue-100 text-blue-800 border-blue-200'
+                : sessionResult.performanceBatch === 'Iqbal'
+                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                : 'bg-rose-100 text-rose-800 border-rose-200'
 
-          return (
-            <div
-              key={sessionResult.termResultId}
-              className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm"
-            >
-              {/* Accordion Header */}
+            return (
               <div
-                className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:from-slate-100/60 transition-colors border-b"
-                onClick={() => setExpandedSession(isExpanded ? null : sessionResult.termResultId)}
+                key={sessionResult.termResultId}
+                className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    <Award className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm sm:text-base">
-                      {sessionResult.examSessionLabel}
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {sessionResult.sectionLabel}{sessionResult.shiftName ? ` · ${sessionResult.shiftName}` : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 ml-auto">
-                  <div className="text-right">
-                    <span className="text-xl font-black text-slate-900">
-                      {sessionResult.overallPercentage.toFixed(1)}%
-                    </span>
-                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                      <Badge className={`${batchColorClass} text-[10px] font-bold border py-0`}>
-                        {sessionResult.performanceBatch}
-                      </Badge>
-                      {sessionResult.classPosition !== null && (
-                        <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
-                          Rank #{sessionResult.classPosition}
-                        </Badge>
-                      )}
+                {/* Accordion Header */}
+                <div
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:from-slate-100/60 transition-colors border-b"
+                  onClick={() => setExpandedSession(isExpanded ? null : sessionResult.termResultId)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <Award className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                        {sessionResult.examSessionLabel}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {sessionResult.sectionLabel}{sessionResult.shiftName ? ` · ${sessionResult.shiftName}` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Download button — always shown when expanded or not */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 text-xs h-8 font-semibold flex-shrink-0"
-                    disabled={isDownloading}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      // Auto-expand card first so the ref is populated
-                      if (!isExpanded) {
-                        setExpandedSession(sessionResult.termResultId)
-                        // small settle delay for DOM to render before capture
-                        setTimeout(() => handleDownload(sessionResult as ReportCardResult), 300)
-                      } else {
-                        handleDownload(sessionResult as ReportCardResult)
-                      }
-                    }}
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <div className="flex items-center gap-3 ml-auto">
+                    <div className="text-right">
+                      <span className="text-xl font-black text-slate-900">
+                        {sessionResult.overallPercentage.toFixed(1)}%
+                      </span>
+                      <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                        <Badge className={`${batchColorClass} text-[10px] font-bold border py-0`}>
+                          {sessionResult.performanceBatch}
+                        </Badge>
+                        {sessionResult.classPosition !== null && (
+                          <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
+                            Rank #{sessionResult.classPosition}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Download button */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 text-xs h-8 font-semibold flex-shrink-0"
+                      disabled={isDownloading}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Auto-expand card first so the ref is populated
+                        if (!isExpanded) {
+                          setExpandedSession(sessionResult.termResultId)
+                          // small settle delay for DOM to render before capture
+                          setTimeout(() => handleDownload(sessionResult as ReportCardResult), 300)
+                        } else {
+                          handleDownload(sessionResult as ReportCardResult)
+                        }
+                      }}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5" />
+                      )}
+                      PDF
+                    </Button>
+
+                    {isExpanded ? (
+                      <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" />
                     ) : (
-                      <Download className="w-3.5 h-3.5" />
+                      <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />
                     )}
-                    PDF
-                  </Button>
-
-                  {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />
-                  )}
+                  </div>
                 </div>
+
+                {/* Expanded: Full ResultReportCard */}
+                {isExpanded && (
+                  <div className="p-4 sm:p-6 bg-slate-50/40">
+                    <ResultReportCard
+                      ref={(el) => { cardRefs.current[sessionResult.termResultId] = el }}
+                      result={sessionResult as ReportCardResult}
+                      student={cardStudent}
+                      sessionName={sessionName}
+                    />
+                  </div>
+                )}
               </div>
+            )
+          })
+        )}
+      </div>
 
-              {/* Expanded: Full ResultReportCard */}
-              {isExpanded && (
-                <div className="p-4 sm:p-6 bg-slate-50/40">
-                  <ResultReportCard
-                    ref={(el) => { cardRefs.current[sessionResult.termResultId] = el }}
-                    result={sessionResult as ReportCardResult}
-                    student={cardStudent}
-                    sessionName={sessionName}
-                  />
+      {/* Individual Exam Marks Section */}
+      <div className="space-y-4 border-t pt-6">
+        <div className="flex items-center gap-2 px-1">
+          <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Individual Exam Marks</h3>
+            <p className="text-xs text-slate-500">
+              Subject-wise breakdown and scoring details from conducted class examinations.
+            </p>
+          </div>
+        </div>
+
+        {!hasExamResults ? (
+          <Card>
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center">
+                <ClipboardCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-slate-900">No Exam Marks Found</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  No individual exam results have been recorded or published for you yet in the active year.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          (results?.examResults ?? []).map((examResult) => {
+            const isExamExpanded = expandedExam === examResult.id
+            const totalObtained = examResult.obtainedMarks
+            const totalPossible = examResult.totalMarks
+            const pct = examResult.percentage
+            const grade = examResult.grade
+            const passed = examResult.isPassed
+
+            const gradeBadgeColor =
+              grade === 'A+' || grade === 'A'
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                : grade.startsWith('B')
+                ? 'bg-blue-100 text-blue-800 border-blue-200'
+                : grade.startsWith('C')
+                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                : 'bg-rose-100 text-rose-800 border-rose-200'
+
+            return (
+              <div
+                key={examResult.id}
+                className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm"
+              >
+                {/* Accordion Header */}
+                <div
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:from-slate-100/60 transition-colors border-b"
+                  onClick={() => setExpandedExam(isExamExpanded ? null : examResult.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                      <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                        {examResult.examName}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {examResult.startDate.split('T')[0] === examResult.endDate.split('T')[0]
+                          ? formatDate(examResult.startDate)
+                          : `${formatDate(examResult.startDate)} - ${formatDate(examResult.endDate)}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 ml-auto">
+                    <div className="text-right">
+                      <span className="text-xl font-black text-slate-900">
+                        {totalObtained} / {totalPossible} ({pct.toFixed(1)}%)
+                      </span>
+                      <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                        <Badge className={`${gradeBadgeColor} text-[10px] font-bold border py-0`}>
+                          Grade: {grade}
+                        </Badge>
+                        <Badge className={`${passed ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-100 text-rose-800 border-rose-200'} text-[10px] font-bold border py-0`}>
+                          {passed ? 'PASS' : 'FAIL'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {isExamExpanded ? (
+                      <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          )
-        })
-      )}
+
+                {/* Expanded content */}
+                {isExamExpanded && (
+                  <div className="p-4 bg-slate-50/30 space-y-4">
+                    {examResult.remarks && (
+                      <div className="bg-slate-50 border rounded-lg p-3 text-xs text-slate-600 italic">
+                        <strong>Remarks: </strong>"{examResult.remarks}"
+                      </div>
+                    )}
+
+                    {examResult.details && examResult.details.length > 0 ? (
+                      <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-[#173B7A] text-white text-[10px] font-bold uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left font-semibold">Subject</th>
+                                <th className="px-4 py-2 text-center font-semibold">Obtained Marks</th>
+                                <th className="px-4 py-2 text-center font-semibold">Total Marks</th>
+                                <th className="px-4 py-2 text-center font-semibold">Percentage</th>
+                                <th className="px-4 py-2 text-center font-semibold">Grade</th>
+                                <th className="px-4 py-2 text-center font-semibold">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                              {examResult.details.map((detail) => {
+                                const detailPct = detail.totalMarks > 0 ? (detail.obtainedMarks / detail.totalMarks) * 100 : 0
+                                const detailPassed = detail.isPassed
+                                const detailGradeBadgeColor =
+                                  detail.grade === 'A+' || detail.grade === 'A'
+                                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                    : detail.grade.startsWith('B')
+                                    ? 'text-blue-700 bg-blue-50 border-blue-200'
+                                    : detail.grade.startsWith('C')
+                                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                    : 'text-rose-700 bg-rose-50 border-rose-200'
+
+                                return (
+                                  <tr key={detail.id} className="hover:bg-slate-50/50">
+                                    <td className="px-4 py-2.5 font-semibold text-slate-900">
+                                      {detail.subjectName}
+                                      <span className="text-[10px] text-slate-400 block font-normal">{detail.subjectCode}</span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-center font-bold text-slate-900">{detail.obtainedMarks}</td>
+                                    <td className="px-4 py-2.5 text-center text-slate-500">{detail.totalMarks}</td>
+                                    <td className="px-4 py-2.5 text-center font-semibold text-indigo-600">{detailPct.toFixed(1)}%</td>
+                                    <td className="px-4 py-2.5 text-center">
+                                      <span className={`inline-block text-[10px] px-2 py-0.5 rounded font-bold border ${detailGradeBadgeColor}`}>
+                                        {detail.grade}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-center">
+                                      {detailPassed ? (
+                                        <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                                          Pass
+                                        </span>
+                                      ) : (
+                                        <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-200">
+                                          Fail
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-xs text-slate-400 bg-white border rounded-xl">
+                        No subject-wise details available for this exam.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }
