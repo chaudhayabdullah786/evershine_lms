@@ -9,6 +9,9 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
     studentEnrollment: { findMany: vi.fn() },
     student: { findMany: vi.fn() },
     taskResult: { upsert: vi.fn() },
+    class: { findUnique: vi.fn() },
+    classSection: { findUnique: vi.fn(), findFirst: vi.fn() },
+    shift: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   }
   return { mockAuth, mockPrisma }
@@ -68,6 +71,9 @@ describe('/api/teacher-portal/tasks/[id]/marks', () => {
     mockPrisma.student.findMany.mockResolvedValue([])
     mockPrisma.taskResult.upsert.mockImplementation((args) => Promise.resolve(args))
     mockPrisma.$transaction.mockImplementation((ops) => Promise.all(ops))
+    mockPrisma.class.findUnique.mockResolvedValue(null)
+    mockPrisma.classSection.findFirst.mockResolvedValue(null)
+    mockPrisma.shift.findFirst.mockResolvedValue(null)
     getActiveAcademicYearMock.mockResolvedValue({ id: 'year-1' })
     getOrSyncSectionEnrollmentsMock.mockResolvedValue({ enrollments: roster })
   })

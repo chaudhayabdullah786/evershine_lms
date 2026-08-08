@@ -6,7 +6,9 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     teacher: { findUnique: vi.fn() },
     class: { findUnique: vi.fn(), upsert: vi.fn() },
-    classSection: { findUnique: vi.fn() },
+    classSection: { findUnique: vi.fn(), findFirst: vi.fn() },
+    shift: { findFirst: vi.fn() },
+    timetableSlot: { findFirst: vi.fn() },
     subjectOffering: { findFirst: vi.fn() },
     subjectTeacher: { findFirst: vi.fn() },
     academicSubject: { findUnique: vi.fn() },
@@ -35,6 +37,9 @@ describe('POST /api/teacher-portal/tasks', () => {
     mockPrisma.subject.findUnique.mockResolvedValue(null)
     mockPrisma.subject.findFirst.mockResolvedValue(null)
     mockPrisma.classTeacher.findFirst.mockResolvedValue(null)
+    mockPrisma.classSection.findFirst.mockResolvedValue(null)
+    mockPrisma.shift.findFirst.mockResolvedValue(null)
+    mockPrisma.timetableSlot.findFirst.mockResolvedValue(null)
   })
 
   it('rejects task creation when the subject is not assigned to the teacher', async () => {
