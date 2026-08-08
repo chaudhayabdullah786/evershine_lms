@@ -89,6 +89,8 @@ describe('teacher-portal/my-students', () => {
     authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
     teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
     academicYearFindFirstMock.mockResolvedValue(ACTIVE_YEAR)
+    studentCountMock.mockReturnValue({ type: 'count' })
+    studentFindManyMock.mockReturnValue({ type: 'findMany' })
   })
 
   it('accepts classSectionId and returns the teacher roster for that section', async () => {
