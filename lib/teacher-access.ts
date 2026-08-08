@@ -16,19 +16,46 @@ async function resolveLegacyClass(classId: string) {
   })
 }
 
+function extractSectionLetter(sectionName: string): string {
+  const match = sectionName.match(/\(([^)]+)\)/)
+  if (match) return match[1].trim()
+  
+  const parts = sectionName.trim().split(/\s+/)
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1]
+    if (lastPart.length === 1) return lastPart
+  }
+  
+  return sectionName.trim()
+}
+
 async function resolveClassSectionIdForLegacyClass(legacyClass: { grade: number; section: string | null; campusId: string; batchId: string | null; shift: string }) {
   const shift = await prisma.shift.findFirst({
-    where: { code: legacyClass.shift as SessionShift },
+    where: {
+      OR: [
+        { code: legacyClass.shift as SessionShift },
+        { code: legacyClass.shift.toLowerCase() as SessionShift },
+        { code: legacyClass.shift.toUpperCase() as SessionShift },
+        { name: legacyClass.shift },
+      ]
+    },
     select: { id: true },
   })
 
   if (!shift) return null
 
+  const legacySection = legacyClass.section ?? ''
+  const sectionConditions = [
+    { sectionName: legacySection },
+    { sectionName: { contains: `(${legacySection})` } },
+    { sectionName: { endsWith: ` ${legacySection}` } }
+  ]
+
   // 1. Try exact match with batchId
   let section = await prisma.classSection.findFirst({
     where: {
       grade: legacyClass.grade,
-      sectionName: legacyClass.section ?? '',
+      OR: sectionConditions,
       campusId: legacyClass.campusId,
       batchId: legacyClass.batchId ?? undefined,
       shiftId: shift.id,
@@ -41,7 +68,7 @@ async function resolveClassSectionIdForLegacyClass(legacyClass: { grade: number;
   section = await prisma.classSection.findFirst({
     where: {
       grade: legacyClass.grade,
-      sectionName: legacyClass.section ?? '',
+      OR: sectionConditions,
       campusId: legacyClass.campusId,
       shiftId: shift.id,
     },
@@ -53,7 +80,7 @@ async function resolveClassSectionIdForLegacyClass(legacyClass: { grade: number;
   section = await prisma.classSection.findFirst({
     where: {
       grade: legacyClass.grade,
-      sectionName: legacyClass.section ?? '',
+      OR: sectionConditions,
       campusId: legacyClass.campusId,
     },
     select: { id: true },
@@ -76,11 +103,16 @@ export async function findLegacyClassForSection(params: {
   const shift = params.shiftCode
   const academicYear = params.academicYear
 
+  const extractedLetter = extractSectionLetter(sectionName)
+  const sectionConditions = sectionName !== extractedLetter 
+    ? [{ section: sectionName }, { section: extractedLetter }]
+    : [{ section: sectionName }]
+
   // 1. Try exact match (with batchId, shift, academicYear)
   let cls = await prisma.class.findFirst({
     where: {
       grade,
-      section: sectionName,
+      OR: sectionConditions,
       campusId,
       batchId,
       shift: shift as any,
@@ -95,7 +127,7 @@ export async function findLegacyClassForSection(params: {
   cls = await prisma.class.findFirst({
     where: {
       grade,
-      section: sectionName,
+      OR: sectionConditions,
       campusId,
       batchId,
       shift: shift as any,
@@ -109,7 +141,7 @@ export async function findLegacyClassForSection(params: {
   cls = await prisma.class.findFirst({
     where: {
       grade,
-      section: sectionName,
+      OR: sectionConditions,
       campusId,
       shift: shift as any,
       isActive: true,
@@ -122,7 +154,7 @@ export async function findLegacyClassForSection(params: {
   cls = await prisma.class.findFirst({
     where: {
       grade,
-      section: sectionName,
+      OR: sectionConditions,
       campusId,
       isActive: true,
     },
@@ -134,7 +166,7 @@ export async function findLegacyClassForSection(params: {
   cls = await prisma.class.findFirst({
     where: {
       grade,
-      section: sectionName,
+      OR: sectionConditions,
       campusId,
     },
     select: { id: true, name: true, section: true, batchId: true, shift: true, campusId: true, grade: true, academicYear: true },
@@ -211,7 +243,7 @@ export async function findOrCreateLegacySubject(resolvedClassId: string, subject
   return null
 }
 
-async function resolveClassContext(classId: string) {
+export async function resolveClassContext(classId: string) {
   const legacyClass = await resolveLegacyClass(classId)
   if (legacyClass) {
     const classSection = await resolveClassSectionIdForLegacyClass(legacyClass)

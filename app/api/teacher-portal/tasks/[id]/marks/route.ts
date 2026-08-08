@@ -5,6 +5,7 @@ import { errors, successResponse } from '@/lib/api-response'
 import { z } from 'zod'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
+import { resolveClassContext } from '@/lib/teacher-access'
 
 const markSubmissionSchema = z.object({
   records: z.array(z.object({
@@ -39,9 +40,16 @@ async function getScopedTask(taskId: string, teacherId: string) {
 type TaskWithResults = Awaited<ReturnType<typeof getScopedTask>>
 
 async function getTaskRoster(task: NonNullable<TaskWithResults>) {
-  if (task.classSectionId) {
+  let classSectionId = task.classSectionId
+
+  if (!classSectionId && task.classId) {
+    const context = await resolveClassContext(task.classId)
+    classSectionId = context.classSectionId
+  }
+
+  if (classSectionId) {
     let enrollments = await prisma.studentEnrollment.findMany({
-      where: { classSectionId: task.classSectionId, status: 'ACTIVE' },
+      where: { classSectionId, status: 'ACTIVE' },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, registrationNumber: true, rollNumber: true } },
       },
@@ -50,17 +58,19 @@ async function getTaskRoster(task: NonNullable<TaskWithResults>) {
 
     if (enrollments.length === 0) {
       const activeYear = await getActiveAcademicYear()
-      const resolved = await getOrSyncSectionEnrollments(task.classSectionId, activeYear?.id)
+      const resolved = await getOrSyncSectionEnrollments(classSectionId, activeYear?.id)
       enrollments = resolved.enrollments as typeof enrollments
     }
 
-    return enrollments.map((enrollment) => ({
-      studentId: enrollment.studentId,
-      student: {
-        ...enrollment.student,
-        rollNumber: enrollment.rollNumber ?? enrollment.student.rollNumber,
-      },
-    }))
+    if (enrollments.length > 0) {
+      return enrollments.map((enrollment) => ({
+        studentId: enrollment.studentId,
+        student: {
+          ...enrollment.student,
+          rollNumber: enrollment.rollNumber ?? enrollment.student.rollNumber,
+        },
+      }))
+    }
   }
 
   const students = await prisma.student.findMany({

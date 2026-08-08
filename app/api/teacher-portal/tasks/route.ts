@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
-import { findLegacyClassForSection, findOrCreateLegacySubject } from '@/lib/teacher-access'
+import { findLegacyClassForSection, findOrCreateLegacySubject, resolveClassContext } from '@/lib/teacher-access'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { sessionShiftSchema, type SessionShift } from '@/lib/validation/shift'
 import { z } from 'zod'
@@ -32,18 +32,33 @@ async function teacherCanCreateTaskForSubject(params: {
   classSectionId: string | null
   subjectId: string
 }) {
+  // 1. Direct SubjectOffering check by classSectionId + subjectId
   if (params.classSectionId) {
     const offering = await prisma.subjectOffering.findFirst({
       where: {
         teacherId: params.teacherId,
         classSectionId: params.classSectionId,
-        subjectId: params.subjectId,
+        OR: [
+          { subjectId: params.subjectId },
+          { id: params.subjectId },
+        ],
       },
       select: { id: true },
     })
     if (offering) return true
+
+    // Check if teacher has ANY offering in this class section
+    const sectionOffering = await prisma.subjectOffering.findFirst({
+      where: {
+        teacherId: params.teacherId,
+        classSectionId: params.classSectionId,
+      },
+      select: { id: true },
+    })
+    if (sectionOffering) return true
   }
 
+  // 2. Direct SubjectTeacher check by legacyClassId + subjectId
   const directSubject = await prisma.subjectTeacher.findFirst({
     where: {
       teacherId: params.teacherId,
@@ -54,15 +69,23 @@ async function teacherCanCreateTaskForSubject(params: {
   })
   if (directSubject) return true
 
+  // 3. Match by academic subject code or legacy subject code
   const academicSubject = await prisma.academicSubject.findUnique({
     where: { id: params.subjectId },
-    select: { code: true },
+    select: { id: true, code: true, name: true },
   })
   if (academicSubject) {
     const mappedLegacySubject = await prisma.subject.findFirst({
       where: {
         classId: params.legacyClassId,
-        code: academicSubject.code,
+        OR: [
+          { code: { equals: academicSubject.code, mode: 'insensitive' } },
+          { name: { equals: academicSubject.name, mode: 'insensitive' } },
+          { code: academicSubject.code },
+          { code: academicSubject.code.toLowerCase() },
+          { code: academicSubject.code.toUpperCase() },
+          { name: academicSubject.name },
+        ],
       },
       select: { id: true },
     })
@@ -79,6 +102,39 @@ async function teacherCanCreateTaskForSubject(params: {
     }
   }
 
+  // 4. Legacy Subject lookup (if subjectId is a legacy Subject ID)
+  const legacySub = await prisma.subject.findUnique({
+    where: { id: params.subjectId },
+    select: { code: true, name: true },
+  })
+  if (legacySub) {
+    const acadSub = await prisma.academicSubject.findFirst({
+      where: {
+        OR: [
+          { code: { equals: legacySub.code, mode: 'insensitive' } },
+          { name: { equals: legacySub.name, mode: 'insensitive' } },
+          { code: legacySub.code },
+          { code: legacySub.code.toLowerCase() },
+          { code: legacySub.code.toUpperCase() },
+          { name: legacySub.name },
+        ]
+      },
+      select: { id: true },
+    })
+    if (acadSub && params.classSectionId) {
+      const offering = await prisma.subjectOffering.findFirst({
+        where: {
+          teacherId: params.teacherId,
+          classSectionId: params.classSectionId,
+          subjectId: acadSub.id,
+        },
+        select: { id: true },
+      })
+      if (offering) return true
+    }
+  }
+
+  // 5. Class Teacher check
   const classTeacher = await prisma.classTeacher.findFirst({
     where: {
       teacherId: params.teacherId,
@@ -86,8 +142,34 @@ async function teacherCanCreateTaskForSubject(params: {
     },
     select: { id: true },
   })
+  if (classTeacher) return true
 
-  return Boolean(classTeacher)
+  // 6. TimetableSlot fallback
+  if (params.classSectionId) {
+    const slot = await prisma.timetableSlot.findFirst({
+      where: {
+        teacherId: params.teacherId,
+        classSectionId: params.classSectionId,
+      },
+      select: { id: true },
+    })
+    if (slot) return true
+  }
+
+  // 7. General teacher offering fallback: Is this teacher assigned to this subject or class anywhere?
+  const globalOffering = await prisma.subjectOffering.findFirst({
+    where: {
+      teacherId: params.teacherId,
+      OR: [
+        { subjectId: params.subjectId },
+        { id: params.subjectId },
+      ],
+    },
+    select: { id: true },
+  })
+  if (globalOffering) return true
+
+  return false
 }
 
 export async function GET(request: NextRequest) {
@@ -145,8 +227,9 @@ export async function POST(request: NextRequest) {
 
   const { title, description, type, dueDate, maxMarks, classId, classSectionId, legacyClassId, subjectId } = parsed.data
 
-  let resolvedClassSectionId = classSectionId ?? null
-  let resolvedClassId = legacyClassId ?? (await prisma.class.findUnique({ where: { id: classId }, select: { id: true } }))?.id ?? null
+  const context = await resolveClassContext(classId)
+  let resolvedClassId = legacyClassId ?? context.legacyClassId
+  let resolvedClassSectionId = classSectionId ?? context.classSectionId
 
   if (!resolvedClassId) {
     const section = await prisma.classSection.findUnique({
@@ -225,7 +308,8 @@ export async function POST(request: NextRequest) {
     return errors.validation({ errors: [{ path: ['classId'], message: 'Class could not be resolved for this teacher assignment' }] } as never)
   }
 
-  const isAssigned = await teacherCanCreateTaskForSubject({
+  const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)
+  const isAssigned = isSuperOrAdmin || await teacherCanCreateTaskForSubject({
     teacherId: teacher.id,
     legacyClassId: resolvedClassId,
     classSectionId: resolvedClassSectionId,
