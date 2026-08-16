@@ -59,6 +59,8 @@ interface Student {
   rollNumber?: string
 }
 
+const ROSTER_PAGE_SIZE = 100
+
 // ─── Grade helpers ─────────────────────────────────────────────────────────────
 
 const GRADE_COLORS: Record<string, string> = {
@@ -151,11 +153,24 @@ function EnterResultsDialog({
     if (!exam) return
     setLoading(true)
     try {
-      const url = isTeacher
-        ? `/api/teacher-portal/my-students?limit=200&classId=${exam.classId}`
-        : `/api/students?limit=200&isActive=true`
-      const data = await fetchApi<any>(url)
-      const studentList = Array.isArray(data) ? data : (data?.data ?? [])
+      // Both roster endpoints cap a single page at 100 records. The old
+      // 200-record request was rejected by Zod before the database query ran,
+      // which surfaced in the teacher dialog as the unhelpful "Validation
+      // failed" toast. Fetch subsequent pages as well so large sections are
+      // still complete while every request respects the shared contract.
+      const baseUrl = isTeacher
+        ? `/api/teacher-portal/my-students?classId=${encodeURIComponent(exam.classId)}`
+        : `/api/students?isActive=true`
+      const firstPage = await fetchPaginatedApi<Student>(
+        `${baseUrl}&page=1&limit=${ROSTER_PAGE_SIZE}`
+      )
+      const studentList = [...firstPage.data]
+      for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+        const nextPage = await fetchPaginatedApi<Student>(
+          `${baseUrl}&page=${page}&limit=${ROSTER_PAGE_SIZE}`
+        )
+        studentList.push(...nextPage.data)
+      }
       
       setRows(
         (studentList ?? []).map((s: any) => ({
@@ -406,7 +421,8 @@ export default function ResultsPage() {
 
   useEffect(() => {
     if (sessionStatus !== 'authenticated' || !isAcademicEnginePrimary()) return
-    if (role === 'STUDENT') router.replace('/dashboard/academics')
+    if (role === 'TEACHER') router.replace('/dashboard/teacher/results')
+    else if (role === 'STUDENT') router.replace('/dashboard/academics')
     else if (role === 'PARENT' || role === 'GUARDIAN') router.replace('/dashboard/my-children')
   }, [sessionStatus, role, router])
 
