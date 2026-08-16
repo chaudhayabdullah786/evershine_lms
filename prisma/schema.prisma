@@ -4,7 +4,10 @@
 // Target: PostgreSQL 16+ (Neon Serverless)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Hostinger runs on OpenSSL 1.1 while CI/local builds commonly use OpenSSL 3.
+  // Include both engines so the standalone runtime can execute on either host.
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 datasource db {
