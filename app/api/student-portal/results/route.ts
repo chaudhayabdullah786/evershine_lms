@@ -72,6 +72,17 @@ export async function GET() {
     orderBy: [{ examSessionId: 'desc' }, { createdAt: 'desc' }],
   })
 
+  // Teacher result entry stores the scheduled legacy Exam ID in
+  // TermResult.examSessionId. Resolve those IDs once so the student sees the
+  // real published exam name instead of an opaque cuid-derived label.
+  const scheduledExams = allTermResults.length
+    ? await prisma.exam.findMany({
+        where: { id: { in: [...new Set(allTermResults.map((result) => result.examSessionId))] } },
+        select: { id: true, name: true },
+      })
+    : []
+  const examNameById = new Map(scheduledExams.map((exam) => [exam.id, exam.name]))
+
   // ── Monitoring reports (daily 90-day window + declared monthly) ──────────
   const [dailyMonitoring, monthlyMonitoring, taskResults, dbExamResults] = await Promise.all([
     classSectionIds.length > 0 && activeYear
@@ -206,8 +217,9 @@ export async function GET() {
     return {
       termResultId: termResult.id,
       examSessionId: termResult.examSessionId,
-      // Human-readable label: replace dashes/underscores with spaces, title-case
-      examSessionLabel: termResult.examSessionId
+      // Prefer the published exam name; retain the legacy fallback for older
+      // results that used an academic-year/session identifier.
+      examSessionLabel: examNameById.get(termResult.examSessionId) ?? termResult.examSessionId
         .replace(/[-_]/g, ' ')
         .replace(/\b\w/g, (c) => c.toUpperCase()),
       sectionLabel: `${termResult.classSection.className}-${termResult.classSection.sectionName}`,

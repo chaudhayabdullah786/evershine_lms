@@ -11,6 +11,7 @@ const { mockAuth, mockPrisma, mockGuardianAccess } = vi.hoisted(() => ({
     // WHY: prisma.result.findMany is now queried by the student portal results
     // route to expose individual exam marks. Must be present in the mock.
     result: { findMany: vi.fn() },
+    exam: { findMany: vi.fn() },
     enrollmentAttendanceRecord: { findMany: vi.fn() },
     feeInvoice: { findMany: vi.fn() },
     timetableSlot: { findMany: vi.fn() },
@@ -71,6 +72,7 @@ describe('declared result portal visibility', () => {
     mockPrisma.studentEnrollment.findMany.mockResolvedValue([])
     mockPrisma.taskResult.findMany.mockResolvedValue([])
     mockPrisma.result.findMany.mockResolvedValue([])
+    mockPrisma.exam.findMany.mockResolvedValue([])
     mockPrisma.enrollmentAttendanceRecord.findMany.mockResolvedValue([])
     mockPrisma.feeInvoice.findMany.mockResolvedValue([])
     mockPrisma.termResult.findMany.mockResolvedValue([declaredResult])
@@ -86,8 +88,20 @@ describe('declared result portal visibility', () => {
     expect(response.status).toBe(200)
     expect(json.data.declaredResults[0]).toMatchObject({
       termResultId: 'result-1',
+      examSessionLabel: 'Exam 1',
       customFields: [{ label: 'Ethics', value: '15' }],
     })
+  })
+
+  it('shows the published exam name to the student', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'student-user-1', role: 'STUDENT' } })
+    mockPrisma.student.findUnique.mockResolvedValue({ id: 'student-1' })
+    mockPrisma.exam.findMany.mockResolvedValue([{ id: 'exam-1', name: 'SECOND STEP EXAM' }])
+
+    const response = await getStudentResults()
+    const json = await response.json()
+
+    expect(json.data.declaredResults[0].examSessionLabel).toBe('SECOND STEP EXAM')
   })
 
   it('returns declared term results and custom fields to an authorized guardian', async () => {
@@ -101,6 +115,7 @@ describe('declared result portal visibility', () => {
       batch: null,
       class: null,
     })
+    mockPrisma.exam.findMany.mockResolvedValue([{ id: 'exam-1', name: 'SECOND STEP EXAM' }])
 
     const response = await getGuardianAcademic(
       new Request('http://localhost/api/guardian-portal/children/student-1/academic'),
@@ -112,6 +127,7 @@ describe('declared result portal visibility', () => {
     expect(json.data.declaredResults[0]).toMatchObject({
       id: 'result-1',
       examSessionId: 'exam-1',
+      examSessionLabel: 'SECOND STEP EXAM',
       customFields: [{ label: 'Ethics', value: '15' }],
       subjects: [{
         subjectName: 'Biology',

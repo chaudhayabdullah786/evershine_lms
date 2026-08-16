@@ -30,7 +30,17 @@ import { parseCustomResultFields, type CustomResultField } from '@/lib/academic/
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ClassSection = { id: string; className: string; sectionName: string }
-type ExamSession = { id: string; name: string; term: string }
+type ExamSession = {
+  id: string
+  name: string
+  term: string
+  classSectionId?: string | null
+  legacyClassId?: string | null
+  classLabel?: string | null
+  totalMarks?: number
+  startDate?: string
+  endDate?: string
+}
 type Student = { id: string; firstName: string; lastName: string; rollNumber: string; fatherName: string }
 type SubjectOffering = { id: string; subject: { name: string; code: string } }
 
@@ -111,6 +121,27 @@ function TeacherResultEntryInner() {
     queryFn: () => fetchApi<ExamSession[]>('/api/exam-sessions'),
     enabled: true,
   })
+
+  const visibleExamSessions = classSectionId
+    ? examSessions.filter((exam) => !exam.classSectionId || exam.classSectionId === classSectionId)
+    : examSessions
+
+  const handleSectionChange = (nextSectionId: string) => {
+    setClassSectionId(nextSectionId)
+    setStudentId('')
+
+    const selectedExam = examSessions.find((exam) => exam.id === examSessionId)
+    if (selectedExam?.classSectionId && selectedExam.classSectionId !== nextSectionId) {
+      setExamSessionId('')
+    }
+  }
+
+  const handleExamChange = (nextExamSessionId: string) => {
+    const selectedExam = examSessions.find((exam) => exam.id === nextExamSessionId)
+    setExamSessionId(nextExamSessionId)
+    setStudentId('')
+    if (selectedExam?.classSectionId) setClassSectionId(selectedExam.classSectionId)
+  }
 
   const { data: students = [] } = useQuery<Student[]>({
     queryKey: ['section-students', classSectionId],
@@ -419,7 +450,7 @@ function TeacherResultEntryInner() {
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label>Class Section</Label>
-            <Select value={classSectionId} onValueChange={(v) => { setClassSectionId(v); setStudentId('') }}>
+            <Select value={classSectionId} onValueChange={handleSectionChange}>
               <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
               <SelectContent>
                 {sections.map((s) => (
@@ -430,14 +461,26 @@ function TeacherResultEntryInner() {
           </div>
           <div className="space-y-1.5">
             <Label>Exam Session</Label>
-            <Select value={examSessionId} onValueChange={setExamSessionId}>
+            <Select value={examSessionId} onValueChange={handleExamChange}>
               <SelectTrigger><SelectValue placeholder="Select exam" /></SelectTrigger>
               <SelectContent>
-                {examSessions.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.name} — {e.term}</SelectItem>
+                {visibleExamSessions.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name} — {e.classLabel ?? e.term}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {session?.user?.role === 'TEACHER' && examSessions.length === 0 && (
+              <p className="text-xs text-slate-500">
+                No active exams are scheduled for your assigned sections yet. Ask a SuperAdmin to publish one.
+              </p>
+            )}
+            {session?.user?.role === 'TEACHER' && classSectionId && visibleExamSessions.length === 0 && examSessions.length > 0 && (
+              <p className="text-xs text-amber-600">
+                No scheduled exam matches this section. Select a different section or ask a SuperAdmin to schedule one.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Student</Label>
