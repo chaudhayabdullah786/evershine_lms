@@ -245,10 +245,19 @@ function patchStandaloneServer() {
 }
 
 function syncPrismaEngine() {
-  const PATHS = [
-    '/home/u668799501/domains/evershineacadmey.com/node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node',
-    '/home/u668799501/domains/evershineacadmey.com/node_modules/@prisma/engines/libquery_engine-debian-openssl-1.1.x.so.node'
+  // The build may run from the checked-out source directory while the running
+  // Hostinger app lives under /nodejs. Resolve both locations instead of
+  // assuming a single absolute node_modules path.
+  const nodeModulesRoots = [
+    path.join(ROOT, 'node_modules'),
+    path.join(ROOT, '..', 'node_modules'),
+    '/home/u668799501/domains/evershineacadmey.com/nodejs/node_modules',
+    '/home/u668799501/domains/evershineacadmey.com/node_modules',
   ]
+  const PATHS = nodeModulesRoots.flatMap((nodeModulesRoot) => [
+    path.join(nodeModulesRoot, '.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node'),
+    path.join(nodeModulesRoot, '@prisma/engines/libquery_engine-debian-openssl-1.1.x.so.node'),
+  ])
   const sourcePath = PATHS.find(p => fs.existsSync(p))
   
   if (!sourcePath) {

@@ -11,7 +11,9 @@
 #   1. Sets up Node 20 in PATH (Hostinger requirement)
 #   2. Pulls the latest code from the main branch
 #   3. Installs any new dependencies without rebuilding native modules
-#   4. Synchronizes additive MySQL schema changes and regenerates Prisma
+#   4. Validates the schema and regenerates Prisma (database changes are
+#      intentionally not automatic; production migrations require a reviewed,
+#      backed-up operator step)
 #   5. Runs the full Next.js production build
 #   6. Kills any running server process so Passenger can restart cleanly
 #   7. Prints a confirmation with the new BUILD_ID
@@ -21,7 +23,7 @@ set -euo pipefail
 
 # ── 0. Bootstrap Node.js PATH ────────────────────────────────────────────────
 # WHY: Hostinger shared hosting does not add Node to PATH by default.
-export PATH="/opt/alt/alt-nodejs20/root/bin:$PATH"
+export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$PATH"
 
 # Validate Node 20 is available.
 node_version=$(node -e "process.stdout.write(process.version)" 2>/dev/null || echo "")
@@ -33,7 +35,7 @@ echo "[DEPLOY] Node.js: $node_version"
 
 # ── 1. Pull latest code ───────────────────────────────────────────────────────
 echo "[DEPLOY] Pulling latest code from main..."
-git pull origin main
+git pull --ff-only origin main
 
 # ── 2. Install dependencies ───────────────────────────────────────────────────
 # WHY --ignore-scripts: postinstall runs prisma generate. We run it separately
@@ -41,15 +43,16 @@ git pull origin main
 echo "[DEPLOY] Installing dependencies..."
 npm ci --ignore-scripts
 
-# ── 3. Synchronize the additive MySQL schema, then regenerate Prisma client ───
-# WHY: Hostinger uses MySQL while the historical migration lock predates the
-# MySQL deployment. `db push` applies reviewed additive schema changes such as
-# ClassTask.classSectionId without attempting to replay PostgreSQL migrations.
-echo "[DEPLOY] Synchronizing MySQL schema..."
-npx prisma db push --skip-generate
+# ── 3. Validate schema and regenerate Prisma client ───────────────────────────
+# WHY: This script must never mutate production schema automatically. The
+# migration history contains a historical provider mismatch, so an operator
+# must review migration status and run an approved migration procedure after a
+# verified backup. `db push` is intentionally not used here.
+echo "[DEPLOY] Validating Prisma schema..."
+npx prisma validate --schema prisma/schema.prisma
 
 echo "[DEPLOY] Generating Prisma client..."
-npx prisma generate
+npx prisma generate --schema prisma/schema.prisma
 
 # ── 4. Build the application ──────────────────────────────────────────────────
 # postbuild (postbuild-sync.js) runs automatically after build via npm lifecycle.
