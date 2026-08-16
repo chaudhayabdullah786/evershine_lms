@@ -4,16 +4,14 @@
  * Seeds global "period block" subject offerings (Break, Prayer, Lunch, Assembly)
  * for a given classSectionId + academicYearId so they can be added as timetable slots.
  *
- * WHY: TimetableSlot requires a subjectOfferingId FK. Non-academic periods (break, prayer,
- * lunch) are not real subjects but must appear in the timetable grid. Instead of a schema
- * migration (adding a nullable FK and slotType enum), we create reserved AcademicSubject
- * records (code prefixed with __) and their SubjectOffering counterparts. This is a
- * zero-downtime, additive approach.
+ * WHY: TimetableSlot still requires a subjectOfferingId FK so every grid entry can use
+ * the same roster/query path. Non-academic periods (break, prayer, lunch) are represented
+ * by reserved AcademicSubject/SubjectOffering records and are marked with the explicit
+ * TimetableSlot.slotType value by the timetable APIs.
  *
- * TRADEOFF: Reserved subject codes (__BREAK__, __PRAYER__, etc.) are implementation
- * details that must be filtered out of student-facing subject lists. All roster queries
- * should exclude subjects whose code starts with '__'. This is done via the existing
- * RBAC read path on the subject-offerings API (teachers never see these).
+ * TRADEOFF: Reserved subject codes (__BREAK__, __PRAYER__, etc.) remain implementation
+ * details and must be filtered out of student-facing subject lists. The slotType field is
+ * the stable presentation contract; the reserved offering only satisfies the FK.
  */
 
 import { NextRequest } from 'next/server'
@@ -29,6 +27,7 @@ const PERIOD_BLOCKS = [
   { code: '__PRAYER__',   name: 'Prayer Time',   color: '#6EE7B7' },
   { code: '__LUNCH__',    name: 'Lunch Break',   color: '#FCD34D' },
   { code: '__ASSEMBLY__', name: 'Assembly',      color: '#93C5FD' },
+  { code: '__ACTIVITY__', name: 'Activity Block', color: '#C4B5FD' },
 ] as const
 
 type PeriodCode = typeof PERIOD_BLOCKS[number]['code']
@@ -38,7 +37,7 @@ const seedPeriodsSchema = z.object({
   academicYearId: z.string().min(1, 'academicYearId is required'),
   /** Optional: only seed specific period types */
   periodCodes: z
-    .array(z.enum(['__BREAK__', '__PRAYER__', '__LUNCH__', '__ASSEMBLY__']))
+    .array(z.enum(['__BREAK__', '__PRAYER__', '__LUNCH__', '__ASSEMBLY__', '__ACTIVITY__']))
     .optional(),
 })
 

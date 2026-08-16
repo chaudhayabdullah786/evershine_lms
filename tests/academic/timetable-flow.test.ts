@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server'
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { guardLegacyClassMutation } from '@/lib/academic/legacy-guard'
-import { createTimetableSlotSchema, publishTimetableSchema } from '@/lib/validation/academic'
+import {
+  createTimetableSlotSchema,
+  createTimetableTemplateSchema,
+  publishTimetableSchema,
+  timetableTemplateBlockSchema,
+} from '@/lib/validation/academic'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 
 afterEach(() => {
@@ -106,6 +111,67 @@ describe('timetable slot validation', () => {
     const parsed = publishTimetableSchema.safeParse({
       academicYearId: 'year-123',
       classSectionId: 'section-456',
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  it('accepts teacher-less period blocks and preserves their explicit type', () => {
+    const parsed = createTimetableSlotSchema.safeParse({
+      academicYearId: 'year-123',
+      classSectionId: 'section-456',
+      subjectOfferingId: 'break-offering',
+      teacherId: null,
+      slotType: 'BREAK',
+      dayOfWeek: 1,
+      startTime: '10:30',
+      endTime: '10:45',
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data.slotType).toBe('BREAK')
+  })
+
+  it('requires a subject code only for subject template blocks', () => {
+    expect(
+      timetableTemplateBlockSchema.safeParse({
+        slotType: 'SUBJECT',
+        days: [1, 2, 3, 4, 5],
+        startTime: '09:00',
+        endTime: '09:45',
+      }).success
+    ).toBe(false)
+
+    expect(
+      timetableTemplateBlockSchema.safeParse({
+        slotType: 'BREAK',
+        subjectCode: 'BIO',
+        days: [1, 2, 3, 4, 5],
+        startTime: '10:30',
+        endTime: '10:45',
+      }).success
+    ).toBe(false)
+  })
+
+  it('validates a complete weekly timetable template', () => {
+    const parsed = createTimetableTemplateSchema.safeParse({
+      academicYearId: 'year-123',
+      name: 'Morning standard week',
+      blocks: [
+        {
+          slotType: 'SUBJECT',
+          subjectCode: 'BIO',
+          days: [1, 2, 3, 4, 5],
+          startTime: '09:00',
+          endTime: '09:45',
+        },
+        {
+          slotType: 'PRAYER',
+          days: [1, 2, 3, 4, 5],
+          startTime: '12:30',
+          endTime: '12:45',
+        },
+      ],
     })
 
     expect(parsed.success).toBe(true)

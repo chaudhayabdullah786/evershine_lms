@@ -1143,7 +1143,7 @@ function StudentEnrollmentPageInner() {
                           </td>
                           <td className="py-2 pr-4">{slot.subjectOffering.subject.name}</td>
                           <td className="py-2 pr-4">
-                            {slot.teacher.firstName} {slot.teacher.lastName}
+                            {slot.teacher ? `${slot.teacher.firstName} ${slot.teacher.lastName}` : '—'}
                           </td>
                           <td className="py-2">{slot.room?.name ?? '—'}</td>
                         </tr>

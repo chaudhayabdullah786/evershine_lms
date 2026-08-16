@@ -97,8 +97,11 @@ const timetableSlotBaseSchema = z.object({
   academicYearId: z.string().min(1, 'Academic year is required.'),
   classSectionId: z.string().min(1, 'Class section is required.'),
   subjectOfferingId: z.string().min(1, 'Subject offering is required.'),
-  teacherId: z.string().min(1, 'Teacher is required.'),
+  // Teacher-less slots are valid for break, prayer, lunch, assembly, and
+  // other non-teaching blocks. Subject slots are still enforced server-side.
+  teacherId: z.string().min(1, 'Teacher is required.').optional().nullable(),
   roomId: z.string().min(1).optional().nullable(),
+  slotType: z.enum(['SUBJECT', 'BREAK', 'PRAYER', 'LUNCH', 'ASSEMBLY', 'ACTIVITY']).default('SUBJECT'),
   dayOfWeek: z.coerce
     .number()
     .int('Day must be a whole number from 1 to 7.')
@@ -115,6 +118,36 @@ export const updateTimetableSlotSchema = timetableSlotBaseSchema.partial().super
 export const publishTimetableSchema = z.object({
   academicYearId: z.string().min(1),
   classSectionId: z.string().min(1).optional(),
+})
+
+export const timetableTemplateBlockSchema = z.object({
+  slotType: z.enum(['SUBJECT', 'BREAK', 'PRAYER', 'LUNCH', 'ASSEMBLY', 'ACTIVITY']),
+  subjectCode: z.string().trim().max(40).optional().nullable(),
+  roomId: z.string().min(1).optional().nullable(),
+  days: z.array(z.number().int().min(1).max(7)).min(1).max(7),
+  startTime: timetableTimeSchema,
+  endTime: timetableTimeSchema,
+}).superRefine((block, ctx) => {
+  validateTimeOrder(block, ctx)
+  if (block.slotType === 'SUBJECT' && !block.subjectCode) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subjectCode'], message: 'Subject code is required for subject blocks.' })
+  }
+  if (block.slotType !== 'SUBJECT' && block.subjectCode) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subjectCode'], message: 'Non-teaching blocks cannot reference a subject.' })
+  }
+})
+
+export const createTimetableTemplateSchema = z.object({
+  academicYearId: z.string().min(1),
+  shiftId: z.string().min(1).optional().nullable(),
+  name: z.string().trim().min(2).max(120),
+  blocks: z.array(timetableTemplateBlockSchema).min(1).max(30),
+})
+
+export const generateTimetableTemplateSchema = z.object({
+  classSectionIds: z.array(z.string().min(1)).min(1).max(100),
+  replaceDrafts: z.boolean().default(false),
+  publish: z.boolean().default(false),
 })
 
 export const createGradingSchemeSchema = z.object({

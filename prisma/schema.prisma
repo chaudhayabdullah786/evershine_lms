@@ -26,6 +26,15 @@ enum Role {
   GUARDIAN
 }
 
+enum TimetableSlotType {
+  SUBJECT
+  BREAK
+  PRAYER
+  LUNCH
+  ASSEMBLY
+  ACTIVITY
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -255,22 +264,23 @@ model User {
   guardian   Guardian?
 
   // Audit trail — every mutation this user performs
-  auditLogs                AuditLog[]
-  sessions                 Session[]
-  notifications            Notification[]
-  enrollmentTypeAuditLogs  EnrollmentTypeAuditLog[]
-  createdExamDateSheets    ExamDateSheet[]
-  declaredTermResults      TermResult[]
-  markedDailyScores        DailyPerformanceScore[]
-  assignedTargets          TargetAssignment[]
-  retroactiveScoreEdits    RetroactiveScoreEditLog[]
-  createdRolePermissions   RolePermission[]
-  requestedRoleAssumptions RoleAssumption[]
-  recordedExpenses         Expense[]                 @relation("ExpenseRecordedByUser")
-  profileChangeRequests    ProfileChangeRequest[]    @relation("ProfileChangeRequestsUser")
-  requestedProfileChanges  ProfileChangeRequest[]    @relation("ProfileChangeRequestsRequester")
-  reviewedProfileChanges   ProfileChangeRequest[]    @relation("ProfileChangeRequestsReviewer")
-  attendanceImports        AttendanceImportLog[]
+  auditLogs                 AuditLog[]
+  sessions                  Session[]
+  notifications             Notification[]
+  enrollmentTypeAuditLogs   EnrollmentTypeAuditLog[]
+  createdExamDateSheets     ExamDateSheet[]
+  declaredTermResults       TermResult[]
+  markedDailyScores         DailyPerformanceScore[]
+  assignedTargets           TargetAssignment[]
+  retroactiveScoreEdits     RetroactiveScoreEditLog[]
+  createdRolePermissions    RolePermission[]
+  requestedRoleAssumptions  RoleAssumption[]
+  recordedExpenses          Expense[]                 @relation("ExpenseRecordedByUser")
+  profileChangeRequests     ProfileChangeRequest[]    @relation("ProfileChangeRequestsUser")
+  requestedProfileChanges   ProfileChangeRequest[]    @relation("ProfileChangeRequestsRequester")
+  reviewedProfileChanges    ProfileChangeRequest[]    @relation("ProfileChangeRequestsReviewer")
+  attendanceImports         AttendanceImportLog[]
+  createdTimetableTemplates TimetableTemplate[]       @relation("TimetableTemplateCreatedBy")
 
   @@index([email])
   @@index([role])
@@ -1674,11 +1684,12 @@ model AcademicYear {
   isLocked  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  enrollments      StudentEnrollment[]
-  timetableSlots   TimetableSlot[]
-  gradingSchemes   AcademicGradingScheme[]
-  subjectOfferings SubjectOffering[]
-  promotions       PromotionRecord[]
+  enrollments        StudentEnrollment[]
+  timetableSlots     TimetableSlot[]
+  gradingSchemes     AcademicGradingScheme[]
+  subjectOfferings   SubjectOffering[]
+  promotions         PromotionRecord[]
+  timetableTemplates TimetableTemplate[]
 
   @@index([isActive])
 }
@@ -1694,7 +1705,8 @@ model Shift {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  classSections ClassSection[]
+  classSections      ClassSection[]
+  timetableTemplates TimetableTemplate[]
 }
 
 model Room {
@@ -1852,30 +1864,55 @@ model SubjectEnrollment {
 }
 
 model TimetableSlot {
-  id                String   @id @default(cuid())
+  id                String            @id @default(cuid())
   academicYearId    String
   classSectionId    String
   subjectOfferingId String
-  teacherId         String
+  teacherId         String?
   roomId            String?
   dayOfWeek         Int // 1=Monday … 7=Sunday
   startTime         String
   endTime           String
-  isPublished       Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  slotType          TimetableSlotType @default(SUBJECT)
+  templateId        String?
+  isPublished       Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   academicYear    AcademicYear             @relation(fields: [academicYearId], references: [id])
   classSection    ClassSection             @relation(fields: [classSectionId], references: [id])
   subjectOffering SubjectOffering          @relation(fields: [subjectOfferingId], references: [id])
-  teacher         Teacher                  @relation(fields: [teacherId], references: [id])
+  teacher         Teacher?                 @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   room            Room?                    @relation(fields: [roomId], references: [id])
+  template        TimetableTemplate?       @relation(fields: [templateId], references: [id], onDelete: SetNull)
   changeRequests  TimetableChangeRequest[]
 
   @@index([academicYearId])
   @@index([classSectionId])
   @@index([teacherId])
   @@index([dayOfWeek])
+  @@index([templateId])
+}
+
+model TimetableTemplate {
+  id             String   @id @default(cuid())
+  academicYearId String
+  shiftId        String?
+  name           String   @db.VarChar(120)
+  definition     Json
+  createdById    String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  academicYear AcademicYear    @relation(fields: [academicYearId], references: [id])
+  shift        Shift?          @relation(fields: [shiftId], references: [id])
+  createdBy    User            @relation("TimetableTemplateCreatedBy", fields: [createdById], references: [id])
+  slots        TimetableSlot[]
+
+  @@index([academicYearId])
+  @@index([shiftId])
+  @@index([createdById])
 }
 
 model AcademicGradingScheme {
@@ -2539,13 +2576,13 @@ model StaffApplicationRequest {
 model AttendanceImportLog {
   id           String   @id @default(cuid())
   fileName     String
-  importType   String   // "STAFF" | "STUDENT"
+  importType   String // "STAFF" | "STUDENT"
   totalRows    Int
   successRows  Int
   failedRows   Int
-  errorLog     Json?    // Array of { row: number, errors: string[] }
+  errorLog     Json? // Array of { row: number, errors: string[] }
   importedById String
   createdAt    DateTime @default(now())
 
-  importedBy   User     @relation(fields: [importedById], references: [id])
+  importedBy User @relation(fields: [importedById], references: [id])
 }
