@@ -95,6 +95,15 @@ type TimetableSlotRow = {
   subjectOffering: { subject: { name: string; code?: string } }
   teacher?: { firstName: string; lastName: string } | null
 }
+type AutomationSlotType = 'SUBJECT' | 'BREAK' | 'PRAYER' | 'LUNCH' | 'ASSEMBLY' | 'ACTIVITY'
+type AutomationBlock = {
+  slotType: AutomationSlotType
+  subjectCode: string
+  days: string
+  startTime: string
+  endTime: string
+  roomId: string
+}
 type GradingSchemeRow = {
   id: string
   name: string
@@ -182,12 +191,18 @@ export default function AcademicEnginePage() {
   const [bulkResults, setBulkResults] = useState<Array<{ subjectOfferingId: string; status: string; conflicts?: string[] }>>([])
   // Period block state (Break / Prayer / Lunch / Assembly)
   const [periodForm, setPeriodForm] = useState({
-    periodCode: '__BREAK__' as '__BREAK__' | '__PRAYER__' | '__LUNCH__' | '__ASSEMBLY__',
+    periodCode: '__BREAK__' as '__BREAK__' | '__PRAYER__' | '__LUNCH__' | '__ASSEMBLY__' | '__ACTIVITY__',
     dayOfWeek: 1,
     startTime: '10:30',
     endTime: '11:00',
   })
   const [periodError, setPeriodError] = useState<string | null>(null)
+  const [templateName, setTemplateName] = useState('Standard Weekly Timetable')
+  const [templatePublish, setTemplatePublish] = useState(false)
+  const [templateBlocks, setTemplateBlocks] = useState<AutomationBlock[]>([
+    { slotType: 'SUBJECT', subjectCode: '', days: '1,2,3,4,5,6', startTime: '09:00', endTime: '09:45', roomId: 'none' },
+    { slotType: 'BREAK', subjectCode: '', days: '1,2,3,4,5,6', startTime: '10:30', endTime: '10:45', roomId: 'none' },
+  ])
 
 
   const [roomForm, setRoomForm] = useState({ campusId: '', name: '', capacity: 40 })
@@ -502,29 +517,6 @@ export default function AcademicEnginePage() {
     onError: (e: Error) => notify.error(e.message),
   })
 
-  const createSlot = useMutation({
-    mutationFn: () =>
-      fetchApi('/api/timetable/slots', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...slotForm,
-          academicYearId: activeYear?.id,
-          // Convert sentinel 'none' back to null for the API
-          roomId: slotForm.roomId === 'none' ? null : slotForm.roomId,
-        }),
-      }),
-    onSuccess: () => {
-      setSlotError(null)
-      notify.success('Timetable slot added')
-      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
-    },
-    onError: (e: Error) => {
-      const message = formatApiFormError(e, 'Unable to save timetable slot.')
-      setSlotError(message)
-      notify.error(message)
-    },
-  })
-
   const bulkCreateSlots = useMutation({
     mutationFn: () => {
       if (!slotFilterSection || !activeYear?.id || selectedOfferingIds.length === 0) {
@@ -576,6 +568,13 @@ export default function AcademicEnginePage() {
       })
       if (!seeded || seeded.length === 0) throw new Error('Failed to initialize period block.')
       const offeringId = seeded[0].id
+      const slotTypeByCode = {
+        __BREAK__: 'BREAK',
+        __PRAYER__: 'PRAYER',
+        __LUNCH__: 'LUNCH',
+        __ASSEMBLY__: 'ASSEMBLY',
+        __ACTIVITY__: 'ACTIVITY',
+      } as const
       // Step 2: create the timetable slot for the seeded offering
       return fetchApi('/api/timetable/slots', {
         method: 'POST',
@@ -583,7 +582,8 @@ export default function AcademicEnginePage() {
           academicYearId: activeYear.id,
           classSectionId: slotFilterSection,
           subjectOfferingId: offeringId,
-          teacherId: slotForm.teacherId || 'none',
+          teacherId: null,
+          slotType: slotTypeByCode[periodForm.periodCode],
           roomId: slotForm.roomId === 'none' ? null : slotForm.roomId,
           dayOfWeek: periodForm.dayOfWeek,
           startTime: periodForm.startTime,
@@ -621,6 +621,36 @@ export default function AcademicEnginePage() {
       setSlotError(message)
       notify.error(message)
     },
+  })
+
+  const generateTimetable = useMutation({
+    mutationFn: async () => {
+      if (!slotFilterSection || !activeYear?.id) throw new Error('Choose a class section first.')
+      if (!templateName.trim()) throw new Error('Enter a template name.')
+      const blocks = templateBlocks.map((block) => ({
+        slotType: block.slotType,
+        subjectCode: block.slotType === 'SUBJECT' ? block.subjectCode || null : null,
+        roomId: block.roomId === 'none' ? null : block.roomId || null,
+        days: block.days.split(',').map((day) => Number(day.trim())).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7),
+        startTime: block.startTime,
+        endTime: block.endTime,
+      }))
+      if (blocks.some((block) => block.days.length === 0)) throw new Error('Each block needs at least one valid day (1–7).')
+      const template = await fetchApi<{ id: string }>('/api/timetable/templates', {
+        method: 'POST',
+        body: JSON.stringify({ academicYearId: activeYear.id, name: templateName.trim(), blocks }),
+      })
+      return fetchApi(`/api/timetable/templates/${template.id}/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ classSectionIds: [slotFilterSection], replaceDrafts: true, publish: templatePublish }),
+      })
+    },
+    onSuccess: (result: { generatedSlots?: number }) => {
+      notify.success(`${result.generatedSlots ?? 0} timetable slot(s) generated${templatePublish ? ' and published' : ' as draft'}`)
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      qc.invalidateQueries({ queryKey: ['timetable-templates'] })
+    },
+    onError: (e: Error) => notify.error(e.message),
   })
 
 
@@ -1663,6 +1693,70 @@ export default function AcademicEnginePage() {
                 </ol>
               </div>
 
+              <Card className="border-t-4 border-t-violet-500 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Zap className="w-4 h-4 text-violet-600" />Automated weekly timetable</CardTitle>
+                  <CardDescription>
+                    Define the repeating periods once. Subjects use the selected section&apos;s existing teacher assignments; breaks and prayer periods do not need a teacher.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" />
+                    <label className="flex items-center gap-2 rounded-md border px-3 text-xs font-medium">
+                      <input type="checkbox" checked={templatePublish} onChange={(e) => setTemplatePublish(e.target.checked)} />
+                      Publish immediately
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500">Days use 1=Monday through 7=Sunday. Drafts generated by this template can be safely regenerated.</p>
+                  <div className="space-y-2">
+                    {templateBlocks.map((block, index) => (
+                      <div key={`${index}-${block.slotType}`} className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-[150px_1fr_100px_100px_120px_auto] sm:items-center">
+                        <Select value={block.slotType} onValueChange={(value) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, slotType: value as AutomationSlotType, subjectCode: value === 'SUBJECT' ? item.subjectCode : '' } : item))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SUBJECT">Subject</SelectItem>
+                            <SelectItem value="BREAK">Break</SelectItem>
+                            <SelectItem value="PRAYER">Prayer</SelectItem>
+                            <SelectItem value="LUNCH">Lunch</SelectItem>
+                            <SelectItem value="ASSEMBLY">Assembly</SelectItem>
+                            <SelectItem value="ACTIVITY">Activity</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {block.slotType === 'SUBJECT' ? (
+                          <Select value={block.subjectCode} onValueChange={(value) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, subjectCode: value } : item))}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Subject offering" /></SelectTrigger>
+                            <SelectContent>
+                              {(slotOfferings ?? []).filter((offering) => !offering.subject.code?.startsWith('__')).map((offering) => (
+                                <SelectItem key={offering.id} value={offering.subject.code ?? offering.id}>{offering.subject.name}{offering.teacher ? ` · ${offering.teacher.firstName} ${offering.teacher.lastName}` : ' · no teacher'}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : <div className="text-xs font-medium text-slate-500 px-2">No teacher required</div>}
+                        <Input className="h-8 text-xs font-mono" value={block.days} onChange={(e) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, days: e.target.value } : item))} placeholder="1,2,3,4,5" />
+                        <Input className="h-8 text-xs font-mono" value={block.startTime} onChange={(e) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, startTime: e.target.value } : item))} placeholder="09:00" />
+                        <Input className="h-8 text-xs font-mono" value={block.endTime} onChange={(e) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, endTime: e.target.value } : item))} placeholder="09:45" />
+                        <Select value={block.roomId} onValueChange={(value) => setTemplateBlocks((prev) => prev.map((item, i) => i === index ? { ...item, roomId: value } : item))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Room" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No room</SelectItem>
+                            {(rooms ?? []).map((room) => <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 text-slate-400 hover:text-red-600" disabled={templateBlocks.length <= 1} onClick={() => setTemplateBlocks((prev) => prev.filter((_, i) => i !== index))}>Remove</Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => setTemplateBlocks((prev) => [...prev, { slotType: 'SUBJECT', subjectCode: '', days: '1,2,3,4,5,6', startTime: '11:00', endTime: '11:45', roomId: 'none' }])}>+ Add period</Button>
+                    <Button type="button" className="bg-violet-600 hover:bg-violet-700" disabled={!slotFilterSection || generateTimetable.isPending} onClick={() => generateTimetable.mutate()}>
+                      {generateTimetable.isPending ? 'Generating…' : 'Generate timetable'}
+                    </Button>
+                  </div>
+                  {!slotFilterSection && <p className="text-xs text-amber-700">Choose a class section below before generating the timetable.</p>}
+                </CardContent>
+              </Card>
+
 
               <div className="grid lg:grid-cols-2 gap-6">
               <Card className="border-t-4 border-t-blue-500 shadow-sm hover:shadow-md transition-shadow">
@@ -1845,6 +1939,7 @@ export default function AcademicEnginePage() {
                             <SelectItem value="__PRAYER__">🕌 Prayer</SelectItem>
                             <SelectItem value="__LUNCH__">🍽 Lunch</SelectItem>
                             <SelectItem value="__ASSEMBLY__">📢 Assembly</SelectItem>
+                            <SelectItem value="__ACTIVITY__">🎯 Activity</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

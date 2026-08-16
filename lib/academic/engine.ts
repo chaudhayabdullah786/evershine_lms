@@ -46,7 +46,7 @@ export async function validateTimetableSlot(params: {
   academicYearId: string
   classSectionId: string
   subjectOfferingId: string
-  teacherId: string
+  teacherId?: string | null
   roomId?: string | null
   dayOfWeek: number
   startTime: string
@@ -87,6 +87,13 @@ export async function validateTimetableSlot(params: {
   // shift boundaries. We exempt them from the isWithinShiftWindow check.
   const isPeriodBlock = subjectOffering.subject.code?.startsWith('__') ?? false
 
+  if (!isPeriodBlock && !params.teacherId) {
+    conflicts.push({
+      type: 'TEACHER',
+      message: `Assign a teacher to ${subjectOffering.subject.name} before adding it to the timetable.`,
+    })
+  }
+
   if (!isPeriodBlock && !isWithinShiftWindow(params.startTime, params.endTime, section.shift.startTime, section.shift.endTime)) {
     conflicts.push({
       type: 'SHIFT',
@@ -111,7 +118,7 @@ export async function validateTimetableSlot(params: {
   for (const slot of existing) {
     if (!timesOverlap(params.startTime, params.endTime, slot.startTime, slot.endTime)) continue
 
-    if (slot.teacherId === params.teacherId) {
+    if (params.teacherId && slot.teacherId === params.teacherId) {
       conflicts.push({
         type: 'TEACHER',
         message: `Teacher is already scheduled from ${slot.startTime}-${slot.endTime}. Choose a different teacher or time.`,
@@ -136,7 +143,7 @@ export async function validateTimetableSlot(params: {
     }
 
     if (
-      slot.teacherId === params.teacherId &&
+      params.teacherId && slot.teacherId === params.teacherId &&
       slot.classSection.campusId !== section.campusId
     ) {
       conflicts.push({
