@@ -49,6 +49,13 @@ interface ClassRecord {
   shift?: string
 }
 
+interface TeacherSectionRecord {
+  id: string
+  className: string
+  sectionName: string
+  shift?: { code?: string | null; name?: string | null } | null
+}
+
 interface ApiError {
   message?: string
 }
@@ -65,13 +72,22 @@ export default function TeacherAnnouncementsPage() {
   const [deleteAnn, setDeleteAnn] = useState<Announcement | null>(null)
 
   // Fetch ONLY assigned classes for teacher
-  const { data: classesRaw, isLoading: classesLoading } = useQuery({
-    queryKey: ['teacher-classes'],
-    queryFn: () => fetchApi<ClassRecord[]>('/api/teacher-portal/classes'),
+  const { data: sectionsRaw, isLoading: classesLoading } = useQuery<TeacherSectionRecord[]>({
+    queryKey: ['teacher-announcement-sections'],
+    // Announcements target canonical Academic Engine sections. The legacy
+    // classes endpoint can be empty while an assigned ClassSection is valid.
+    queryFn: () => fetchApi<TeacherSectionRecord[]>('/api/teacher-portal/sections'),
     enabled: isTeacher,
     staleTime: 5 * 60 * 1000,
   })
-  const classes = Array.isArray(classesRaw) ? classesRaw : (classesRaw as any)?.data ?? []
+  const classes: ClassRecord[] = (sectionsRaw ?? []).map((section) => ({
+    id: section.id,
+    name: section.className,
+    section: section.sectionName,
+    classSectionId: section.id,
+    legacyClassId: null,
+    shift: section.shift?.code ?? section.shift?.name ?? undefined,
+  }))
   const classOptions = classes.map((item: ClassRecord, idx: number) => ({
     value: item.classSectionId ?? item.legacyClassId ?? item.id ?? `class-${idx}`,
     label: `${item.name} (${item.section || 'N/A'})`,
