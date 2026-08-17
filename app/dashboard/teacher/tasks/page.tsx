@@ -55,6 +55,17 @@ interface ClassRecord {
   subjects?: SubjectRecord[]
 }
 
+interface TeacherSectionRecord {
+  id: string
+  className: string
+  sectionName: string
+  shift?: { code?: string | null; name?: string | null } | null
+}
+
+interface SectionOfferingRecord {
+  subject?: SubjectRecord | null
+}
+
 interface Task {
   id: string
   title: string
@@ -82,6 +93,33 @@ interface TaskResultRow {
   }
   obtainedMarks: number
   remarks: string | null
+}
+
+async function fetchCanonicalTeacherClasses(): Promise<ClassRecord[]> {
+  const sections = await fetchApi<TeacherSectionRecord[]>('/api/teacher-portal/sections')
+
+  return Promise.all(sections.map(async (section) => {
+    // The section endpoint is the source of truth for assignment scope. The
+    // offering endpoint is section-authorized and supplies the subjects used
+    // by task creation; keep the class visible if one offering lookup fails.
+    const offerings = await fetchApi<SectionOfferingRecord[]>(
+      `/api/teacher-portal/sections/${encodeURIComponent(section.id)}/offerings`
+    ).catch(() => [])
+    const subjects = offerings
+      .map((offering) => offering.subject)
+      .filter((subject): subject is SubjectRecord => Boolean(subject))
+      .filter((subject, index, all) => all.findIndex((item) => item.id === subject.id) === index)
+
+    return {
+      id: section.id,
+      name: section.className,
+      section: section.sectionName,
+      classSectionId: section.id,
+      legacyClassId: null,
+      shift: (section.shift?.code ?? section.shift?.name ?? 'MORNING') as SessionShift,
+      subjects,
+    }
+  }))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -844,9 +882,9 @@ export default function TeacherTasksPage() {
   const limit = 20
 
   // Fetch classes for the create dialog filter
-  const { data: classesRaw } = useQuery({
-    queryKey: ['teacher-classes'],
-    queryFn:  () => fetchApi<ClassRecord[]>('/api/teacher-portal/classes'),
+  const { data: classesRaw } = useQuery<ClassRecord[]>({
+    queryKey: ['teacher-task-sections'],
+    queryFn:  fetchCanonicalTeacherClasses,
     enabled:  isTeacher,
     staleTime: 5 * 60 * 1000,
   })
