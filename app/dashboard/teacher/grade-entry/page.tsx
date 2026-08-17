@@ -41,6 +41,13 @@ type ExamSession = {
   startDate?: string
   endDate?: string
 }
+type ResultSession = {
+  id: string
+  name: string
+  type: string
+  status: string
+  academicYearId?: string
+}
 type Student = { id: string; firstName: string; lastName: string; rollNumber: string; fatherName: string }
 type SubjectOffering = { id: string; subject: { name: string; code: string } }
 
@@ -116,32 +123,22 @@ function TeacherResultEntryInner() {
     enabled: session?.user?.role === 'TEACHER',
   })
 
-  const { data: examSessions = [] } = useQuery<ExamSession[]>({
-    queryKey: ['exam-sessions'],
-    queryFn: () => fetchApi<ExamSession[]>('/api/exam-sessions'),
-    enabled: true,
+  const { data: resultSessionsData } = useQuery<ResultSession[]>({
+    queryKey: ['teacher-result-sessions'],
+    queryFn: () => fetchApi<ResultSession[]>('/api/teacher-portal/result-sessions'),
+    enabled: session?.user?.role === 'TEACHER',
   })
 
-  const visibleExamSessions = classSectionId
-    ? examSessions.filter((exam) => !exam.classSectionId || exam.classSectionId === classSectionId)
-    : examSessions
+  // Keep scheduled Exam ids readable for existing drafts created before the
+  // result-cycle workspace was introduced. New entries always use the active
+  // result cycle returned above.
+  const { data: legacyExamSessionsData } = useQuery<ExamSession[]>({
+    queryKey: ['exam-sessions'],
+    queryFn: () => fetchApi<ExamSession[]>('/api/exam-sessions'),
+    enabled: session?.user?.role === 'TEACHER' && Boolean(resultId),
+  })
 
-  const handleSectionChange = (nextSectionId: string) => {
-    setClassSectionId(nextSectionId)
-    setStudentId('')
-
-    const selectedExam = examSessions.find((exam) => exam.id === examSessionId)
-    if (selectedExam?.classSectionId && selectedExam.classSectionId !== nextSectionId) {
-      setExamSessionId('')
-    }
-  }
-
-  const handleExamChange = (nextExamSessionId: string) => {
-    const selectedExam = examSessions.find((exam) => exam.id === nextExamSessionId)
-    setExamSessionId(nextExamSessionId)
-    setStudentId('')
-    if (selectedExam?.classSectionId) setClassSectionId(selectedExam.classSectionId)
-  }
+  const resultSessions = resultSessionsData ?? []
 
   const { data: students = [] } = useQuery<Student[]>({
     queryKey: ['section-students', classSectionId],
@@ -229,6 +226,35 @@ function TeacherResultEntryInner() {
     if (!resultDetailError) return
     notify.error(resultDetailError instanceof Error ? resultDetailError.message : 'Failed to load result details')
   }, [resultDetailError])
+
+  // A new class-sheet result uses the active academic-year cycle. Only old
+  // drafts whose opaque session id is not that active year fall back to the
+  // scheduled legacy Exam list for display.
+  const isActiveCycleResult = Boolean(resultDetail?.examSessionId && resultSessions.some((cycle) => cycle.id === resultDetail.examSessionId))
+  const useLegacyExamSessions = resultSessionsData == null || Boolean(resultId && resultDetail?.examSessionId && !isActiveCycleResult)
+  const examSessions: Array<ResultSession | ExamSession> = useLegacyExamSessions
+    ? (legacyExamSessionsData ?? [])
+    : resultSessions
+  const visibleExamSessions = classSectionId
+    ? examSessions.filter((exam) => !('classSectionId' in exam) || !exam.classSectionId || exam.classSectionId === classSectionId)
+    : examSessions
+
+  const handleSectionChange = (nextSectionId: string) => {
+    setClassSectionId(nextSectionId)
+    setStudentId('')
+
+    const selectedExam = examSessions.find((exam) => exam.id === examSessionId)
+    if (selectedExam && 'classSectionId' in selectedExam && selectedExam.classSectionId && selectedExam.classSectionId !== nextSectionId) {
+      setExamSessionId('')
+    }
+  }
+
+  const handleExamChange = (nextExamSessionId: string) => {
+    const selectedExam = examSessions.find((exam) => exam.id === nextExamSessionId)
+    setExamSessionId(nextExamSessionId)
+    setStudentId('')
+    if (selectedExam && 'classSectionId' in selectedExam && selectedExam.classSectionId) setClassSectionId(selectedExam.classSectionId)
+  }
 
   const { data: existingResult } = useQuery<ExistingResult | null>({
     queryKey: ['existing-result', studentId, classSectionId, examSessionId],
@@ -445,7 +471,7 @@ function TeacherResultEntryInner() {
       {/* Step 1 — Select context */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">1. Select Class, Exam &amp; Student</CardTitle>
+          <CardTitle className="text-base">1. Select Result Cycle, Class &amp; Student</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
@@ -460,25 +486,25 @@ function TeacherResultEntryInner() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Exam Session</Label>
+            <Label>{useLegacyExamSessions ? 'Legacy Exam Session' : 'Result Cycle'}</Label>
             <Select value={examSessionId} onValueChange={handleExamChange}>
               <SelectTrigger><SelectValue placeholder="Select exam" /></SelectTrigger>
               <SelectContent>
                 {visibleExamSessions.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
-                    {e.name} — {e.classLabel ?? e.term}
+                    {e.name} — {'status' in e ? e.status : (e.classLabel ?? e.term)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {session?.user?.role === 'TEACHER' && examSessions.length === 0 && (
+            {session?.user?.role === 'TEACHER' && resultSessions.length === 0 && !useLegacyExamSessions && (
               <p className="text-xs text-slate-500">
-                No active exams are scheduled for your assigned sections yet. Ask a SuperAdmin to publish one.
+                No active result cycle is available. Ask an administrator to activate the academic year.
               </p>
             )}
             {session?.user?.role === 'TEACHER' && classSectionId && visibleExamSessions.length === 0 && examSessions.length > 0 && (
               <p className="text-xs text-amber-600">
-                No scheduled exam matches this section. Select a different section or ask a SuperAdmin to schedule one.
+                No result cycle matches this section. Select a different assigned section.
               </p>
             )}
           </div>

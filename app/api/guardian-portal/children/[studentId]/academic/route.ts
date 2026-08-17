@@ -219,18 +219,28 @@ export async function GET(
     },
     orderBy: [{ examSessionId: 'desc' }, { createdAt: 'desc' }],
   })
+  const sessionIds = [...new Set(declaredTermResults.map((result) => result.examSessionId))]
   const scheduledExams = declaredTermResults.length
     ? await prisma.exam.findMany({
-        where: { id: { in: [...new Set(declaredTermResults.map((result) => result.examSessionId))] } },
+        where: { id: { in: sessionIds } },
         select: { id: true, name: true },
       })
     : []
+  const resultYears = declaredTermResults.length
+    ? await prisma.academicYear?.findMany?.({
+        where: { id: { in: sessionIds } },
+        select: { id: true, name: true },
+      }) ?? []
+    : []
   const examNameById = new Map(scheduledExams.map((exam) => [exam.id, exam.name]))
+  const resultYearNameById = new Map(resultYears.map((year) => [year.id, `${year.name} — Annual Result`]))
 
   const declaredResults = declaredTermResults.map((termResult) => ({
     id: termResult.id,
     examSessionId: termResult.examSessionId,
-    examSessionLabel: examNameById.get(termResult.examSessionId) ?? termResult.examSessionId
+    examSessionLabel: examNameById.get(termResult.examSessionId)
+      ?? resultYearNameById.get(termResult.examSessionId)
+      ?? termResult.examSessionId
       .replace(/[-_]/g, ' ')
       .replace(/\b\w/g, (character) => character.toUpperCase()),
     sectionLabel: `${termResult.classSection.className}-${termResult.classSection.sectionName}`,

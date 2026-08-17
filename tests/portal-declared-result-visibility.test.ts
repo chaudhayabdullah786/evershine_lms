@@ -12,6 +12,7 @@ const { mockAuth, mockPrisma, mockGuardianAccess } = vi.hoisted(() => ({
     // route to expose individual exam marks. Must be present in the mock.
     result: { findMany: vi.fn() },
     exam: { findMany: vi.fn() },
+    academicYear: { findMany: vi.fn() },
     enrollmentAttendanceRecord: { findMany: vi.fn() },
     feeInvoice: { findMany: vi.fn() },
     timetableSlot: { findMany: vi.fn() },
@@ -73,6 +74,7 @@ describe('declared result portal visibility', () => {
     mockPrisma.taskResult.findMany.mockResolvedValue([])
     mockPrisma.result.findMany.mockResolvedValue([])
     mockPrisma.exam.findMany.mockResolvedValue([])
+    mockPrisma.academicYear.findMany.mockResolvedValue([])
     mockPrisma.enrollmentAttendanceRecord.findMany.mockResolvedValue([])
     mockPrisma.feeInvoice.findMany.mockResolvedValue([])
     mockPrisma.termResult.findMany.mockResolvedValue([declaredResult])
@@ -102,6 +104,19 @@ describe('declared result portal visibility', () => {
     const json = await response.json()
 
     expect(json.data.declaredResults[0].examSessionLabel).toBe('SECOND STEP EXAM')
+  })
+
+  it('labels an annual result cycle with the academic year', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'student-user-1', role: 'STUDENT' } })
+    mockPrisma.student.findUnique.mockResolvedValue({ id: 'student-1' })
+    mockPrisma.termResult.findMany.mockResolvedValue([{ ...declaredResult, examSessionId: 'year-1' }])
+    mockPrisma.academicYear.findMany.mockResolvedValue([{ id: 'year-1', name: '2026-2027' }])
+
+    const response = await getStudentResults()
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data.declaredResults[0].examSessionLabel).toBe('2026-2027 — Annual Result')
   })
 
   it('returns declared term results and custom fields to an authorized guardian', async () => {

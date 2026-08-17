@@ -292,6 +292,55 @@ function syncPrismaEngine() {
   const targetPath = path.join(targetDir, 'libquery_engine-debian-openssl-1.1.x.so.node')
   fs.copyFileSync(sourcePath, targetPath)
   console.log(`[postbuild] OK  Hostinger-native Prisma engine synced successfully from ${sourcePath} into standalone.`)
+
+  // Passenger deployments can load the generated client directly from the
+  // application root instead of `.next/standalone`. Keep that runtime client
+  // in sync as well; otherwise a stale client generated for OpenSSL 3 may be
+  // selected before the Hostinger OpenSSL 1.1 engine is found.
+  const runtimeClientDir = '/home/u668799501/domains/evershineacadmey.com/nodejs/node_modules/.prisma/client'
+  const runtimeNodeModulesDir = path.dirname(path.dirname(runtimeClientDir))
+  if (fs.existsSync(runtimeNodeModulesDir)) {
+    try {
+      fs.mkdirSync(runtimeClientDir, { recursive: true })
+      const runtimeFiles = fs.readdirSync(runtimeClientDir)
+      for (const file of runtimeFiles) {
+        if (
+          file.startsWith('libquery_engine-debian-openssl-3.0.x') ||
+          file.startsWith('libquery_engine-rhel') ||
+          file.startsWith('libquery_engine-darwin') ||
+          file.startsWith('libquery_engine-windows')
+        ) {
+          fs.unlinkSync(path.join(runtimeClientDir, file))
+        }
+      }
+      // Copy the generated JS metadata and all native targets, not only the
+      // binary, so the runtime's binaryTargets list includes OpenSSL 1.1.
+      const sourceClientDir = path.dirname(sourcePath)
+      if (path.resolve(sourceClientDir) !== path.resolve(runtimeClientDir)) {
+        copyRecursive(sourceClientDir, runtimeClientDir)
+        // A CI build can contain both native OpenSSL 3 and Hostinger OpenSSL
+        // 1.1 targets. Remove the former after copying so runtime resolution
+        // cannot select the wrong binary.
+        for (const file of fs.readdirSync(runtimeClientDir)) {
+          if (
+            file.startsWith('libquery_engine-debian-openssl-3.0.x') ||
+            file.startsWith('libquery_engine-rhel') ||
+            file.startsWith('libquery_engine-darwin') ||
+            file.startsWith('libquery_engine-windows')
+          ) {
+            fs.unlinkSync(path.join(runtimeClientDir, file))
+          }
+        }
+        console.log(`[postbuild] OK  Hostinger Prisma client synced into ${runtimeClientDir}`)
+      } else {
+        console.log('[postbuild] Runtime Prisma client already matches the build source.')
+      }
+    } catch (err) {
+      console.warn('[postbuild] WARNING: Could not sync runtime Prisma client:', err)
+    }
+  } else {
+    console.log('[postbuild] Runtime Prisma client sync skipped (not on Hostinger production).')
+  }
 }
 
 run().catch(err => {

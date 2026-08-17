@@ -32,6 +32,7 @@ async function teacherCanCreateTaskForSubject(params: {
   legacyClassId: string
   classSectionId: string | null
   subjectId: string
+  academicYearName?: string | null
 }) {
   // 1. Direct SubjectOffering check by classSectionId + subjectId
   if (params.classSectionId) {
@@ -48,15 +49,6 @@ async function teacherCanCreateTaskForSubject(params: {
     })
     if (offering) return true
 
-    // Check if teacher has ANY offering in this class section
-    const sectionOffering = await prisma.subjectOffering.findFirst({
-      where: {
-        teacherId: params.teacherId,
-        classSectionId: params.classSectionId,
-      },
-      select: { id: true },
-    })
-    if (sectionOffering) return true
   }
 
   // 2. Direct SubjectTeacher check by legacyClassId + subjectId
@@ -140,6 +132,8 @@ async function teacherCanCreateTaskForSubject(params: {
     where: {
       teacherId: params.teacherId,
       classId: params.legacyClassId,
+      isClassTeacher: true,
+      ...(params.academicYearName ? { academicYear: params.academicYearName } : {}),
     },
     select: { id: true },
   })
@@ -151,25 +145,19 @@ async function teacherCanCreateTaskForSubject(params: {
       where: {
         teacherId: params.teacherId,
         classSectionId: params.classSectionId,
+        OR: [
+          { subjectOfferingId: params.subjectId },
+          { subjectOffering: { subjectId: params.subjectId } },
+        ],
       },
       select: { id: true },
     })
     if (slot) return true
   }
 
-  // 7. General teacher offering fallback: Is this teacher assigned to this subject or class anywhere?
-  const globalOffering = await prisma.subjectOffering.findFirst({
-    where: {
-      teacherId: params.teacherId,
-      OR: [
-        { subjectId: params.subjectId },
-        { id: params.subjectId },
-      ],
-    },
-    select: { id: true },
-  })
-  if (globalOffering) return true
-
+  // Do not fall back to an offering in another section. A teacher may teach
+  // the same subject elsewhere, but that must never authorize task creation
+  // for this section without a section-specific assignment.
   return false
 }
 
@@ -346,11 +334,13 @@ export async function POST(request: NextRequest) {
     }
 
     const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)
+    const activeYear = await getActiveAcademicYear()
     const isAssigned = isSuperOrAdmin || await teacherCanCreateTaskForSubject({
       teacherId: teacher.id,
       legacyClassId: resolvedClassId,
       classSectionId: resolvedClassSectionId,
       subjectId,
+      academicYearName: activeYear?.name,
     })
 
     if (!isAssigned) {
