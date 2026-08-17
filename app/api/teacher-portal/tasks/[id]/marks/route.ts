@@ -49,8 +49,13 @@ async function getTaskRoster(task: NonNullable<TaskWithResults>) {
   }
 
   if (classSectionId) {
+    const activeYear = await getActiveAcademicYear()
     let enrollments = await prisma.studentEnrollment.findMany({
-      where: { classSectionId, status: 'ACTIVE' },
+      where: {
+        classSectionId,
+        status: 'ACTIVE',
+        ...(activeYear?.id ? { academicYearId: activeYear.id } : {}),
+      },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, registrationNumber: true, rollNumber: true } },
       },
@@ -58,7 +63,6 @@ async function getTaskRoster(task: NonNullable<TaskWithResults>) {
     })
 
     if (enrollments.length === 0) {
-      const activeYear = await getActiveAcademicYear()
       const resolved = await getOrSyncSectionEnrollments(classSectionId, activeYear?.id)
       enrollments = resolved.enrollments as typeof enrollments
     }

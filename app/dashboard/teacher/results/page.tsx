@@ -31,7 +31,7 @@ type TermResult = {
 }
 
 type ClassSection = { id: string; className: string; sectionName: string }
-type ExamSession = { id: string; name: string; term: string }
+type ResultSession = { id: string; name: string; type: string; status: string }
 
 function batchColor(batch: string | null) {
   if (batch === 'Ever Shine') return 'bg-emerald-100 text-emerald-800'
@@ -54,9 +54,10 @@ export default function TeacherResultsListPage() {
     enabled: session?.user?.role === 'TEACHER',
   })
 
-  const { data: examSessions = [] } = useQuery<ExamSession[]>({
-    queryKey: ['exam-sessions'],
-    queryFn: () => fetchApi<ExamSession[]>('/api/exam-sessions'),
+  const { data: resultSessions = [] } = useQuery<ResultSession[]>({
+    queryKey: ['teacher-result-sessions'],
+    queryFn: () => fetchApi<ResultSession[]>('/api/teacher-portal/result-sessions'),
+    enabled: session?.user?.role === 'TEACHER',
   })
 
   const params = new URLSearchParams()
@@ -107,12 +108,20 @@ export default function TeacherResultsListPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">View, manage, and declare student results.</p>
         </div>
-        <Link href="/dashboard/teacher/grade-entry">
-          <Button className="gap-2">
-            <PenLine className="w-4 h-4" />
-            Enter New Result
-          </Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/teacher/results/class-sheet">
+            <Button className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Class Result Workspace
+            </Button>
+          </Link>
+          <Link href="/dashboard/teacher/grade-entry">
+            <Button variant="outline" className="gap-2">
+              <PenLine className="w-4 h-4" />
+              Student Detail Entry
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -133,8 +142,8 @@ export default function TeacherResultsListPage() {
             <Select value={examSessionId} onValueChange={(value) => setExamSessionId(value === '__all__' ? '' : value)}>
               <SelectTrigger><SelectValue placeholder="All exam sessions" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All sessions</SelectItem>
-                {examSessions.map((e) => (
+                <SelectItem value="__all__">All result cycles</SelectItem>
+                {resultSessions.map((e) => (
                   <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                 ))}
               </SelectContent>

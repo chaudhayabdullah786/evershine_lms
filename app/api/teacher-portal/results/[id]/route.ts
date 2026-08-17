@@ -15,6 +15,39 @@ import { auth } from '@/lib/auth'
 import { derivePerformanceBatch, deriveGrade, deriveResultStatus } from '@/lib/academic/result-utils'
 import { errors, successResponse } from '@/lib/api-response'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { resolveClassContext } from '@/lib/teacher-access'
+
+async function resolveTeacherSubjectScope(teacherId: string, classSectionId: string) {
+  const activeYear = await getActiveAcademicYear()
+  if (!activeYear) return { canManageAll: true, allowedOfferingIds: null as Set<string> | null }
+
+  const offerings = await prisma.subjectOffering.findMany({
+    where: { classSectionId, academicYearId: activeYear.id },
+    select: { id: true, teacherId: true },
+  })
+  const classContext = await resolveClassContext(classSectionId)
+  const classTeacher = classContext.legacyClassId
+    ? await prisma.classTeacher.findFirst({
+        where: {
+          teacherId,
+          classId: classContext.legacyClassId,
+          isClassTeacher: true,
+          academicYear: activeYear.name,
+        },
+        select: { id: true },
+      })
+    : null
+  const hasExplicitAssignments = offerings.some((offering) => Boolean(offering.teacherId))
+  const canManageAll = Boolean(classTeacher) || !hasExplicitAssignments
+  return {
+    canManageAll,
+    allowedOfferingIds: new Set(
+      (canManageAll ? offerings : offerings.filter((offering) => offering.teacherId === teacherId))
+        .map((offering) => offering.id)
+    ),
+  }
+}
 
 const resultDetailSelect = {
   id: true,
@@ -64,7 +97,12 @@ export async function GET(
     const canAccessSection = await teacherCanAccessClassSection(teacher.id, result.classSectionId)
     if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
-    return successResponse(result)
+    const subjectScope = await resolveTeacherSubjectScope(teacher.id, result.classSectionId)
+    const visibleSubjectResults = subjectScope.canManageAll || !subjectScope.allowedOfferingIds
+      ? result.subjectResults
+      : result.subjectResults.filter((subjectResult) => subjectScope.allowedOfferingIds?.has(subjectResult.subjectOfferingId))
+
+    return successResponse({ ...result, subjectResults: visibleSubjectResults })
   } catch (err) {
     console.error('[TEACHER_RESULTS_GET_BY_ID]', err)
     return errors.internal()
@@ -123,11 +161,25 @@ export async function PATCH(
       },
     })
     if (!existing) return errors.notFound('Result')
+    const { teacherRemarks, customFields, subjectResults, reason } = parsed.data
+
+    if (existing.declarationStatus === 'DECLARED') {
+      return errors.conflict('Declared results are locked. Reopen the result before editing.')
+    }
 
     const canAccessSection = await teacherCanAccessClassSection(teacher.id, existing.classSectionId)
     if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
-    const { teacherRemarks, customFields, subjectResults, reason } = parsed.data
+    const subjectScope = await resolveTeacherSubjectScope(teacher.id, existing.classSectionId)
+    if (subjectResults?.length && !subjectScope.canManageAll && subjectScope.allowedOfferingIds) {
+      const requestedSubjectResultIds = new Set(subjectResults.map((subjectResult) => subjectResult.id))
+      const unauthorizedSubjectResult = existing.subjectResults.find(
+        (subjectResult) => requestedSubjectResultIds.has(subjectResult.id) && !subjectScope.allowedOfferingIds?.has(subjectResult.subjectOfferingId)
+      )
+      if (unauthorizedSubjectResult) {
+        return errors.forbidden('You can only edit subject marks assigned to you.')
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       // Snapshot before state for audit

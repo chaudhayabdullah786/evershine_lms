@@ -86,7 +86,7 @@ describe('/api/teacher-portal/tasks/[id]/marks', () => {
 
     expect(response.status).toBe(200)
     expect(mockPrisma.studentEnrollment.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { classSectionId: 'section-1', status: 'ACTIVE' },
+      where: { classSectionId: 'section-1', status: 'ACTIVE', academicYearId: 'year-1' },
     }))
     expect(json.data).toHaveLength(2)
     expect(json.data[0]).toEqual(expect.objectContaining({

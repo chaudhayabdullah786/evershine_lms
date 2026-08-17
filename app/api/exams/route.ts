@@ -10,6 +10,8 @@ import { checkPermission } from '@/lib/rbac'
 import { errors, createdResponse, successResponse } from '@/lib/api-response'
 import type { Prisma, Role, SessionShift } from '@prisma/client'
 import { z } from 'zod'
+import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
+import { resolveClassContext } from '@/lib/teacher-access'
 
 // WHY: Extract a numeric grade from className strings like "Class 9", "Class 10th",
 // "Class 9th Parwaz" — covers all naming conventions used in this institution.
@@ -176,14 +178,33 @@ export async function GET(request: NextRequest) {
 
   const scopedCampusId = (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN') ? session.user.campusId : undefined
 
+  // Teachers must only see formal exams scheduled for their assigned
+  // Academic Engine sections. The legacy Exam table stores classId, so bridge
+  // the authorized sections through the same resolver used by teacher
+  // result-entry and exam-session routes.
+  let teacherLegacyClassIds: string[] | undefined
+  if (session.user.role === 'TEACHER') {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    if (!teacher) return successResponse([])
+
+    const sectionIds = await getTeacherClassSectionIds(teacher.id)
+    const contexts = await Promise.all(sectionIds.map(async (classSectionId) => resolveClassContext(classSectionId)))
+    teacherLegacyClassIds = [...new Set(contexts.flatMap((context) => context.legacyClassId ? [context.legacyClassId] : []))]
+    if (teacherLegacyClassIds.length === 0) return successResponse([])
+    if (classId && !teacherLegacyClassIds.includes(classId)) return successResponse([])
+  }
+
   let scopedClassId = undefined
   if (session.user.role === 'STUDENT') {
     const student = await prisma.student.findUnique({ where: { userId: session.user.id }, select: { classId: true } })
     if (student?.classId) scopedClassId = student.classId
   }
 
-  const where = {
-    ...(classId && { classId }),
+  const where: Prisma.ExamWhereInput = {
+    ...(classId ? { classId } : teacherLegacyClassIds ? { classId: { in: teacherLegacyClassIds } } : {}),
     ...(academicYear && { academicYear }),
     ...(session.user.role === 'STUDENT'
       ? (scopedClassId ? { classId: scopedClassId } : { id: 'no-match' })

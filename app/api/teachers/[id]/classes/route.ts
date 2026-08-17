@@ -20,6 +20,8 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { addClassAssignmentSchema } from '@/lib/validation/teacher'
+import { sessionShiftSchema, type SessionShift } from '@/lib/validation/shift'
+import { findLegacyClassForSection } from '@/lib/teacher-access'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -46,6 +48,99 @@ interface NormalizedAssignment {
   batchName?: string
   studentCount?: number
   deliveryMode?: string
+}
+
+function extractLegacySectionName(sectionName: string): string {
+  const parenthesized = sectionName.match(/\(([^)]+)\)/)
+  if (parenthesized) return parenthesized[1].trim()
+  const parts = sectionName.trim().split(/\s+/)
+  return parts.length > 1 && parts.at(-1)?.length === 1
+    ? parts.at(-1)!
+    : sectionName.trim()
+}
+
+async function ensureLegacyClassTeacherBridge(params: {
+  teacherId: string
+  classSection: {
+    grade: number | null
+    sectionName: string
+    campusId: string
+    batchId: string
+    shift: { code: string; name: string } | null
+  }
+  academicYear: string
+}) {
+  const { teacherId, classSection, academicYear } = params
+  const shiftCode = (classSection.shift?.code ?? classSection.shift?.name ?? 'MORNING')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/SHIFT$/, '')
+  const matched = await findLegacyClassForSection({
+    grade: classSection.grade,
+    sectionName: classSection.sectionName,
+    campusId: classSection.campusId,
+    batchId: classSection.batchId,
+    shiftCode,
+    academicYear,
+  })
+
+  let legacyClass = matched
+  if (!legacyClass) {
+    const parsedShift = sessionShiftSchema.safeParse(shiftCode)
+    const shift: SessionShift = parsedShift.success ? parsedShift.data : 'MORNING'
+    const grade = classSection.grade ?? 0
+    const section = extractLegacySectionName(classSection.sectionName)
+    legacyClass = await prisma.class.upsert({
+      where: {
+        grade_section_campusId_academicYear_shift: {
+          grade,
+          section,
+          campusId: classSection.campusId,
+          academicYear,
+          shift,
+        },
+      },
+      update: { isActive: true },
+      create: {
+        name: `Class ${grade} - ${shift} (${section})`,
+        grade,
+        section,
+        campusId: classSection.campusId,
+        batchId: classSection.batchId,
+        academicYear,
+        shift,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        section: true,
+        batchId: true,
+        shift: true,
+        campusId: true,
+        grade: true,
+        academicYear: true,
+      },
+    })
+  }
+
+  return prisma.classTeacher.upsert({
+    where: {
+      classId_teacherId_academicYear: {
+        classId: legacyClass.id,
+        teacherId,
+        academicYear,
+      },
+    },
+    update: { isClassTeacher: true },
+    create: {
+      classId: legacyClass.id,
+      teacherId,
+      academicYear,
+      isClassTeacher: true,
+    },
+    select: { id: true, classId: true, teacherId: true, academicYear: true, isClassTeacher: true },
+  })
 }
 
 // ── GET /api/teachers/[id]/classes ───────────────────────────────────────────
@@ -107,6 +202,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             className: true,
             sectionName: true,
             grade: true,
+            campusId: true,
+            batchId: true,
             deliveryMode: true,
             campus: { select: { id: true, name: true, code: true } },
             batch: { select: { id: true, name: true } },
@@ -160,7 +257,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         shiftLabel: sec.shift?.name,
         grade: sec.grade,
         academicYear: so.academicYear.name,
-        isClassTeacher: false, // TODO: Add dedicated class-incharge field for Academic Engine
+        isClassTeacher: false,
         campusName: sec.campus?.name,
         campusCode: sec.campus?.code,
         batchName: sec.batch?.name,
@@ -170,19 +267,45 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // ── Deduplicate: Don't show legacy assignments that have an Academic Engine counterpart
-  // WHY: teacher-scope.ts already maps legacy classes to class sections. If both exist,
-  // prefer the Academic Engine version (it has richer shift/delivery data).
-  const engineSectionIds = new Set(
-    Array.from(sectionMap.values()).map((a) => a.classSectionId)
-  )
-  const filteredLegacy = legacyNormalized.filter((a) => {
-    // Keep legacy assignments that don't have an Academic Engine counterpart
-    // Simple heuristic: if no engine section matches, keep it
-    return true // Keep all legacy for now — frontend can filter by source
-  })
+  // ── Deduplicate mapped legacy/engine assignments ─────────────────────────
+  // A class-incharge assignment is persisted on the compatibility
+  // ClassTeacher row so result declaration has an explicit authority source.
+  // Do not expose that bridge as a second class in the admin UI when the same
+  // section already has an Academic Engine assignment.
+  const engineAssignmentMeta = await Promise.all(
+    Array.from(sectionMap.values()).map(async (assignment) => {
+      const source = subjectOfferings.find((offering) =>
+        offering.classSectionId === assignment.classSectionId && offering.academicYear.name === assignment.academicYear
+      )
+      if (!source) return { assignment, legacyClass: null }
 
-  const unified = [...filteredLegacy, ...Array.from(sectionMap.values())]
+      const legacyClass = await findLegacyClassForSection({
+        grade: source.classSection.grade,
+        sectionName: source.classSection.sectionName,
+        campusId: source.classSection.campusId,
+        batchId: source.classSection.batchId,
+        shiftCode: source.classSection.shift?.code ?? source.classSection.shift?.name ?? 'MORNING',
+        academicYear: assignment.academicYear,
+      })
+      const bridge = legacyClass
+        ? legacyNormalized.find((legacy) => legacy.classId === legacyClass.id && legacy.academicYear === assignment.academicYear)
+        : undefined
+
+      return {
+        assignment: { ...assignment, isClassTeacher: bridge?.isClassTeacher ?? false },
+        legacyClass,
+      }
+    })
+  )
+  const engineAssignments = engineAssignmentMeta.map(({ assignment }) => assignment)
+  const mappedLegacyKeys = new Set(
+    engineAssignmentMeta
+      .filter(({ legacyClass }) => Boolean(legacyClass))
+      .map(({ assignment, legacyClass }) => `${legacyClass!.id}::${assignment.academicYear}`)
+  )
+  const filteredLegacy = legacyNormalized.filter((legacy) => !mappedLegacyKeys.has(`${legacy.classId}::${legacy.academicYear}`))
+
+  const unified = [...filteredLegacy, ...engineAssignments]
 
   return successResponse(unified)
 }
@@ -227,6 +350,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         campusId: true,
         className: true,
         sectionName: true,
+        grade: true,
+        batchId: true,
         shift: { select: { code: true, name: true } },
       },
     })
@@ -250,6 +375,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     })
     if (!academicYearRecord) {
       return errors.notFound(`Academic year '${academicYear}' not found. Create it in the Academic Engine first.`)
+    }
+
+    // The Academic Engine stores subject assignments on SubjectOffering, while
+    // class-incharge status still lives on the compatibility ClassTeacher join.
+    // Persist the flag so the teacher-result declaration guard has one explicit,
+    // auditable class-teacher source of truth.
+    if (isClassTeacher) {
+      await ensureLegacyClassTeacherBridge({
+        teacherId: id,
+        classSection: section,
+        academicYear,
+      })
     }
 
     // Check if teacher already has ANY subject offering for this section+year
@@ -504,6 +641,27 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return errors.notFound('Academic year')
     }
 
+    const section = await prisma.classSection.findUnique({
+      where: { id: classSectionId },
+      select: {
+        grade: true,
+        sectionName: true,
+        campusId: true,
+        batchId: true,
+        shift: { select: { code: true, name: true } },
+      },
+    })
+    const legacyClass = section
+      ? await findLegacyClassForSection({
+          grade: section.grade,
+          sectionName: section.sectionName,
+          campusId: section.campusId,
+          batchId: section.batchId,
+          shiftCode: section.shift?.code ?? section.shift?.name ?? 'MORNING',
+          academicYear,
+        })
+      : null
+
     // Remove all SubjectOfferings for this teacher+section+year
     const deleted = await prisma.$transaction(async (tx) => {
       const offerings = await tx.subjectOffering.findMany({
@@ -515,33 +673,44 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         select: { id: true },
       })
 
-      if (offerings.length === 0) {
-        return { count: 0 }
+      if (offerings.length > 0) {
+        // Unassign teacher from offerings (set teacherId to null) rather than deleting
+        // WHY: SubjectOffering may have linked SubjectEnrollments, scores, etc.
+        // Deleting would cascade-orphan student data. Nulling teacherId is safer.
+        await tx.subjectOffering.updateMany({
+          where: {
+            teacherId: id,
+            classSectionId,
+            academicYearId: academicYearRecord.id,
+          },
+          data: { teacherId: null },
+        })
+
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'DELETE',
+            entityType: 'SubjectOffering',
+            entityId: offerings[0].id,
+            changes: { teacherId: id, classSectionId, academicYear, count: offerings.length },
+          },
+        })
       }
 
-      // Unassign teacher from offerings (set teacherId to null) rather than deleting
-      // WHY: SubjectOffering may have linked SubjectEnrollments, scores, etc.
-      // Deleting would cascade-orphan student data. Nulling teacherId is safer.
-      await tx.subjectOffering.updateMany({
-        where: {
-          teacherId: id,
-          classSectionId,
-          academicYearId: academicYearRecord.id,
-        },
-        data: { teacherId: null },
-      })
+      let classTeacherRemoved = 0
+      if (legacyClass) {
+        const removed = await tx.classTeacher.deleteMany({
+          where: {
+            classId: legacyClass.id,
+            teacherId: id,
+            academicYear,
+            isClassTeacher: true,
+          },
+        })
+        classTeacherRemoved = removed.count
+      }
 
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: 'DELETE',
-          entityType: 'SubjectOffering',
-          entityId: offerings[0].id,
-          changes: { teacherId: id, classSectionId, academicYear, count: offerings.length },
-        },
-      })
-
-      return { count: offerings.length }
+      return { count: offerings.length, classTeacherRemoved }
     })
 
     return successResponse(

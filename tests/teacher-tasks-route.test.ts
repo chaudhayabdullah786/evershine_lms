@@ -113,6 +113,29 @@ describe('POST /api/teacher-portal/tasks', () => {
     })
   })
 
+  it('does not authorize a subject offering that belongs to another section', async () => {
+    mockPrisma.subjectOffering.findFirst
+      .mockResolvedValueOnce(null) // section-specific offering lookup
+      .mockResolvedValueOnce({ id: 'offering-in-another-section' }) // cross-section offering
+
+    const response = await POST(new NextRequest('http://localhost/api/teacher-portal/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Cross-section Quiz',
+        type: 'QUIZ',
+        maxMarks: 100,
+        classId: 'legacy-class-1',
+        legacyClassId: 'legacy-class-1',
+        classSectionId: 'section-1',
+        subjectId: 'academic-subject-1',
+      }),
+      headers: { 'content-type': 'application/json' },
+    }))
+
+    expect(response.status).toBe(403)
+    expect(mockPrisma.classTask.create).not.toHaveBeenCalled()
+  })
+
   it('returns an actionable schema error when the task section column is missing', async () => {
     mockPrisma.subjectOffering.findFirst.mockResolvedValue({ id: 'offering-1' })
     mockPrisma.subject.findUnique.mockResolvedValue(null)
