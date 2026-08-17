@@ -18,6 +18,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
 import { sessionShiftSchema } from '@/lib/validation/shift'
 import { findLegacyClassForSection } from '@/lib/teacher-access'
 
@@ -59,7 +60,10 @@ export async function GET(req: NextRequest) {
           campusId: s.campusId,
           campus: s.campus,
           batch: s.batch,
-          isClassTeacher: true,
+          // The canonical resolver proves section access, not the homeroom
+          // flag. Keep that distinction conservative; declaration/task
+          // authority remains enforced by the server-side assignment checks.
+          isClassTeacher: false,
           isSubjectTeacher: true,
           subjects: [],
         }))
@@ -410,6 +414,93 @@ export async function GET(req: NextRequest) {
       }
     }
     classes = Array.from(classMap.values())
+  }
+
+  // Keep announcements and Tasks & Marks aligned with the canonical section
+  // resolver used by attendance and the teacher dashboard. A valid
+  // ClassSection assignment can exist before its compatibility Class row (or
+  // legacy subject rows) is available; without this bridge those screens
+  // incorrectly report that the teacher has no active classes.
+  if (classes.length === 0) {
+    const allowedSectionIds = await getTeacherClassSectionIds(teacher.id, activeYear?.id)
+    if (allowedSectionIds.length > 0) {
+      const canonicalSections = await prisma.classSection.findMany({
+        where: {
+          id: { in: allowedSectionIds },
+          OR: [
+            { isActive: true },
+            { enrollments: { some: { status: 'ACTIVE' } } },
+          ],
+        },
+        include: {
+          shift: { select: { name: true, code: true } },
+          campus: { select: { name: true, code: true } },
+          batch: { select: { name: true, code: true, academicLevel: true } },
+        },
+      })
+
+      // Class teachers can create tasks for subjects offered by their section,
+      // even when those offerings belong to another teacher. Prefer the active
+      // year and fall back to the same section-scoped rollover data used by
+      // the other teacher workflows.
+      let canonicalOfferings = activeYear?.id
+        ? await prisma.subjectOffering.findMany({
+            where: { classSectionId: { in: allowedSectionIds }, academicYearId: activeYear.id },
+            include: { subject: { select: { id: true, name: true, code: true } } },
+          })
+        : []
+      if (canonicalOfferings.length === 0) {
+        canonicalOfferings = await prisma.subjectOffering.findMany({
+          where: { classSectionId: { in: allowedSectionIds } },
+          include: { subject: { select: { id: true, name: true, code: true } } },
+        })
+      }
+
+      const offeringsBySection = new Map<string, { id: string; name: string; code: string }[]>()
+      for (const offering of canonicalOfferings) {
+        const subjects = offeringsBySection.get(offering.classSectionId) ?? []
+        if (!subjects.some((subject) => subject.id === offering.subject.id)) {
+          subjects.push(offering.subject)
+        }
+        offeringsBySection.set(offering.classSectionId, subjects)
+      }
+
+      for (const section of canonicalSections) {
+        const shiftCode = normalizeShiftValue(section.shift?.code ?? section.shift?.name)
+        const key = createClassKey(
+          section.grade ?? 0,
+          section.sectionName ?? '',
+          section.campusId,
+          section.batchId,
+          shiftCode,
+        )
+        const legacyClass = await findLegacyClassForSection({
+          grade: section.grade,
+          sectionName: section.sectionName,
+          campusId: section.campusId,
+          batchId: section.batchId,
+          shiftCode,
+          academicYear: activeYearName,
+        })
+        classMap.set(key, {
+          id: legacyClass?.id ?? section.id,
+          name: legacyClass?.name ?? section.className,
+          section: legacyClass?.section ?? section.sectionName,
+          classSectionId: section.id,
+          legacyClassId: legacyClass?.id ?? null,
+          grade: section.grade ?? 0,
+          shift: shiftCode || 'Unknown',
+          batchId: section.batchId,
+          campusId: section.campusId,
+          campus: section.campus,
+          batch: section.batch,
+          isClassTeacher: true,
+          isSubjectTeacher: (offeringsBySection.get(section.id)?.length ?? 0) > 0,
+          subjects: offeringsBySection.get(section.id) ?? [],
+        })
+      }
+      classes = Array.from(classMap.values())
+    }
   }
 
   if (shiftFilter?.success) {
