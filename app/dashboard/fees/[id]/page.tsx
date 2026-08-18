@@ -15,6 +15,7 @@ import { PaymentProofUploadModal } from '@/components/fees/PaymentProofUploadMod
 import { ArrowLeft, Printer, Ban, Trash2, DollarSign, Loader2, FileText, CheckCircle, AlertTriangle, UploadCloud, Eye, Download } from 'lucide-react'
 import Link from 'next/link'
 import { notify } from '@/lib/notify'
+import { parsePaymentDetails } from '@/lib/fees/payment-details'
 
 interface FeeItem {
   id: string
@@ -66,77 +67,20 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 }
 
-interface BankAccountItem {
-  bank: string
-  number: string
-}
-
-function parseBankAccounts(str: string) {
-  const accounts: BankAccountItem[] = []
-  let accountTitle = ''
-  
-  if (!str) return { accountTitle, accounts }
-  
-  const parts = str.split(/[;\n]/)
-  for (let part of parts) {
-    part = part.trim()
-    if (!part) continue
-    
-    const lower = part.toLowerCase()
-    if (lower.includes('title:') || lower.includes('name:') || lower.includes('account title') || lower.includes('account name')) {
-      const idx = part.indexOf(':')
-      if (idx !== -1) {
-        accountTitle = part.substring(idx + 1).trim()
-      } else {
-        accountTitle = part.replace(/account title/i, '').replace(/account name/i, '').replace(/:/g, '').trim()
-      }
-    } else {
-      const idx = part.indexOf(':')
-      if (idx !== -1) {
-        const bank = part.substring(0, idx).trim()
-        const number = part.substring(idx + 1).trim()
-        accounts.push({ bank, number })
-      } else {
-        accounts.push({ bank: 'Bank/Account', number: part })
-      }
-    }
-  }
-  
-  return { accountTitle, accounts }
-}
-
 const renderBankAccountsTable = (bankAccountsStr: string) => {
-  const { accountTitle, accounts } = parseBankAccounts(bankAccountsStr)
-  if (accounts.length === 0 && !accountTitle) {
+  const rows = parsePaymentDetails(bankAccountsStr)
+  if (rows.length === 0) {
     return <p className="text-[10px] text-gray-500 italic">Please deposit cash at the Accounts Office.</p>
   }
 
   return (
-    <div className="space-y-1.5 w-full">
-      {accountTitle && (
-        <div className="flex justify-between items-center bg-blue-50 border border-blue-100 px-2 py-0.5 rounded text-[9px] font-bold text-blue-900 uppercase">
-          <span>Account Title:</span>
-          <span>{accountTitle}</span>
+    <div className="grid grid-cols-1 gap-1.5 w-full">
+      {rows.map((row) => (
+        <div key={`${row.label}-${row.value}`} className="flex justify-between gap-3 rounded border border-gray-200 bg-white px-2 py-1 text-[9px]">
+          <span className="font-bold uppercase text-gray-600">{row.label}</span>
+          <span className="text-right font-mono font-bold text-blue-900">{row.value}</span>
         </div>
-      )}
-      {accounts.length > 0 && (
-        <table className="w-full text-left text-[9px] border-collapse border border-gray-200 rounded overflow-hidden">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600 font-bold border-b border-gray-200">
-              <th className="px-2 py-0.5 border-r border-gray-200 uppercase">Bank Name</th>
-              <th className="px-2 py-0.5 uppercase">Account Number</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((acc, index) => (
-              <tr key={index} className="border-b border-gray-200 bg-white hover:bg-gray-50/30">
-                <td className="px-2 py-0.5 font-bold text-gray-700 border-r border-gray-200">{acc.bank}</td>
-                <td className="px-2 py-0.5 font-mono font-bold text-blue-900">{acc.number}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      ))}
     </div>
   )
 }
@@ -167,6 +111,14 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   const [verifyPaidAmount, setVerifyPaidAmount] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editMonth, setEditMonth] = useState('')
+  const [editAcademicYear, setEditAcademicYear] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [editDiscount, setEditDiscount] = useState('0')
+  const [editLateFee, setEditLateFee] = useState('0')
+  const [editNotes, setEditNotes] = useState('')
+  const [editItems, setEditItems] = useState<Array<{ description: string; amount: string }>>([])
 
   // Fetch Invoice details
   const { data: invoice, isLoading, error } = useQuery<FeeInvoice>({
@@ -202,6 +154,28 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
     onError: (err: any) => {
       notify.error(err.message || 'Failed to delete challan')
     }
+  })
+
+  const editMutation = useMutation({
+    mutationFn: () => fetchApi(`/api/fees/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        month: editMonth,
+        academicYear: editAcademicYear,
+        dueDate: editDueDate,
+        discount: Number(editDiscount) || 0,
+        lateFee: Number(editLateFee) || 0,
+        notes: editNotes || null,
+        items: editItems.map((item) => ({ description: item.description.trim(), amount: Number(item.amount) })),
+      }),
+    }),
+    onSuccess: () => {
+      notify.success('Challan updated and republished successfully')
+      setShowEditDialog(false)
+      queryClient.invalidateQueries({ queryKey: ['fee-invoice', id] })
+      queryClient.invalidateQueries({ queryKey: ['fees'] })
+    },
+    onError: (err: any) => notify.error(err.message || 'Failed to update challan'),
   })
 
   if (isLoading) {
@@ -340,6 +314,17 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   
   const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(role)
   const isStudentOrGuardian = ['STUDENT', 'PARENT', 'GUARDIAN'].includes(role)
+  const canEdit = isAdmin && paid === 0 && ['ISSUED', 'OVERDUE'].includes(invoice.status)
+  const openEditDialog = () => {
+    setEditMonth(invoice.month)
+    setEditAcademicYear(invoice.academicYear)
+    setEditDueDate(invoice.dueDate.slice(0, 10))
+    setEditDiscount(String(discount))
+    setEditLateFee(String(lateFee))
+    setEditNotes(invoice.notes || '')
+    setEditItems(invoice.items.map((item) => ({ description: item.description, amount: String(item.amount) })))
+    setShowEditDialog(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -384,6 +369,13 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
             <Button onClick={() => { setPayAmount(String(balance)); setShowPayModal(true) }} className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2 text-xs h-9">
               <DollarSign className="w-3.5 h-3.5" />
               Collect Payment
+            </Button>
+          )}
+
+          {canEdit && (
+            <Button onClick={openEditDialog} variant="outline" className="text-indigo-700 border-indigo-300 hover:bg-indigo-50 font-bold gap-2 text-xs h-9">
+              <FileText className="w-3.5 h-3.5" />
+              Edit & Republish
             </Button>
           )}
 
@@ -761,6 +753,46 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
               <Button type="submit" disabled={isRecording} className="bg-green-600 hover:bg-green-700 text-white font-bold">
                 {isRecording ? 'Processing...' : 'Record Payment'}
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Safe correction flow: only issued/overdue invoices with no payment can
+          be edited. The server revalidates this rule and recalculates totals. */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit & Republish Challan</DialogTitle>
+            <DialogDescription>
+              Correct the period, line items, or notes before any payment is recorded. Official payment instructions remain unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(event) => { event.preventDefault(); editMutation.mutate() }} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5"><Label>Month</Label><Input value={editMonth} onChange={(e) => setEditMonth(e.target.value)} required /></div>
+              <div className="space-y-1.5"><Label>Academic Year</Label><Input value={editAcademicYear} onChange={(e) => setEditAcademicYear(e.target.value)} required /></div>
+              <div className="space-y-1.5"><Label>Due Date</Label><Input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} required /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Fee Items</Label>
+              {editItems.map((item, index) => (
+                <div key={index} className="grid grid-cols-[1fr_140px_auto] gap-2">
+                  <Input value={item.description} onChange={(e) => setEditItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, description: e.target.value } : row))} required />
+                  <Input type="number" min="0.01" step="0.01" value={item.amount} onChange={(e) => setEditItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: e.target.value } : row))} required />
+                  <Button type="button" variant="outline" size="icon" disabled={editItems.length === 1} onClick={() => setEditItems((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditItems((current) => [...current, { description: '', amount: '' }])}>Add fee item</Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label>Discount (PKR)</Label><Input type="number" min="0" step="0.01" value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Late Fee (PKR)</Label><Input type="number" min="0" step="0.01" value={editLateFee} onChange={(e) => setEditLateFee(e.target.value)} /></div>
+            </div>
+            <div className="space-y-1.5"><Label>Notes</Label><Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} maxLength={500} /></div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)} disabled={editMutation.isPending}>Cancel</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={editMutation.isPending || editItems.some((item) => !item.description.trim() || Number(item.amount) <= 0)}>{editMutation.isPending ? 'Saving…' : 'Save & Republish'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

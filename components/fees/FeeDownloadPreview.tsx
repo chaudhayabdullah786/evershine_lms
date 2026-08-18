@@ -4,6 +4,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { parsePaymentDetails } from '@/lib/fees/payment-details'
+import { getCanonicalStudentClassSection } from '@/lib/academic/record-formatters'
 
 interface FeeItem {
   id: string
@@ -18,6 +20,11 @@ interface StudentDetails {
   rollNumber?: string
   campus: { name: string }
   class?: { name: string }
+  activeEnrollments?: Array<{
+    status?: string | null
+    rollNumber?: string | null
+    classSection?: { className?: string | null; sectionName?: string | null; shift?: { name?: string | null; code?: string | null } | null } | null
+  }>
 }
 
 export interface FeeInvoicePreview {
@@ -46,18 +53,6 @@ interface FeeDownloadPreviewProps {
   elementId: string
 }
 
-function parseBankAccounts(bankAccounts: string | undefined) {
-  if (!bankAccounts) return []
-  return bankAccounts
-    .split(/\n|;/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [bank, number] = line.split(':').map((part) => part.trim())
-      return { bank: bank || 'Bank', number: number || line }
-    })
-}
-
 export function FeeDownloadPreview({ invoice, variant, elementId }: FeeDownloadPreviewProps) {
   const studentName = `${invoice.student.firstName} ${invoice.student.lastName}`
   const total = Number(invoice.totalAmount)
@@ -70,7 +65,8 @@ export function FeeDownloadPreview({ invoice, variant, elementId }: FeeDownloadP
     description: item.description,
     amount: Number(item.amount),
   }))
-  const bankRows = parseBankAccounts(invoice.bankAccounts)
+  const bankRows = parsePaymentDetails(invoice.bankAccounts)
+  const classSection = getCanonicalStudentClassSection(invoice.student)
   const labels = {
     student: {
       heading: 'Student Download Receipt',
@@ -236,10 +232,10 @@ export function FeeDownloadPreview({ invoice, variant, elementId }: FeeDownloadP
                     <div className="space-y-2">
                       <div className="font-semibold text-slate-900">Bank details</div>
                       <div className="space-y-1">
-                        {bankRows.slice(0, 2).map((account, index) => (
-                          <div key={index} className="grid grid-cols-[1fr_1fr] gap-3 text-[12px]">
-                            <span className="font-semibold text-slate-800">{account.bank}</span>
-                            <span className="font-mono text-slate-900">{account.number}</span>
+                        {bankRows.map((account) => (
+                          <div key={`${account.label}-${account.value}`} className="grid grid-cols-[1fr_1.4fr] gap-3 text-[12px]">
+                            <span className="font-semibold text-slate-800">{account.label}</span>
+                            <span className="font-mono text-slate-900">{account.value}</span>
                           </div>
                         ))}
                       </div>
@@ -258,7 +254,7 @@ export function FeeDownloadPreview({ invoice, variant, elementId }: FeeDownloadP
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Fee details</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">Line items included in this receipt</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{classSection} • Line items included in this receipt</p>
               </div>
               <Badge variant={variant === 'student' ? 'secondary' : 'outline'} className="uppercase tracking-[0.2em] text-[10px] font-semibold">
                 {variant === 'student' ? 'Student view' : 'Office view'}

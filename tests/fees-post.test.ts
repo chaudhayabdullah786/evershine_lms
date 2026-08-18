@@ -25,6 +25,7 @@ vi.mock('@/lib/rbac', () => ({ checkPermission: mockCheckPermission }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 
 import { POST } from '../app/api/fees/route'
+import { serializePaymentDetails } from '@/lib/fees/payment-details'
 
 const validPayload = {
   studentId: 'student-1',
@@ -88,6 +89,7 @@ describe('POST /api/fees', () => {
           lateFee: 100,
           totalAmount: 5600,
           status: 'ISSUED',
+          bankAccounts: serializePaymentDetails(),
         }),
       })
     )

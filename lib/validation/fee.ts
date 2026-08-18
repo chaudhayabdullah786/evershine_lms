@@ -34,6 +34,21 @@ export const generateChallanSchema = z.object({
   notes: z.string().max(500).optional(),
 })
 
+/**
+ * Issued invoices can be corrected only while no payment has been recorded.
+ * Payment instructions are intentionally absent: they are server-owned.
+ */
+export const updateChallanSchema = z.object({
+  month: generateChallanSchema.shape.month.optional(),
+  academicYear: generateChallanSchema.shape.academicYear.optional(),
+  dueDate: generateChallanSchema.shape.dueDate.optional(),
+  items: generateChallanSchema.shape.items.optional(),
+  discount: z.number().min(0).optional(),
+  lateFee: z.number().min(0).optional(),
+  notes: z.string().max(500).nullable().optional(),
+  status: z.enum(['ISSUED', 'CANCELLED']).optional(),
+})
+
 export const recordPaymentSchema = z.object({
   invoiceId: z.string().min(1, 'Invalid invoice ID'),
   amount: z.number().positive('Payment amount must be positive'),
@@ -55,5 +70,6 @@ export const feeQuerySchema = z.object({
 })
 
 export type GenerateChallanInput = z.infer<typeof generateChallanSchema>
+export type UpdateChallanInput = z.infer<typeof updateChallanSchema>
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>
 export type FeeQueryInput = z.infer<typeof feeQuerySchema>

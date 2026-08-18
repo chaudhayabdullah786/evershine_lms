@@ -17,6 +17,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
 import type { Role } from '@prisma/client'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       ? (new URL(request.url).searchParams.get('campusId') ?? undefined)
       : (session.user.campusId ?? undefined)
 
+  const activeYear = await getActiveAcademicYear()
   const students = await prisma.student.findMany({
     where: {
       ...(campusId && { campusId }),
@@ -73,8 +75,29 @@ export async function GET(request: NextRequest) {
       batch: { select: { name: true, code: true } },
       class: { select: { name: true, grade: true } },
       house: { select: { name: true } },
+      enrollments: {
+        where: {
+          status: 'ACTIVE',
+          ...(activeYear ? { academicYearId: activeYear.id } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: {
+          rollNumber: true,
+          classSection: {
+            select: {
+              className: true,
+              sectionName: true,
+              shift: { select: { name: true, code: true } },
+            },
+          },
+        },
+      },
     },
   })
 
-  return successResponse(students)
+  return successResponse(students.map(({ enrollments, ...student }) => ({
+    ...student,
+    activeEnrollments: enrollments,
+  })))
 }

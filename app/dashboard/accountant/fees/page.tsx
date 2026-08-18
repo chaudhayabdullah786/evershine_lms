@@ -17,10 +17,11 @@ import { notify } from '@/lib/notify'
 import { Search, Plus, Trash2, Download, CreditCard, AlertTriangle, CheckCircle2, Loader2, Eye, FileCheck, X, ImageIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { getCanonicalStudentClassSection, type EnrollmentRecord } from '@/lib/academic/record-formatters'
 
 interface StudentResult {
   id: string; registrationNumber: string; firstName: string; lastName: string
-  fatherName: string; class?: { name: string } | null; feeStatus: string; dueAmount: string | number
+  fatherName: string; section?: string | null; class?: { name: string } | null; activeEnrollments?: EnrollmentRecord[]; feeStatus: string; dueAmount: string | number
 }
 interface FeeItem { description: string; amount: string }
 interface CampusOption { id: string; name: string }
@@ -160,7 +161,7 @@ function IssueInvoiceTab() {
 
   const { data: sData, isFetching } = useQuery({
     queryKey: ['fee-student-search', query],
-    queryFn: () => fetchPaginatedApi<StudentResult>(`/api/students?search=${encodeURIComponent(query)}&limit=8`),
+    queryFn: () => fetchPaginatedApi<StudentResult>(`/api/students?search=${encodeURIComponent(query)}&limit=8&includeEnrollments=true`),
     enabled: query.length >= 2,
     staleTime: 10_000,
   })
@@ -219,7 +220,7 @@ function IssueInvoiceTab() {
                   <button key={s.id} onClick={() => { setStudent(s); setQuery('') }}
                     className="w-full text-left p-3 hover:bg-teal-50 transition-colors">
                     <p className="font-semibold text-sm">{s.firstName} {s.lastName}</p>
-                    <p className="text-xs text-slate-500">{s.registrationNumber} · {s.class?.name ?? 'No class'} · Due: <span className="text-red-600 font-semibold">{formatCurrency(s.dueAmount)}</span></p>
+                    <p className="text-xs text-slate-500">{s.registrationNumber} · {getCanonicalStudentClassSection(s)} · Due: <span className="text-red-600 font-semibold">{formatCurrency(s.dueAmount)}</span></p>
                   </button>
                 ))}
               </div>
@@ -229,7 +230,7 @@ function IssueInvoiceTab() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-bold text-slate-900">{student.firstName} {student.lastName}</p>
-                    <p className="text-xs text-slate-600">{student.registrationNumber} · {student.class?.name ?? 'No class'}</p>
+                    <p className="text-xs text-slate-600">{student.registrationNumber} · {getCanonicalStudentClassSection(student)}</p>
                     <p className="text-xs text-slate-600">Father: {student.fatherName}</p>
                     <p className="text-xs text-red-600 font-semibold">Outstanding: {formatCurrency(student.dueAmount)}</p>
                   </div>
