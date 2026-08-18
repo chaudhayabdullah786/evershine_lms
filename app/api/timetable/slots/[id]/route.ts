@@ -5,6 +5,7 @@ import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { updateTimetableSlotSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
+import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -20,7 +21,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
   
-  const existing = await prisma.timetableSlot.findUnique({ where: { id } })
+  let existing
+  try {
+    existing = await prisma.timetableSlot.findUnique({ where: { id } })
+  } catch (err) {
+    return timetablePersistenceError(err, 'load slot for update')
+  }
   if (!existing) return errors.notFound('Timetable Slot')
 
   let body: unknown
@@ -49,47 +55,55 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     parsed.data.teacherId || 
     parsed.data.roomId
   ) {
-    const conflicts = await validateTimetableSlot({
-      academicYearId: mergedData.academicYearId,
-      classSectionId: mergedData.classSectionId,
-      subjectOfferingId: mergedData.subjectOfferingId,
-      teacherId: mergedData.teacherId,
-      roomId: mergedData.roomId,
-      dayOfWeek: mergedData.dayOfWeek,
-      startTime: mergedData.startTime,
-      endTime: mergedData.endTime,
-      excludeSlotId: id
-    })
-    if (conflicts.length > 0) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        timetableConflictSummary(conflicts),
-        400,
-        timetableConflictDetails(conflicts)
-      )
+    try {
+      const conflicts = await validateTimetableSlot({
+        academicYearId: mergedData.academicYearId,
+        classSectionId: mergedData.classSectionId,
+        subjectOfferingId: mergedData.subjectOfferingId,
+        teacherId: mergedData.teacherId,
+        roomId: mergedData.roomId,
+        dayOfWeek: mergedData.dayOfWeek,
+        startTime: mergedData.startTime,
+        endTime: mergedData.endTime,
+        excludeSlotId: id
+      })
+      if (conflicts.length > 0) {
+        return errorResponse(
+          'VALIDATION_ERROR',
+          timetableConflictSummary(conflicts),
+          400,
+          timetableConflictDetails(conflicts)
+        )
+      }
+    } catch (err) {
+      return timetablePersistenceError(err, 'validate slot update')
     }
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const res = await tx.timetableSlot.update({
-      where: { id },
-      data: parsed.data,
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.timetableSlot.update({
+        where: { id },
+        data: parsed.data,
+      })
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'UPDATE',
+          entityType: 'TimetableSlot',
+          entityId: id,
+          changes: parsed.data,
+        },
+      })
+
+      return res
     })
 
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'UPDATE',
-        entityType: 'TimetableSlot',
-        entityId: id,
-        changes: parsed.data,
-      },
-    })
-
-    return res
-  })
-
-  return successResponse(updated, 'Timetable slot updated successfully')
+    return successResponse(updated, 'Timetable slot updated successfully')
+  } catch (err) {
+    return timetablePersistenceError(err, 'update slot')
+  }
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
@@ -101,7 +115,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
   
-  const existing = await prisma.timetableSlot.findUnique({ where: { id } })
+  let existing
+  try {
+    existing = await prisma.timetableSlot.findUnique({ where: { id } })
+  } catch (err) {
+    return timetablePersistenceError(err, 'load slot for delete')
+  }
   if (!existing) return errors.notFound('Timetable Slot')
 
   try {
@@ -110,18 +129,22 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return errors.forbidden('Academic year is locked')
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.timetableSlot.delete({ where: { id } })
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.timetableSlot.delete({ where: { id } })
 
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'DELETE',
-        entityType: 'TimetableSlot',
-        entityId: id,
-      },
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'DELETE',
+          entityType: 'TimetableSlot',
+          entityId: id,
+        },
+      })
     })
-  })
 
-  return successResponse({ id }, 'Timetable slot deleted successfully')
+    return successResponse({ id }, 'Timetable slot deleted successfully')
+  } catch (err) {
+    return timetablePersistenceError(err, 'delete slot')
+  }
 }
