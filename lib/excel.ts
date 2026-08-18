@@ -15,6 +15,7 @@
  */
 
 import * as XLSX from 'xlsx'
+import { getCanonicalStudentClassName, getCanonicalStudentSection, type EnrollmentRecord } from '@/lib/academic/record-formatters'
 
 // ─── Shared metadata header rows ─────────────────────────────────────────────
 
@@ -154,6 +155,7 @@ interface StudentMasterRecord {
   campus?: { name: string; code: string } | null
   batch?: { name: string; code: string } | null
   class?: { name: string; grade: number } | null
+  activeEnrollments?: EnrollmentRecord[] | null
   house?: { name: string } | null
 }
 
@@ -609,8 +611,8 @@ export function downloadStudentsMasterExcel(students: StudentMasterRecord[]): vo
     s.email || 'N/A',
     s.campus?.name || 'N/A',
     s.batch?.name || 'N/A',
-    s.class?.name || 'N/A',
-    s.section || 'N/A',
+    getCanonicalStudentClassName(s),
+    getCanonicalStudentSection(s),
     s.house?.name || 'N/A',
     s.academicYear,
     s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-PK') : 'N/A',
@@ -798,7 +800,7 @@ export function downloadStaffMasterExcel(staff: StaffMasterRecord[]): void {
   XLSX.utils.book_append_sheet(wb, dataSheet, 'Staff Registry')
   XLSX.utils.book_append_sheet(wb, summarySheet, 'Overview')
 
-  XLSX.writeFile(wb, `ESA_Staff_Master_${formatDateForFilename()}.xlsx`)
+  XLSX.writeFile(wb, `ESA_Students_Master_${formatDateForFilename()}.xlsx`)
 }
 
 // ─── Master Fees Excel Export ─────────────────────────────────────────────────

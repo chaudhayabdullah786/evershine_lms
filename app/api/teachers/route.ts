@@ -91,6 +91,12 @@ export async function GET(request: NextRequest) {
         specialization: true,
         qualification: true,
         experienceYears: true,
+        cnic: true,
+        dateOfBirth: true,
+        gender: true,
+        address: true,
+        city: true,
+        emergencyContact: true,
         phoneNumber: true,
         email: true,
         profilePicture: true,
@@ -99,6 +105,21 @@ export async function GET(request: NextRequest) {
         campus: { select: { id: true, name: true, code: true } },
         batch: { select: { id: true, name: true } },
         house: { select: { id: true, name: true } },
+        classes: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            isClassTeacher: true,
+            academicYear: true,
+            class: { select: { id: true, name: true, section: true } },
+          },
+        },
+        subjects: {
+          take: 50,
+          select: {
+            subject: { select: { id: true, name: true, code: true, class: { select: { name: true, section: true } } } },
+          },
+        },
       },
     }),
   ])

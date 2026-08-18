@@ -13,6 +13,8 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { generateChallanSchema, feeQuerySchema } from '@/lib/validation/fee'
+import { serializePaymentDetails } from '@/lib/fees/payment-details'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 import type { Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
@@ -63,6 +65,7 @@ export async function GET(request: NextRequest) {
     if (studentId) where.studentId = studentId
   }
 
+  const activeYear = await getActiveAcademicYear()
   const [total, invoices] = await prisma.$transaction([
     prisma.feeInvoice.count({ where }),
     prisma.feeInvoice.findMany({
@@ -81,6 +84,26 @@ export async function GET(request: NextRequest) {
             campus: { select: { name: true } },
             batch: { select: { name: true } },
             class: { select: { name: true } },
+            section: true,
+            enrollments: {
+              where: {
+                status: 'ACTIVE',
+                ...(activeYear ? { academicYearId: activeYear.id } : {}),
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                status: true,
+                rollNumber: true,
+                classSection: {
+                  select: {
+                    className: true,
+                    sectionName: true,
+                    shift: { select: { name: true, code: true } },
+                  },
+                },
+              },
+            },
           },
         },
         payments: { orderBy: { createdAt: 'desc' }, take: 5 },
@@ -110,7 +133,7 @@ export async function POST(request: NextRequest) {
       return errors.validation(parsed.error)
     }
 
-    const { studentId, month, academicYear, dueDate, bankAccounts, items, discount, lateFee, notes } = parsed.data
+    const { studentId, month, academicYear, dueDate, items, discount, lateFee, notes } = parsed.data
 
     const student = await prisma.student.findUnique({
       where: { id: studentId },
@@ -168,7 +191,9 @@ export async function POST(request: NextRequest) {
             lateFee,
             totalAmount,
             status: 'ISSUED',
-            bankAccounts: bankAccounts ?? null,
+            // Payment instructions are canonical server-owned data. The client
+            // may display them, but cannot replace them on a financial record.
+            bankAccounts: serializePaymentDetails(),
             notes: notes ?? null,
             issuedBy: session.user.id,
             items: {
@@ -215,4 +240,3 @@ export async function POST(request: NextRequest) {
     return errors.internal()
   }
 }
-

@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { ArrowLeft, Plus, Trash2, Search, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
+import { parsePaymentDetails, serializePaymentDetails } from '@/lib/fees/payment-details'
 
 interface FeeItem {
   description: string
@@ -49,77 +49,20 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-interface BankAccountItem {
-  bank: string
-  number: string
-}
-
-function parseBankAccounts(str: string) {
-  const accounts: BankAccountItem[] = []
-  let accountTitle = ''
-  
-  if (!str) return { accountTitle, accounts }
-  
-  const parts = str.split(/[;\n]/)
-  for (let part of parts) {
-    part = part.trim()
-    if (!part) continue
-    
-    const lower = part.toLowerCase()
-    if (lower.includes('title:') || lower.includes('name:') || lower.includes('account title') || lower.includes('account name')) {
-      const idx = part.indexOf(':')
-      if (idx !== -1) {
-        accountTitle = part.substring(idx + 1).trim()
-      } else {
-        accountTitle = part.replace(/account title/i, '').replace(/account name/i, '').replace(/:/g, '').trim()
-      }
-    } else {
-      const idx = part.indexOf(':')
-      if (idx !== -1) {
-        const bank = part.substring(0, idx).trim()
-        const number = part.substring(idx + 1).trim()
-        accounts.push({ bank, number })
-      } else {
-        accounts.push({ bank: 'Bank/Account', number: part })
-      }
-    }
-  }
-  
-  return { accountTitle, accounts }
-}
-
 const renderBankAccountsTable = (bankAccountsStr: string) => {
-  const { accountTitle, accounts } = parseBankAccounts(bankAccountsStr)
-  if (accounts.length === 0 && !accountTitle) {
+  const rows = parsePaymentDetails(bankAccountsStr)
+  if (rows.length === 0) {
     return <p className="text-[10px] text-gray-500 italic">Please deposit cash at the Accounts Office.</p>
   }
 
   return (
-    <div className="space-y-1.5 w-full">
-      {accountTitle && (
-        <div className="flex justify-between items-center bg-blue-50 border border-blue-100 px-2 py-0.5 rounded text-[9px] font-bold text-blue-900 uppercase">
-          <span>Account Title:</span>
-          <span>{accountTitle}</span>
+    <div className="grid grid-cols-1 gap-1.5 w-full">
+      {rows.map((row) => (
+        <div key={`${row.label}-${row.value}`} className="flex justify-between gap-3 rounded border border-gray-200 bg-white px-2 py-1 text-[9px]">
+          <span className="font-bold uppercase text-gray-600">{row.label}</span>
+          <span className="text-right font-mono font-bold text-blue-900">{row.value}</span>
         </div>
-      )}
-      {accounts.length > 0 && (
-        <table className="w-full text-left text-[9px] border-collapse border border-gray-200 rounded overflow-hidden">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600 font-bold border-b border-gray-200">
-              <th className="px-2 py-0.5 border-r border-gray-200 uppercase">Bank Name</th>
-              <th className="px-2 py-0.5 uppercase">Account Number</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((acc, index) => (
-              <tr key={index} className="border-b border-gray-200 bg-white hover:bg-gray-50/30">
-                <td className="px-2 py-0.5 font-bold text-gray-700 border-r border-gray-200">{acc.bank}</td>
-                <td className="px-2 py-0.5 font-mono font-bold text-blue-900">{acc.number}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      ))}
     </div>
   )
 }
@@ -140,7 +83,7 @@ export default function GenerateChallanPage() {
   const [items, setItems] = useState<FeeItem[]>([{ description: 'Tuition Fee', amount: 0 }])
   const [discount, setDiscount] = useState(0)
   const [lateFee, setLateFee] = useState(0)
-  const [bankAccounts, setBankAccounts] = useState('Allied Bank: 123456789; Bank Al-Habib: 987654321')
+  const [bankAccounts] = useState(() => serializePaymentDetails())
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -292,13 +235,8 @@ export default function GenerateChallanPage() {
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
               <div className="col-span-1 sm:col-span-3 space-y-1.5">
-                <Label>Deposit Bank Accounts</Label>
-                <Textarea 
-                  value={bankAccounts} 
-                  onChange={(e) => setBankAccounts(e.target.value)} 
-                  placeholder="Enter bank accounts separated by semicolons (e.g. Allied Bank: 1234; HBL: 5678)"
-                  className="min-h-[60px]"
-                />
+                <Label>Official Deposit Instructions</Label>
+                <div className="rounded-md border bg-slate-50 p-3">{renderBankAccountsTable(bankAccounts)}</div>
               </div>
             </CardContent>
           </Card>

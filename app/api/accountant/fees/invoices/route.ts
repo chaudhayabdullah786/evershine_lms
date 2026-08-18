@@ -10,6 +10,7 @@ import { errors, createdResponse } from '@/lib/api-response'
 import { accountantCreateInvoiceSchema } from '@/lib/validation/accountant-fee'
 import { generateChallanNumber } from '@/lib/fees/challan-number'
 import { dispatchNotification } from '@/lib/notifications/in-app'
+import { serializePaymentDetails } from '@/lib/fees/payment-details'
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
         totalAmount,
         dueDate: new Date(data.dueDate),
         status: 'ISSUED', // Skip DRAFT state for direct generation
+        bankAccounts: serializePaymentDetails(),
         discount: data.discount,
         notes: data.notes ?? null,
         issuedBy: session.user.id,
