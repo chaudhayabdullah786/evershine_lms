@@ -165,7 +165,18 @@ export async function POST(request: NextRequest) {
               action: 'CREATE',
               entityType: 'TimetableSlot',
               entityId: created.id,
-              changes: { ...data },
+              changes: {
+                academicYearId: data.academicYearId,
+                classSectionId: data.classSectionId,
+                subjectOfferingId: data.subjectOfferingId,
+                teacherId: data.teacherId ?? null,
+                roomId: data.roomId ?? null,
+                slotType: data.slotType,
+                dayOfWeek: data.dayOfWeek,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                isPublished: false,
+              },
             },
           })
           results.push({

@@ -18,6 +18,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
+import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
 import type { Role } from '@prisma/client'
 import { z } from 'zod'
 
@@ -111,13 +112,7 @@ export async function POST(request: NextRequest) {
 
         // 2. Ensure a SubjectOffering exists for this section + year
         const offering = await tx.subjectOffering.upsert({
-          where: {
-            classSectionId_academicYearId_subjectId: {
-              classSectionId,
-              academicYearId,
-              subjectId: subject.id,
-            },
-          },
+          where: subjectOfferingUniqueWhere(academicYearId, classSectionId, subject.id),
           create: {
             classSectionId,
             academicYearId,

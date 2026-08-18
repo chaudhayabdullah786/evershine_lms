@@ -8,12 +8,23 @@ import {
   timetableTemplateBlockSchema,
 } from '@/lib/validation/academic'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
+import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
 
 afterEach(() => {
   vi.unstubAllEnvs()
 })
 
 describe('timetable admin flow guards', () => {
+  it('uses the Prisma SubjectOffering compound key in schema order', () => {
+    expect(subjectOfferingUniqueWhere('year-1', 'section-1', 'subject-1')).toEqual({
+      academicYearId_classSectionId_subjectId: {
+        academicYearId: 'year-1',
+        classSectionId: 'section-1',
+        subjectId: 'subject-1',
+      },
+    })
+  })
+
   it('allows modern admin timetable mutations when academic engine is primary', () => {
     vi.stubEnv('LEGACY_API_ENABLED', 'false')
     vi.stubEnv('NEXT_PUBLIC_ACADEMIC_ENGINE_PRIMARY', 'true')

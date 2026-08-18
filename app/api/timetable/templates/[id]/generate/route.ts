@@ -4,6 +4,7 @@ import { errors, successResponse, errorResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { generateTimetableTemplateSchema, timetableTemplateBlockSchema } from '@/lib/validation/academic'
 import { isWithinShiftWindow, timesOverlap } from '@/lib/academic/engine'
+import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
 import type { Role } from '@prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (periodOfferingIds.has(key)) continue
       const subject = await tx.academicSubject.upsert({ where: { code }, create: { code, name: code.slice(2).replace('_', ' ') }, update: {} })
       const offering = await tx.subjectOffering.upsert({
-        where: { classSectionId_academicYearId_subjectId: { classSectionId: slot.classSectionId, academicYearId: template.academicYearId, subjectId: subject.id } },
+        where: subjectOfferingUniqueWhere(template.academicYearId, slot.classSectionId, subject.id),
         create: { classSectionId: slot.classSectionId, academicYearId: template.academicYearId, subjectId: subject.id, teacherId: null, isMandatory: true },
         update: {},
       })
