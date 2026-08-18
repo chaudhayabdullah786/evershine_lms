@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse, errorResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { updateTimetableSlotSchema } from '@/lib/validation/academic'
-import { validateTimetableSlot } from '@/lib/academic/engine'
+import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 import type { Role } from '@prisma/client'
 
@@ -34,6 +34,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!parsed.success) return errors.validation(parsed.error)
 
   const mergedData = { ...existing, ...parsed.data }
+
+  try {
+    await assertAcademicYearEditable(mergedData.academicYearId)
+  } catch {
+    return errors.forbidden('Academic year is locked')
+  }
   
   // Validate conflicts if changing time/day/teacher/room
   if (
@@ -97,6 +103,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   
   const existing = await prisma.timetableSlot.findUnique({ where: { id } })
   if (!existing) return errors.notFound('Timetable Slot')
+
+  try {
+    await assertAcademicYearEditable(existing.academicYearId)
+  } catch {
+    return errors.forbidden('Academic year is locked')
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.timetableSlot.delete({ where: { id } })
