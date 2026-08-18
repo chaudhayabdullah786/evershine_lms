@@ -200,6 +200,7 @@ export default function DocumentsPage() {
   const [selectedAdministrationUser, setSelectedAdministrationUser] = useState<AdministrationUser | null>(null)
   const [administrationSearch, setAdministrationSearch] = useState('')
   const [administrationProfileDataUrl, setAdministrationProfileDataUrl] = useState('')
+  const [administrationCardFace, setAdministrationCardFace] = useState<'front' | 'back'>('front')
   // Experience Letter editable fields
   const [expResponsibilities, setExpResponsibilities] = useState(
     'Delivered lectures in assigned subjects and prepared lesson plans\nConducted assessments and maintained student grade records\nCoordinated with parents and administration on student progress\nContributed to school events and extracurricular activities'
@@ -290,7 +291,8 @@ export default function DocumentsPage() {
   const { data: administrationSearchData, isLoading: isAdministrationSearchLoading } = useQuery({
     queryKey: ['administration-search-docs', administrationRole, administrationSearch],
     queryFn: () => fetchPaginatedApi<AdministrationUser>(`/api/users?role=${administrationRole}&limit=10&query=${encodeURIComponent(administrationSearch)}`),
-    enabled: administrationSearch.length >= 2 && isAdministrationDoc && (docType !== 'super_admin_card' || isSuperAdmin),
+    enabled: isAdministrationDoc && (docType !== 'super_admin_card' || isSuperAdmin),
+    staleTime: 30_000,
   })
   const administrationSearchResults = administrationSearchData?.data ?? []
 
@@ -1140,7 +1142,7 @@ export default function DocumentsPage() {
                 {docType !== 'reports' && (
                   <Button
                     onClick={handleDownloadDocument}
-                    disabled={isGenerating || isExporting || (isTeacherDoc ? !selectedTeacher : !selectedStudent)}
+                    disabled={isGenerating || isExporting || (isTeacherDoc ? !selectedTeacher : isAdministrationDoc ? !selectedAdministrationUser : !selectedStudent)}
                     className="w-full bg-[#1e3a8a] hover:bg-[#1e40af] active:scale-95 text-white text-xs sm:text-sm font-bold h-9 sm:h-10 rounded-lg shadow-sm border border-indigo-500 flex items-center justify-center gap-1.5 transition-all"
                   >
                     {isGenerating ? (
@@ -2351,31 +2353,55 @@ export default function DocumentsPage() {
 
                 {/* ─── ADMINISTRATION DIRECTORY CARD PREVIEW (CR80 FORMAT) ─── */}
                 {isAdministrationDoc && selectedAdministrationUser && (
-                  <div data-document-page className="w-[680px] h-[428px] bg-[#fef2f2] rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-red-200 overflow-hidden shrink-0" style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}>
-                    <div className="w-[18px] h-full bg-[#7f1d1d] shrink-0" />
-                    <div className="w-[210px] h-full bg-red-50 flex flex-col items-center justify-center p-6 border-r-2 border-red-100">
-                      <div className="w-[130px] h-[150px] rounded-2xl border-[3px] border-red-200 bg-white overflow-hidden flex items-center justify-center shadow-sm">
-                        {administrationProfileDataUrl ? <img src={administrationProfileDataUrl} alt="Administration user" className="w-full h-full object-cover" /> : <span className="text-3xl font-black text-red-800">{selectedAdministrationUser.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>}
-                      </div>
-                      <div className="mt-5 w-[160px] bg-[#7f1d1d] text-white px-4 py-2.5 rounded-lg text-center shadow-md">
-                        <span className="text-[10px] font-black tracking-[0.18em] uppercase block">Official staff record</span>
-                        <span className="text-[8px] text-red-100 mt-1 block">No QR code issued</span>
-                      </div>
+                  <div className="flex flex-col items-center gap-3 shrink-0" data-document-page>
+                    <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-white p-1 shadow-sm">
+                      <button type="button" onClick={() => setAdministrationCardFace('front')} className={`rounded-lg px-4 py-1.5 text-[10px] font-black uppercase tracking-wider ${administrationCardFace === 'front' ? 'bg-red-700 text-white' : 'text-red-700 hover:bg-red-50'}`}>Front</button>
+                      <button type="button" onClick={() => setAdministrationCardFace('back')} className={`rounded-lg px-4 py-1.5 text-[10px] font-black uppercase tracking-wider ${administrationCardFace === 'back' ? 'bg-red-700 text-white' : 'text-red-700 hover:bg-red-50'}`}>Back</button>
                     </div>
-                    <div className="flex-1 p-8 bg-white flex flex-col">
-                      <div className="border-b-2 border-red-100 pb-4 mb-5">
-                        <p className="text-[11px] font-black tracking-[0.2em] text-red-700 uppercase">Evershine Academy</p>
-                        <h2 className="text-[27px] font-black text-slate-900 mt-2">{selectedAdministrationUser.name}</h2>
-                        <p className="text-[12px] font-bold text-red-800 mt-1">{selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Account Manager'}</p>
+
+                    {administrationCardFace === 'front' ? (
+                      <div className="w-[680px] h-[428px] bg-[#fef2f2] rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-red-200 overflow-hidden" style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}>
+                        <div className="w-[18px] h-full bg-[#7f1d1d] shrink-0" />
+                        <div className="w-[210px] h-full bg-red-50 flex flex-col items-center justify-center p-6 border-r-2 border-red-100">
+                          <div className="w-[130px] h-[150px] rounded-2xl border-[3px] border-red-200 bg-white overflow-hidden flex items-center justify-center shadow-sm">
+                            {administrationProfileDataUrl ? <img src={administrationProfileDataUrl} alt="Administration user" className="w-full h-full object-cover" /> : <span className="text-3xl font-black text-red-800">{selectedAdministrationUser.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>}
+                          </div>
+                          <div className="mt-5 w-[160px] bg-[#7f1d1d] text-white px-4 py-2.5 rounded-lg text-center shadow-md">
+                            <span className="text-[10px] font-black tracking-[0.18em] uppercase block">Official staff record</span>
+                            <span className="text-[8px] text-red-100 mt-1 block">No QR code issued</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 p-8 bg-white flex flex-col">
+                          <div className="border-b-2 border-red-100 pb-4 mb-5">
+                            <p className="text-[11px] font-black tracking-[0.2em] text-red-700 uppercase">Evershine Academy</p>
+                            <h2 className="text-[27px] font-black text-slate-900 mt-2">{selectedAdministrationUser.name}</h2>
+                            <p className="text-[12px] font-bold text-red-800 mt-1">{selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Account Manager'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-[12px]">
+                            <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Email</p><p className="font-bold text-slate-900 break-all mt-1">{selectedAdministrationUser.email}</p></div>
+                            <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Employee ID</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.employeeId || selectedAdministrationUser.accountantProfile?.employeeId || '—'}</p></div>
+                            <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Department</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.department || 'Finance & Administration'}</p></div>
+                            <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Campus</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.campusName || selectedAdministrationUser.accountantProfile?.campusName || 'All Campuses'}</p></div>
+                          </div>
+                          <div className="mt-auto pt-5 border-t border-red-100 flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-widest"><span>Active account: {selectedAdministrationUser.isActive ? 'Yes' : 'No'}</span><span>Issued by academy administration</span></div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-[12px]">
-                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Email</p><p className="font-bold text-slate-900 break-all mt-1">{selectedAdministrationUser.email}</p></div>
-                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Employee ID</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.employeeId || selectedAdministrationUser.accountantProfile?.employeeId || '—'}</p></div>
-                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Department</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.department || 'Finance & Administration'}</p></div>
-                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Campus</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.campusName || selectedAdministrationUser.accountantProfile?.campusName || 'All Campuses'}</p></div>
+                    ) : (
+                      <div className="w-[680px] h-[428px] bg-white rounded-[20px] shadow-lg relative border-[3px] border-red-200 overflow-hidden" style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}>
+                        <div className="h-[70px] bg-[#7f1d1d] px-8 flex items-center justify-between text-white">
+                          <div><p className="text-[11px] font-black tracking-[0.2em] uppercase">Property of EverShine Academy</p><p className="text-[10px] text-red-100 mt-1">Official administration directory card</p></div>
+                          <span className="text-[26px] font-black tracking-[0.1em]">{selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'SA' : 'AM'}</span>
+                        </div>
+                        <div className="p-8 grid grid-cols-2 gap-x-10 gap-y-5 text-[12px]">
+                          <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Name</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.name}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Role</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Account Manager'}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Employee ID</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.employeeId || selectedAdministrationUser.accountantProfile?.employeeId || '—'}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Campus</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.campusName || selectedAdministrationUser.accountantProfile?.campusName || 'All Campuses'}</p></div>
+                          <div className="col-span-2"><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Return instructions</p><p className="font-medium text-slate-700 mt-1 leading-relaxed">This card remains the property of EverShine Academy. If found, return it to the administration office. It must be carried during academy hours.</p></div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 h-[48px] border-t border-red-100 px-8 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500"><span>Card status: {selectedAdministrationUser.isActive ? 'Active' : 'Inactive'}</span><span>Serial: {selectedAdministrationUser.id}</span></div>
                       </div>
-                      <div className="mt-auto pt-5 border-t border-red-100 flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-widest"><span>Active account: {selectedAdministrationUser.isActive ? 'Yes' : 'No'}</span><span>Issued by academy administration</span></div>
-                    </div>
+                    )}
                   </div>
                 )}
 

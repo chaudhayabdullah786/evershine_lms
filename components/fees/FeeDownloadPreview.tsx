@@ -3,8 +3,8 @@
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { parsePaymentDetails } from '@/lib/fees/payment-details'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { paymentDetailsRowsFromSnapshot } from '@/lib/fees/payment-details'
 import { getCanonicalStudentClassSection } from '@/lib/academic/record-formatters'
 
 interface FeeItem {
@@ -65,7 +65,7 @@ export function FeeDownloadPreview({ invoice, variant, elementId }: FeeDownloadP
     description: item.description,
     amount: Number(item.amount),
   }))
-  const bankRows = parsePaymentDetails(invoice.bankAccounts)
+  const bankRows = paymentDetailsRowsFromSnapshot(invoice.bankAccounts)
   const classSection = getCanonicalStudentClassSection(invoice.student)
   const labels = {
     student: {

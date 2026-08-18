@@ -985,9 +985,11 @@ export async function generateAdministrationDirectoryCard(
     ...data,
     photo: await toDataUrl(data.photo),
     logo,
+    issueDate: data.issueDate || new Date().toLocaleDateString('en-PK'),
+    cardSerial: data.cardSerial || data.employeeId || data.email,
   })
-  const safeName = data.name.trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'administration-user'
-  const identifier = data.employeeId?.trim().replace(/[^a-z0-9-]+/gi, '-')
-  const role = data.roleLabel.toLowerCase().replace(/\s+/g, '-')
-  pdf.save(`${identifier ? `${identifier}-` : ''}${safeName}-${role}.pdf`)
+  const role = data.roleLabel === 'SUPER ADMINISTRATOR' ? 'SUPER-ADMIN' : 'ACCOUNT-MANAGER'
+  const identifier = (data.employeeId || 'NO-ID').trim().replace(/[^a-z0-9-]+/gi, '-')
+  const date = new Date().toISOString().slice(0, 10)
+  pdf.save(`${role}_${identifier}_${date}.pdf`)
 }

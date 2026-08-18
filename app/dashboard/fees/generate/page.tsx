@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Plus, Trash2, Search, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
-import { parsePaymentDetails, serializePaymentDetails } from '@/lib/fees/payment-details'
+import { paymentDetailsRowsFromSnapshot, serializePaymentDetails } from '@/lib/fees/payment-details'
 
 interface FeeItem {
   description: string
@@ -50,7 +50,7 @@ const MONTHS = [
 ]
 
 const renderBankAccountsTable = (bankAccountsStr: string) => {
-  const rows = parsePaymentDetails(bankAccountsStr)
+  const rows = paymentDetailsRowsFromSnapshot(bankAccountsStr)
   if (rows.length === 0) {
     return <p className="text-[10px] text-gray-500 italic">Please deposit cash at the Accounts Office.</p>
   }
