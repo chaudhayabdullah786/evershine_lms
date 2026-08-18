@@ -980,12 +980,9 @@ export async function generateExperienceLetter(
 export async function generateAdministrationDirectoryCard(
   data: Omit<AdministrationDirectoryCardData, 'photo' | 'logo'> & { photo?: string }
 ): Promise<void> {
-  const logo = await toDataUrl('/favicon-128x128.png')
   const pdf = await generateAdministrationDirectoryCardDirect({
     ...data,
     photo: await toDataUrl(data.photo),
-    logo,
-    issueDate: data.issueDate || new Date().toLocaleDateString('en-PK'),
     cardSerial: data.cardSerial || data.employeeId || data.email,
   })
   const role = data.roleLabel === 'SUPER ADMINISTRATOR' ? 'SUPER-ADMIN' : 'ACCOUNT-MANAGER'

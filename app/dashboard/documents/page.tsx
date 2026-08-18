@@ -508,8 +508,10 @@ export default function DocumentsPage() {
           employeeId: profile?.employeeId,
           email: selectedAdministrationUser.email,
           phone: profile?.phoneNumber,
-          department: selectedAdministrationUser.adminProfile?.department,
-          campus: profile?.campusName,
+          department: selectedAdministrationUser.adminProfile?.department || 'Finance & Administration',
+          campus: profile?.campusName || 'All Campuses',
+          cardSerial: selectedAdministrationUser.id,
+          isActive: selectedAdministrationUser.isActive,
           photo: administrationProfileDataUrl || undefined,
           colorMode,
         })

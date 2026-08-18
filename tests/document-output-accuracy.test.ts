@@ -49,11 +49,20 @@ describe('canonical document record mapping', () => {
       name: 'Ali Aslam',
       roleLabel: 'SUPER ADMINISTRATOR',
       email: 'admin@example.com',
+      employeeId: 'ESA-ADM-001',
+      department: 'Finance & Administration',
       campus: 'Madina Town Campus',
+      cardSerial: 'adm_demo_123',
+      isActive: true,
       colorMode: 'bw',
     })
     expect(pdf.getNumberOfPages()).toBe(2)
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(85.6, 1)
     expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(54, 1)
+
+    const output = pdf.output()
+    expect(output).toContain('PROPERTY OF EVERSHINE ACADEMY')
+    expect(output).toContain('ESA-ADM-001')
+    expect(output).toContain('adm_demo_123')
   })
 })

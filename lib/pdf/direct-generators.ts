@@ -1094,6 +1094,7 @@ export interface AdministrationDirectoryCardData {
   emergencyContact?: string
   cardSerial?: string
   verificationCode?: string
+  isActive?: boolean
   photo?: string
   logo?: string
   colorMode?: 'color' | 'bw'
@@ -1106,67 +1107,109 @@ export async function generateAdministrationDirectoryCardDirect(
   const H = 54
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] })
   const cm = data.colorMode
-  const initials = data.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  // The browser preview is a 680 × 428 CSS-pixel card. Keeping one coordinate
+  // system here prevents the direct PDF export from drifting away from what
+  // the administrator sees on screen.
+  const PREVIEW_WIDTH = 680
+  const PREVIEW_HEIGHT = 428
+  const pxX = (value: number) => value * (W / PREVIEW_WIDTH)
+  const pxY = (value: number) => value * (H / PREVIEW_HEIGHT)
+  // CSS pixels are defined at 96 DPI while jsPDF font sizes are points (72
+  // points per inch). Convert through the physical card width so typography
+  // scales with the same factor as the preview coordinates.
+  const pxFont = (value: number) => value * (W / PREVIEW_WIDTH) * (72 / 25.4)
+  const initials = data.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'AD'
   const employeeId = data.employeeId || '—'
-  const cardSerial = data.cardSerial || employeeId
-  const issueDate = data.issueDate || new Date().toLocaleDateString('en-PK')
-  const drawWrapped = (value: string, x: number, y: number, width: number, maxLines = 2) => {
-    pdf.text(pdf.splitTextToSize(value || '—', width).slice(0, maxLines), x, y)
+  const cardSerial = data.cardSerial || (employeeId !== '—' ? employeeId : data.email)
+  const roleName = data.roleLabel === 'SUPER ADMINISTRATOR' ? 'Super Administrator' : 'Account Manager'
+  const roleCode = data.roleLabel === 'SUPER ADMINISTRATOR' ? 'SA' : 'AM'
+  const department = data.department || 'Finance & Administration'
+  const campus = data.campus || 'All Campuses'
+  const cardStatus = data.isActive === false ? 'Inactive' : 'Active'
+  const activeAccount = data.isActive === false ? 'No' : 'Yes'
+  const drawFitted = (value: string, x: number, y: number, width: number, fontSize: number, minFontSize: number, maxLines = 2) => {
+    let currentFontSize = fontSize
+    let lines: string[] = []
+    while (currentFontSize >= minFontSize) {
+      pdf.setFontSize(pxFont(currentFontSize))
+      lines = pdf.splitTextToSize(value || '—', pxX(width))
+      if (lines.length <= maxLines) break
+      currentFontSize -= 1
+    }
+    pdf.setFontSize(pxFont(Math.max(currentFontSize, minFontSize)))
+    pdf.text(lines.slice(0, maxLines), pxX(x), pxY(y))
+  }
+  const drawLabelValue = (label: string, value: string, x: number, y: number, valueWidth = 150) => {
+    setTextColorC(pdf, 185, 28, 28, cm)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(pxFont(9))
+    pdf.text(label.toUpperCase(), pxX(x), pxY(y))
+    setTextColorC(pdf, 15, 23, 42, cm)
+    pdf.setFont('helvetica', 'bold')
+    drawFitted(value, x, y + 16, valueWidth, 12, 7, 2)
   }
 
   // Front face (CR80 landscape: 85.6 × 54 mm).
   setFillColorC(pdf, 254, 242, 242, cm)
   pdf.rect(0, 0, W, H, 'F')
   setFillColorC(pdf, 127, 29, 29, cm)
-  pdf.rect(0, 0, 7, H, 'F')
-  pdf.rect(0, 50, W, 4, 'F')
+  pdf.rect(0, 0, pxX(18), H, 'F')
+  setDrawColorC(pdf, 254, 202, 202, cm)
+  pdf.setLineWidth(0.45)
+  pdf.roundedRect(pxX(1.5), pxY(1.5), W - pxX(3), H - pxY(3), pxX(18), pxY(18), 'S')
+  setDrawColorC(pdf, 254, 226, 226, cm)
+  pdf.line(pxX(228), pxY(18), pxX(228), pxY(410))
 
   if (data.photo) {
     setFillColorC(pdf, 255, 255, 255, cm)
-    pdf.roundedRect(11, 9, 22, 27, 2, 2, 'F')
-    addImageIfPresent(pdf, data.photo, 12, 10, 20, 25)
+    pdf.roundedRect(pxX(58), pxY(101), pxX(130), pxY(150), pxX(16), pxY(16), 'F')
+    addImageIfPresent(pdf, data.photo, pxX(61), pxY(104), pxX(124), pxY(144))
   } else {
     setFillColorC(pdf, 254, 226, 226, cm)
-    pdf.roundedRect(11, 9, 22, 27, 2, 2, 'F')
+    pdf.roundedRect(pxX(58), pxY(101), pxX(130), pxY(150), pxX(16), pxY(16), 'F')
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(11)
+    pdf.setFontSize(pxFont(30))
     setTextColorC(pdf, 127, 29, 29, cm)
-    pdf.text(initials, 22, 24, { align: 'center' })
+    pdf.text(initials, pxX(123), pxY(181), { align: 'center' })
   }
 
-  if (data.logo) addImageIfPresent(pdf, data.logo, 38, 4, 6, 6)
-  pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(7)
-  setTextColorC(pdf, 127, 29, 29, cm)
-  pdf.text('EVERSHINE ACADEMY', 46, 8.5)
-  pdf.setFontSize(4.5)
-  setTextColorC(pdf, 185, 28, 28, cm)
-  pdf.text(data.roleLabel, 38, 14)
-  pdf.setFontSize(9)
-  setTextColorC(pdf, 15, 23, 42, cm)
-  drawWrapped(formatPersonName(data.name), 38, 22, 42)
-
-  const rows: Array<[string, string]> = [
-    ['Email', data.email],
-    ['Employee ID', employeeId],
-    ['Department', data.department || 'Administration'],
-    ['Campus', data.campus || 'All Campuses'],
-  ]
-  pdf.setFontSize(4.5)
-  rows.forEach(([label, value], index) => {
-    const y = 29 + index * 4.3
-    setTextColorC(pdf, 127, 29, 29, cm)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text(`${label}:`, 38, y)
-    setTextColorC(pdf, 15, 23, 42, cm)
-    pdf.setFont('helvetica', 'normal')
-    drawWrapped(value, 55, y, 28)
-  })
-
+  setFillColorC(pdf, 127, 29, 29, cm)
+  pdf.roundedRect(pxX(43), pxY(276), pxX(160), pxY(52), pxX(10), pxY(10), 'F')
   setTextColorC(pdf, 255, 255, 255, cm)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(pxFont(10))
+  pdf.text('OFFICIAL STAFF RECORD', pxX(123), pxY(301), { align: 'center' })
+  setTextColorC(pdf, 254, 226, 226, cm)
   pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(3.5)
-  pdf.text(`Issued ${issueDate} · ${data.phone || 'Administration'} · Serial ${cardSerial}`, 42.8, 52.5, { align: 'center' })
+  pdf.setFontSize(pxFont(8))
+  pdf.text('No QR code issued', pxX(123), pxY(316), { align: 'center' })
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(pxFont(11))
+  setTextColorC(pdf, 127, 29, 29, cm)
+  pdf.text('EVERSHINE ACADEMY', pxX(260), pxY(49))
+  pdf.setFontSize(pxFont(12))
+  setTextColorC(pdf, 185, 28, 28, cm)
+  pdf.text(roleName, pxX(260), pxY(95))
+  pdf.setFontSize(pxFont(27))
+  setTextColorC(pdf, 15, 23, 42, cm)
+  drawFitted(formatPersonName(data.name), 260, 78, 360, 27, 14, 1)
+  setDrawColorC(pdf, 254, 226, 226, cm)
+  pdf.setLineWidth(0.45)
+  pdf.line(pxX(260), pxY(112), pxX(648), pxY(112))
+
+  drawLabelValue('Email', data.email, 260, 142, 190)
+  drawLabelValue('Employee ID', employeeId, 502, 142, 120)
+  drawLabelValue('Department', department, 260, 199, 190)
+  drawLabelValue('Campus', campus, 502, 199, 120)
+
+  setDrawColorC(pdf, 254, 226, 226, cm)
+  pdf.line(pxX(260), pxY(365), pxX(648), pxY(365))
+  setTextColorC(pdf, 107, 114, 128, cm)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(pxFont(7))
+  pdf.text(`ACTIVE ACCOUNT: ${activeAccount.toUpperCase()}`, pxX(260), pxY(393))
+  pdf.text('ISSUED BY ACADEMY ADMINISTRATION', pxX(648), pxY(393), { align: 'right' })
 
   // Back face: separate page for duplex printing. QR attendance credentials
   // are intentionally not included on administration cards.
@@ -1174,37 +1217,39 @@ export async function generateAdministrationDirectoryCardDirect(
   setFillColorC(pdf, 255, 255, 255, cm)
   pdf.rect(0, 0, W, H, 'F')
   setFillColorC(pdf, 127, 29, 29, cm)
-  pdf.rect(0, 0, W, 9, 'F')
-  if (data.logo) addImageIfPresent(pdf, data.logo, 6, 14, 16, 16)
+  pdf.rect(0, 0, W, pxY(70), 'F')
   pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(6.5)
-  setTextColorC(pdf, 127, 29, 29, cm)
-  pdf.text('PROPERTY OF EVERSHINE ACADEMY', 28, 15.5)
-  pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(4.5)
-  setTextColorC(pdf, 55, 65, 81, cm)
-  const backLines = [
-    `Name: ${formatPersonName(data.name)}`,
-    `Role: ${data.roleLabel}`,
-    `Employee ID: ${employeeId}`,
-    `Department: ${data.department || 'Administration'}`,
-    `Campus: ${data.campus || 'All Campuses'}`,
-  ]
-  backLines.forEach((line, index) => drawWrapped(line, 28, 22 + index * 4.2, 52))
-  pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(4.2)
-  setTextColorC(pdf, 127, 29, 29, cm)
-  pdf.text(`Emergency / HR: ${data.emergencyContact || data.phone || 'Contact academy administration'}`, 28, 43)
-  pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(3.9)
-  setTextColorC(pdf, 55, 65, 81, cm)
-  pdf.text(`Verification serial: ${data.verificationCode || cardSerial}`, 28, 46.5)
-  if (data.address) drawWrapped(`Address: ${data.address}`, 28, 49, 52, 1)
-  setFillColorC(pdf, 127, 29, 29, cm)
-  pdf.rect(0, 50, W, 4, 'F')
-  pdf.setFontSize(3.5)
+  pdf.setFontSize(pxFont(11))
   setTextColorC(pdf, 255, 255, 255, cm)
-  pdf.text('Return to administration if found · Carry during academy hours · Serial ' + cardSerial, 42.8, 52.5, { align: 'center' })
+  pdf.text('PROPERTY OF EVERSHINE ACADEMY', pxX(32), pxY(31))
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(pxFont(10))
+  setTextColorC(pdf, 254, 226, 226, cm)
+  pdf.text('Official administration directory card', pxX(32), pxY(49))
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(pxFont(26))
+  setTextColorC(pdf, 255, 255, 255, cm)
+  pdf.text(roleCode, pxX(620), pxY(49), { align: 'center' })
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(pxFont(12))
+  setTextColorC(pdf, 55, 65, 81, cm)
+  drawLabelValue('Name', formatPersonName(data.name), 32, 112, 250)
+  drawLabelValue('Role', roleName, 366, 112, 250)
+  drawLabelValue('Employee ID', employeeId, 32, 166, 250)
+  drawLabelValue('Campus', campus, 366, 166, 250)
+  setTextColorC(pdf, 185, 28, 28, cm)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(pxFont(9))
+  pdf.text('RETURN INSTRUCTIONS', pxX(32), pxY(220))
+  setTextColorC(pdf, 55, 65, 81, cm)
+  pdf.setFont('helvetica', 'normal')
+  drawFitted('This card remains the property of EverShine Academy. If found, return it to the administration office. It must be carried during academy hours.', 32, 236, 588, 12, 7, 3)
+  setFillColorC(pdf, 127, 29, 29, cm)
+  pdf.rect(0, pxY(380), W, pxY(48), 'F')
+  pdf.setFontSize(pxFont(10))
+  setTextColorC(pdf, 255, 255, 255, cm)
+  pdf.text(`CARD STATUS: ${cardStatus.toUpperCase()}`, pxX(32), pxY(408))
+  pdf.text(`SERIAL: ${cardSerial}`, pxX(648), pxY(408), { align: 'right' })
   return pdf
 }
 
