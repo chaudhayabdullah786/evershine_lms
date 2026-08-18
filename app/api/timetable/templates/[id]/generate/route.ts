@@ -5,6 +5,7 @@ import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { generateTimetableTemplateSchema, timetableTemplateBlockSchema } from '@/lib/validation/academic'
 import { isWithinShiftWindow, timesOverlap } from '@/lib/academic/engine'
 import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
+import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Role } from '@prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -36,10 +37,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (denied) return denied
 
   const { id: templateId } = await params
-  const template = await prisma.timetableTemplate.findUnique({
-    where: { id: templateId },
-    select: { id: true, academicYearId: true, shiftId: true, definition: true, name: true },
-  })
+  let template
+  try {
+    template = await prisma.timetableTemplate.findUnique({
+      where: { id: templateId },
+      select: { id: true, academicYearId: true, shiftId: true, definition: true, name: true },
+    })
+  } catch (err) {
+    return timetablePersistenceError(err, 'load timetable template')
+  }
   if (!template) return errors.notFound('Timetable template')
 
   let body: unknown
@@ -79,16 +85,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return errors.badRequest('One or more selected sections do not match this template')
   }
 
-  const [existingSlots, offerings] = await Promise.all([
-    prisma.timetableSlot.findMany({
-      where: { academicYearId: template.academicYearId, classSectionId: { in: sections.map((s) => s.id) } },
-      select: { id: true, classSectionId: true, dayOfWeek: true, startTime: true, endTime: true, teacherId: true, roomId: true, isPublished: true, templateId: true },
-    }),
-    prisma.subjectOffering.findMany({
-      where: { academicYearId: template.academicYearId, classSectionId: { in: sections.map((s) => s.id) } },
-      include: { subject: { select: { id: true, code: true, name: true } } },
-    }),
-  ])
+  let existingSlots
+  let offerings
+  try {
+    ;[existingSlots, offerings] = await Promise.all([
+      prisma.timetableSlot.findMany({
+        where: { academicYearId: template.academicYearId, classSectionId: { in: sections.map((s) => s.id) } },
+        select: { id: true, classSectionId: true, dayOfWeek: true, startTime: true, endTime: true, teacherId: true, roomId: true, isPublished: true, templateId: true },
+      }),
+      prisma.subjectOffering.findMany({
+        where: { academicYearId: template.academicYearId, classSectionId: { in: sections.map((s) => s.id) } },
+        include: { subject: { select: { id: true, code: true, name: true } } },
+      }),
+    ])
+  } catch (err) {
+    return timetablePersistenceError(err, 'load timetable generation data')
+  }
 
   const conflicts: Array<{ field: string; message: string }> = []
   const planned: Array<{
@@ -156,43 +168,47 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return errorResponse('TIMETABLE_CONFLICT', 'Timetable preview found conflicts. Nothing was written.', 409, conflicts.slice(0, 100))
   }
 
-  const generated = await prisma.$transaction(async (tx) => {
-    if (parsedRequest.data.replaceDrafts) {
-      await tx.timetableSlot.deleteMany({ where: { templateId, isPublished: false, classSectionId: { in: sections.map((s) => s.id) } } })
-    }
+  try {
+    const generated = await prisma.$transaction(async (tx) => {
+      if (parsedRequest.data.replaceDrafts) {
+        await tx.timetableSlot.deleteMany({ where: { templateId, isPublished: false, classSectionId: { in: sections.map((s) => s.id) } } })
+      }
 
-    const periodOfferingIds = new Map<string, string>()
-    for (const slot of planned.filter((entry) => entry.slotType !== 'SUBJECT')) {
-      const code = PERIOD_CODES[slot.slotType as Exclude<TemplateBlock['slotType'], 'SUBJECT'>]
-      const key = `${slot.classSectionId}:${code}`
-      if (periodOfferingIds.has(key)) continue
-      const subject = await tx.academicSubject.upsert({ where: { code }, create: { code, name: code.slice(2).replace('_', ' ') }, update: {} })
-      const offering = await tx.subjectOffering.upsert({
-        where: subjectOfferingUniqueWhere(template.academicYearId, slot.classSectionId, subject.id),
-        create: { classSectionId: slot.classSectionId, academicYearId: template.academicYearId, subjectId: subject.id, teacherId: null, isMandatory: true },
-        update: {},
-      })
-      periodOfferingIds.set(key, offering.id)
-    }
+      const periodOfferingIds = new Map<string, string>()
+      for (const slot of planned.filter((entry) => entry.slotType !== 'SUBJECT')) {
+        const code = PERIOD_CODES[slot.slotType as Exclude<TemplateBlock['slotType'], 'SUBJECT'>]
+        const key = `${slot.classSectionId}:${code}`
+        if (periodOfferingIds.has(key)) continue
+        const subject = await tx.academicSubject.upsert({ where: { code }, create: { code, name: code.slice(2).replace('_', ' ') }, update: {} })
+        const offering = await tx.subjectOffering.upsert({
+          where: subjectOfferingUniqueWhere(template.academicYearId, slot.classSectionId, subject.id),
+          create: { classSectionId: slot.classSectionId, academicYearId: template.academicYearId, subjectId: subject.id, teacherId: null, isMandatory: true },
+          update: {},
+        })
+        periodOfferingIds.set(key, offering.id)
+      }
 
-    for (const slot of planned) {
-      const subjectOfferingId = slot.subjectOfferingId || periodOfferingIds.get(`${slot.classSectionId}:${PERIOD_CODES[slot.slotType as Exclude<TemplateBlock['slotType'], 'SUBJECT'>]}`)
-      if (!subjectOfferingId) throw new Error('PERIOD_OFFERING_NOT_CREATED')
-      await tx.timetableSlot.create({
-        data: { ...slot, subjectOfferingId, templateId, isPublished: parsedRequest.data.publish },
+      for (const slot of planned) {
+        const subjectOfferingId = slot.subjectOfferingId || periodOfferingIds.get(`${slot.classSectionId}:${PERIOD_CODES[slot.slotType as Exclude<TemplateBlock['slotType'], 'SUBJECT'>]}`)
+        if (!subjectOfferingId) throw new Error('PERIOD_OFFERING_NOT_CREATED')
+        await tx.timetableSlot.create({
+          data: { ...slot, subjectOfferingId, templateId, isPublished: parsedRequest.data.publish },
+        })
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'CREATE',
+          entityType: 'TimetableTemplateGeneration',
+          entityId: templateId,
+          changes: { sections: sections.map((s) => s.id), slots: planned.length, publish: parsedRequest.data.publish },
+        },
       })
-    }
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'CREATE',
-        entityType: 'TimetableTemplateGeneration',
-        entityId: templateId,
-        changes: { sections: sections.map((s) => s.id), slots: planned.length, publish: parsedRequest.data.publish },
-      },
+      return planned.length
     })
-    return planned.length
-  })
 
-  return successResponse({ templateId, generatedSlots: generated, published: parsedRequest.data.publish }, 'Timetable generated successfully')
+    return successResponse({ templateId, generatedSlots: generated, published: parsedRequest.data.publish }, 'Timetable generated successfully')
+  } catch (err) {
+    return timetablePersistenceError(err, 'generate timetable')
+  }
 }

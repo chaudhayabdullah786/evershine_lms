@@ -9,12 +9,19 @@ import {
 } from '@/lib/validation/academic'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
 import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
+import { isTimetableSchemaError, TIMETABLE_SCHEMA_SYNC_MESSAGE } from '@/lib/academic/timetable-schema'
 
 afterEach(() => {
   vi.unstubAllEnvs()
 })
 
 describe('timetable admin flow guards', () => {
+  it('recognizes missing timetable columns and keeps the recovery message safe', () => {
+    expect(isTimetableSchemaError({ code: 'P2022', message: 'The column `TimetableSlot.slotType` does not exist.' })).toBe(true)
+    expect(isTimetableSchemaError({ code: 'P2022', message: 'The column `Student.email` does not exist.' })).toBe(false)
+    expect(TIMETABLE_SCHEMA_SYNC_MESSAGE).not.toContain('DATABASE_URL')
+  })
+
   it('uses the Prisma SubjectOffering compound key in schema order', () => {
     expect(subjectOfferingUniqueWhere('year-1', 'section-1', 'subject-1')).toEqual({
       academicYearId_classSectionId_subjectId: {

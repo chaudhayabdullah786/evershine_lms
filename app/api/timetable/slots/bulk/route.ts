@@ -23,6 +23,7 @@ import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createTimetableSlotSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
+import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Prisma, Role } from '@prisma/client'
 import { z } from 'zod'
 
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
   const validSlots: Array<{ index: number; data: Prisma.TimetableSlotUncheckedCreateInput }> = []
 
   // Phase 1: Validate all slots before any writes
-  for (let i = 0; i < parsed.data.slots.length; i++) {
+  try {
+    for (let i = 0; i < parsed.data.slots.length; i++) {
     const raw = parsed.data.slots[i]
 
     // Normalize time format
@@ -136,21 +138,24 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    validSlots.push({
-      index: i,
-      data: {
-        academicYearId: slotParsed.data.academicYearId!,
-        classSectionId: slotParsed.data.classSectionId!,
-        subjectOfferingId: slotParsed.data.subjectOfferingId!,
-        teacherId: slotParsed.data.teacherId ?? null,
-        roomId: slotParsed.data.roomId ?? null,
-        slotType: slotParsed.data.slotType,
-        dayOfWeek: slotParsed.data.dayOfWeek!,
-        startTime: slotParsed.data.startTime!,
-        endTime: slotParsed.data.endTime!,
-        isPublished: false,
-      },
-    })
+      validSlots.push({
+        index: i,
+        data: {
+          academicYearId: slotParsed.data.academicYearId!,
+          classSectionId: slotParsed.data.classSectionId!,
+          subjectOfferingId: slotParsed.data.subjectOfferingId!,
+          teacherId: slotParsed.data.teacherId ?? null,
+          roomId: slotParsed.data.roomId ?? null,
+          slotType: slotParsed.data.slotType,
+          dayOfWeek: slotParsed.data.dayOfWeek!,
+          startTime: slotParsed.data.startTime!,
+          endTime: slotParsed.data.endTime!,
+          isPublished: false,
+        },
+      })
+    }
+  } catch (err) {
+    return timetablePersistenceError(err, 'validate bulk slots')
   }
 
   // Phase 2: Write all valid slots in a single transaction
@@ -188,8 +193,7 @@ export async function POST(request: NextRequest) {
         }
       })
     } catch (err) {
-      console.error('[BULK SLOT CREATE] Transaction failed:', err)
-      return errors.internal()
+      return timetablePersistenceError(err, 'create bulk slots')
     }
   }
 
