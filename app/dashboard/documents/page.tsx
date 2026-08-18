@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FileText, Download, Search, CheckCircle, Cake, Award, Grid, User, Sparkles, Loader2, FileSpreadsheet, Database, Users, Briefcase, GraduationCap, CircleDollarSign } from 'lucide-react'
-import { downloadPdf, generateTeacherIDCard, generateExperienceLetter } from '@/lib/pdf'
+import { downloadPdf, generateTeacherIDCard, generateExperienceLetter, generateAdministrationDirectoryCard } from '@/lib/pdf'
 import { downloadReportAsExcel, downloadStudentsMasterExcel, downloadTeachersMasterExcel, downloadStaffMasterExcel, downloadFeesMasterExcel } from '@/lib/excel'
 import { notify } from '@/lib/notify'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,12 +24,14 @@ import { AcademyLogo } from '@/components/AcademyLogo'
 import { sessionShiftFormalLabel } from '@/lib/validation/shift'
 import { buildDocumentFileName, exportPreviewDocument, type DocumentType } from '@/lib/documents/export-preview'
 import { DOCUMENT_PALETTE, documentUsesAttendanceQr } from '@/lib/pdf/document-design'
+import { getCanonicalStudentClassSection, getCanonicalStudentRollNumber, getCanonicalStudentShift, type EnrollmentRecord } from '@/lib/academic/record-formatters'
 
 interface Student {
   id: string
   firstName: string
   lastName: string
   fatherName: string
+  gender?: string
   registrationNumber: string
   rollNumber: string | null
   dateOfBirth: string
@@ -37,6 +39,7 @@ interface Student {
   profilePicture: string | null
   idCardQRCode: string | null
   cnicBForm: string
+  section?: string | null
   address?: string | null
   permanentAddress?: string | null
   fatherOccupation?: string | null
@@ -52,6 +55,7 @@ interface Student {
   shift?: 'MORNING' | 'EVENING'
   campus?: { name: string }
   class?: { name: string; shift?: 'MORNING' | 'EVENING' }
+  activeEnrollments?: EnrollmentRecord[]
   house?: { name: string; color?: string }
 }
 
@@ -76,6 +80,8 @@ interface Teacher {
   joiningDate: string
   campus: { id: string; name: string } | null
   batch: { id: string; name: string } | null
+  classes?: Array<{ isClassTeacher: boolean; academicYear: string; class: { id: string; name: string; section: string | null } }>
+  subjects?: Array<{ subject: { id: string; name: string; code: string; class: { name: string; section: string | null } } }>
   isActive: boolean
 }
 
@@ -236,6 +242,14 @@ export default function DocumentsPage() {
   const documentCaptureRef = useRef<HTMLDivElement>(null)
 
   const previewWidth = (docType === 'id_card' || docType === 'teacher_id_card' || isAdministrationDoc) ? 680 : 595
+  const selectedStudentClassSection = useMemo(
+    () => selectedStudent ? getCanonicalStudentClassSection(selectedStudent) : '—',
+    [selectedStudent],
+  )
+  const selectedStudentRollNumber = useMemo(
+    () => selectedStudent ? getCanonicalStudentRollNumber(selectedStudent) : '—',
+    [selectedStudent],
+  )
   const previewStyles: CSSProperties = {
     width: `${previewWidth}px`,
     minWidth: `${previewWidth}px`,
@@ -257,6 +271,7 @@ export default function DocumentsPage() {
       if (docScope.houseId) url += `&houseId=${docScope.houseId}`
       if (docScope.campusId) url += `&campusId=${docScope.campusId}`
       if (docScope.shift) url += `&shift=${docScope.shift}`
+      url += '&includeEnrollments=true'
       return fetchPaginatedApi<Student>(url)
     },
     enabled: search.length >= 2 || browseByClass,
@@ -477,6 +492,31 @@ export default function DocumentsPage() {
       }
 
       const fileName = buildDocumentFileName(docType, reportSubtype, safeIdentifier)
+
+      // Administration cards use the direct generator so the downloaded file
+      // always contains the complete front/back card, independent of the
+      // responsive preview container size.
+      if (isAdministrationDoc && selectedAdministrationUser) {
+        const profile = selectedAdministrationUser.role === 'SUPER_ADMIN'
+          ? selectedAdministrationUser.adminProfile
+          : selectedAdministrationUser.accountantProfile
+        await generateAdministrationDirectoryCard({
+          name: selectedAdministrationUser.name,
+          roleLabel: selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'SUPER ADMINISTRATOR' : 'ACCOUNT MANAGER',
+          employeeId: profile?.employeeId,
+          email: selectedAdministrationUser.email,
+          phone: profile?.phoneNumber,
+          department: selectedAdministrationUser.adminProfile?.department,
+          campus: profile?.campusName,
+          photo: administrationProfileDataUrl || undefined,
+          colorMode,
+        })
+        notify.success('Administration card downloaded', {
+          description: 'The two-sided directory card was generated from the selected account record.',
+        })
+        setIsGenerating(false)
+        return
+      }
 
       // Use the DOM-based html2canvas capture engine to render the high-res Tailwind layout
       await exportPreviewDocument(documentCaptureRef.current, fileName, colorMode)
@@ -861,7 +901,7 @@ export default function DocumentsPage() {
                           >
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-bold text-gray-900 truncate">{s.firstName} {s.lastName}</p>
-                              <p className="text-[9px] text-gray-400 font-medium">Roll: {s.rollNumber || '—'} · {s.class?.name || 'Unassigned'}</p>
+                              <p className="text-[9px] text-gray-400 font-medium">Roll: {getCanonicalStudentRollNumber(s)} · {getCanonicalStudentClassSection(s)}</p>
                             </div>
                             <span className="text-[8px] font-mono font-bold bg-gray-50 border px-1 py-0.5 rounded text-gray-500 flex-shrink-0">
                               {s.registrationNumber}
@@ -1341,7 +1381,7 @@ export default function DocumentsPage() {
                           <div className="flex items-start">
                              <div className="w-[90px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Class</div>
                              <div className="text-[#93c5fd] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
-                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[280px] break-words">{selectedStudent.class?.name || 'N/A'}</div>
+                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[280px] break-words">{selectedStudentClassSection}</div>
                           </div>
                           <div className="flex items-start">
                              <div className="w-[90px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Section</div>
@@ -1535,7 +1575,7 @@ export default function DocumentsPage() {
                         <div className="mt-3 h-[2px] w-32 sm:w-40 md:w-48 lg:w-56 bg-[#1e3a8a] rounded-full mx-auto" />
                       </div>
                       <p className="text-[9px] text-gray-500 font-bold uppercase mt-3 tracking-[0.2em] bg-gray-50/80 px-3 py-1 rounded-full border border-gray-200 whitespace-nowrap">
-                        Class: {selectedStudent.class?.name || 'Scholar'} <span className="mx-1 text-[#1e3a8a]">•</span> Roll No: {selectedStudent.rollNumber || '—'}
+                        Class: {selectedStudentClassSection} <span className="mx-1 text-[#1e3a8a]">•</span> Roll No: {selectedStudentRollNumber}
                       </p>
                     </div>
 
@@ -1644,11 +1684,11 @@ export default function DocumentsPage() {
                           </div>
                           <div className="block w-[45%] mb-3">
                             <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Class Section</span>
-                            <span className="font-black text-gray-900 text-[12px] block">{selectedStudent.class?.name || 'Scholar Group'}</span>
+                            <span className="font-black text-gray-900 text-[12px] block">{selectedStudentClassSection}</span>
                           </div>
                           <div className="block w-[45%] mb-3">
                             <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Roll / Reg ID</span>
-                            <span className="font-bold text-gray-900 text-[12px] block">{selectedStudent.rollNumber || '—'} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
+                            <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
                           </div>
                         </div>
                       </div>
@@ -1661,12 +1701,12 @@ export default function DocumentsPage() {
                           <strong className="font-black text-gray-900">{selectedStudent.cnicBForm || 'on file'}</strong>, is a bonafide student of EverShine Academy, Madina Town Campus.
                         </p>
                         <p>
-                          The student is currently active in <strong className="font-black text-gray-900">{selectedStudent.class?.name || 'Scholar Section'}</strong>
-                          {(selectedStudent.shift ?? selectedStudent.class?.shift) && (
-                            <> (<strong className="font-black text-gray-900">{sessionShiftFormalLabel((selectedStudent.shift ?? selectedStudent.class?.shift)!)}</strong>)</>
+                          The student is currently active in <strong className="font-black text-gray-900">{selectedStudentClassSection}</strong>
+                          {getCanonicalStudentShift(selectedStudent) !== '—' && (
+                            <> (<strong className="font-black text-gray-900">{sessionShiftFormalLabel(getCanonicalStudentShift(selectedStudent) as 'MORNING' | 'EVENING')}</strong>)</>
                           )}{' '}
                           under Registration Number <strong className="font-black font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</strong> and Roll Number{' '}
-                          <strong className="font-black text-gray-900">{selectedStudent.rollNumber || 'Not assigned'}</strong> for the academic session{' '}
+                          <strong className="font-black text-gray-900">{selectedStudentRollNumber}</strong> for the academic session{' '}
                           <strong className="font-black text-gray-900">{new Date().getFullYear()}&ndash;{new Date().getFullYear() + 1}</strong>.
                         </p>
                         <p>
@@ -1743,8 +1783,8 @@ export default function DocumentsPage() {
                       <div className="w-full flex items-stretch border border-black mb-3.5">
                         <div className="flex-1 p-2.5 text-[9px] space-y-1">
                           <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Roll No:</span><span className="font-black underline">{selectedStudent.rollNumber || '—'}</span></div>
-                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Shift / Mode:</span><span className="font-bold underline uppercase">{selectedStudent.class?.shift || selectedStudent.shift || 'MORNING'} / PHYSICAL</span></div>
+                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Roll No:</span><span className="font-black underline">{selectedStudentRollNumber}</span></div>
+                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Shift / Mode:</span><span className="font-bold underline uppercase">{getCanonicalStudentShift(selectedStudent)} / PHYSICAL</span></div>
                             
                             <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Reg No:</span><span className="font-black underline font-mono text-[8.5px]">{selectedStudent.registrationNumber}</span></div>
                             <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Perf House:</span><span className="font-black underline uppercase" style={{ color: selectedStudent.house?.color || '#111827' }}>{selectedStudent.house?.name || '—'}</span></div>
@@ -1752,7 +1792,7 @@ export default function DocumentsPage() {
                             <div className="flex gap-1 col-span-2"><span className="font-bold uppercase w-24 shrink-0">Student Name:</span><span className="font-black underline">{selectedStudent.firstName} {selectedStudent.lastName}</span></div>
                             <div className="flex gap-1 col-span-2"><span className="font-bold uppercase w-24 shrink-0">Father Name:</span><span className="font-black underline">{selectedStudent.fatherName || '—'}</span></div>
                             
-                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Class / Sec:</span><span className="font-black underline">{selectedStudent.class?.name || '—'}</span></div>
+                            <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Class / Sec:</span><span className="font-black underline">{selectedStudentClassSection}</span></div>
                             <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Date of Issue:</span><span className="font-bold">{new Date().toLocaleDateString('en-PK')}</span></div>
                           </div>
                         </div>
@@ -1946,11 +1986,11 @@ export default function DocumentsPage() {
                             </div>
                             <div className="block w-[45%] mb-3">
                               <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Roll No / Reg ID</span>
-                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudent.rollNumber || '—'} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
+                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
                             </div>
                             <div className="block w-[45%] mb-3">
                               <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Class Section</span>
-                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudent.class?.name || 'Scholar Group'}</span>
+                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentClassSection}</span>
                             </div>
                             <div className="block w-[45%] mb-3">
                               <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">House Affiliation</span>
@@ -2686,7 +2726,7 @@ export default function DocumentsPage() {
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Registration No:</td>
                               <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-mono font-black text-blue-900">{selectedStudent.registrationNumber}</td>
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Roll No:</td>
-                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.rollNumber || '—'}</td>
+                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudentRollNumber}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Student Name:</td>
@@ -2694,13 +2734,13 @@ export default function DocumentsPage() {
                             </tr>
                             <tr className="border-b border-gray-300">
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Class / Batch:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{selectedStudent.class?.name || '—'}</td>
+                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{selectedStudentClassSection}</td>
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Date of Birth:</td>
                               <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.dateOfBirth ? new Date(selectedStudent.dateOfBirth).toLocaleDateString('en-PK') : '—'}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Gender:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{(selectedStudent as any).gender || '—'}</td>
+                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{selectedStudent.gender || '—'}</td>
                               <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Blood Group:</td>
                               <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.bloodGroup || '—'}</td>
                             </tr>
@@ -2883,6 +2923,14 @@ export default function DocumentsPage() {
                             <tr className="border-b border-gray-300">
                               <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Specialization:</td>
                               <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.specialization || '—'}</td>
+                            </tr>
+                            <tr>
+                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Assigned Classes:</td>
+                              <td colSpan={3} className="px-2 py-2 font-bold">
+                                {selectedTeacher.classes?.length
+                                  ? selectedTeacher.classes.map((assignment) => `${assignment.class.name}${assignment.class.section ? ` - ${assignment.class.section}` : ''}`).join(', ')
+                                  : '—'}
+                              </td>
                             </tr>
                             <tr>
                               <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Emergency Contact:</td>

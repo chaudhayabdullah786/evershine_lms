@@ -12,6 +12,8 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
 import type { Role } from '@prisma/client'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getCanonicalStudentClassSection } from '@/lib/academic/record-formatters'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -26,6 +28,7 @@ export async function GET(request: NextRequest) {
       ? (new URL(request.url).searchParams.get('campusId') ?? undefined)
       : (session.user.campusId ?? undefined)
 
+  const activeYear = await getActiveAcademicYear()
   const invoices = await prisma.feeInvoice.findMany({
     where: {
       student: {
@@ -55,6 +58,25 @@ export async function GET(request: NextRequest) {
           campus: { select: { name: true } },
           class: { select: { name: true } },
           section: true,
+          enrollments: {
+            where: {
+              status: 'ACTIVE',
+              ...(activeYear ? { academicYearId: activeYear.id } : {}),
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: {
+              status: true,
+              rollNumber: true,
+              classSection: {
+                select: {
+                  className: true,
+                  sectionName: true,
+                  shift: { select: { name: true, code: true } },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -82,7 +104,10 @@ export async function GET(request: NextRequest) {
       challanNumber: inv.challanNumber,
       studentName: `${inv.student.firstName} ${inv.student.lastName}`,
       registrationNumber: inv.student.registrationNumber,
-      classSection: `${inv.student.class?.name || 'Scholar'} - ${inv.student.section || 'General'}`,
+      classSection: getCanonicalStudentClassSection({
+        ...inv.student,
+        activeEnrollments: inv.student.enrollments,
+      }),
       campus: inv.student.campus?.name || 'N/A',
       billingMonth: inv.month,
       academicYear: inv.academicYear,

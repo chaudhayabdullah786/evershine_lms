@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { fadeUp, staggerContainer } from '@/lib/animations'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PaymentProofUploadModal } from '@/components/fees/PaymentProofUploadModal'
+import { getCanonicalStudentClassSection, type EnrollmentRecord } from '@/lib/academic/record-formatters'
 
 interface FeeInvoice {
   id: string
@@ -41,6 +42,9 @@ interface FeeInvoice {
     firstName: string
     lastName: string
     registrationNumber: string
+    section?: string | null
+    class?: { name?: string | null } | null
+    enrollments?: EnrollmentRecord[]
   }
 }
 
@@ -398,7 +402,7 @@ export default function FeesManagementPage() {
                           <p className="font-medium text-sm text-gray-900">
                             {fee.student.firstName} {fee.student.lastName}
                           </p>
-                          <p className="text-xs text-gray-400">{fee.student.registrationNumber}</p>
+                          <p className="text-xs text-gray-400">{fee.student.registrationNumber} · {getCanonicalStudentClassSection({ ...fee.student, activeEnrollments: fee.student.enrollments })}</p>
                         </Link>
                       </TableCell>
                       <TableCell className="text-sm">{fee.month}</TableCell>

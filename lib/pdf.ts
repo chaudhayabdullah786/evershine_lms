@@ -986,6 +986,8 @@ export async function generateAdministrationDirectoryCard(
     photo: await toDataUrl(data.photo),
     logo,
   })
-  const safeName = data.name.replace(/\s+/g, '_')
-  pdf.save(`${safeName}-${data.roleLabel.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+  const safeName = data.name.trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'administration-user'
+  const identifier = data.employeeId?.trim().replace(/[^a-z0-9-]+/gi, '-')
+  const role = data.roleLabel.toLowerCase().replace(/\s+/g, '-')
+  pdf.save(`${identifier ? `${identifier}-` : ''}${safeName}-${role}.pdf`)
 }

@@ -1089,6 +1089,8 @@ export interface AdministrationDirectoryCardData {
   phone?: string
   department?: string
   campus?: string
+  issueDate?: string
+  address?: string
   photo?: string
   logo?: string
   colorMode?: 'color' | 'bw'
@@ -1143,13 +1145,48 @@ export async function generateAdministrationDirectoryCardDirect(
     pdf.text(`${label}:`, 38, y)
     setTextColorC(pdf, 15, 23, 42, cm)
     pdf.setFont('helvetica', 'normal')
-    pdf.text(value.substring(0, 30), 55, y)
+    const lines = pdf.splitTextToSize(value || '—', 28)
+    pdf.text(lines.slice(0, 2), 55, y)
   })
 
   setTextColorC(pdf, 255, 255, 255, cm)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(3.5)
   pdf.text(`${data.phone || 'Administration'} | Official directory record`, 42.5, 52.5, { align: 'center' })
+
+  // Back face: keep the physical card useful without exposing attendance or
+  // authentication credentials. This is intentionally a separate PDF page so
+  // duplex printing produces a true two-sided directory card.
+  pdf.addPage([85, 54], 'landscape')
+  setFillColorC(pdf, 255, 255, 255, cm)
+  pdf.rect(0, 0, 85, 54, 'F')
+  setFillColorC(pdf, 127, 29, 29, cm)
+  pdf.rect(0, 0, 85, 9, 'F')
+  if (data.logo) addImageIfPresent(pdf, data.logo, 6, 14, 16, 16)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(6.5)
+  setTextColorC(pdf, 127, 29, 29, cm)
+  pdf.text('OFFICIAL STAFF DIRECTORY RECORD', 28, 17)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(4.5)
+  setTextColorC(pdf, 55, 65, 81, cm)
+  const backLines = [
+    `Name: ${formatPersonName(data.name)}`,
+    `Role: ${data.roleLabel}`,
+    `Department: ${data.department || 'Administration'}`,
+    `Campus: ${data.campus || 'All Campuses'}`,
+    `Issued: ${data.issueDate || new Date().toLocaleDateString('en-PK')}`,
+  ]
+  backLines.forEach((line, index) => pdf.text(line, 28, 24 + index * 4.5))
+  if (data.address) {
+    pdf.setFontSize(4)
+    pdf.text(pdf.splitTextToSize(`Address: ${data.address}`, 50).slice(0, 2), 28, 47)
+  }
+  setFillColorC(pdf, 127, 29, 29, cm)
+  pdf.rect(0, 50, 85, 4, 'F')
+  pdf.setFontSize(3.5)
+  setTextColorC(pdf, 255, 255, 255, cm)
+  pdf.text('Property of EverShine Academy • Return to administration if found', 42.5, 52.5, { align: 'center' })
   return pdf
 }
 
