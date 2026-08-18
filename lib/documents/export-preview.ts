@@ -12,6 +12,8 @@ export type DocumentType =
   | 'teacher_experience'
   | 'student_profile'
   | 'teacher_profile'
+  | 'super_admin_card'
+  | 'account_manager_card'
 
 export function buildDocumentFileName(
   docType: DocumentType,

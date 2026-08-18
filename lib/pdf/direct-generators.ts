@@ -153,8 +153,8 @@ export async function generateIDCardDirect(studentData: {
   const avatarR = 9
   setFillColorC(pdf, 255, 255, 255, cm)
   pdf.circle(W / 2, avatarY + avatarR, avatarR + 0.8, 'F') // white ring
-  setFillColorC(pdf, 99, 102, 241, cm)
-  pdf.circle(W / 2, avatarY + avatarR, avatarR, 'F') // purple bg for avatar
+  setFillColorC(pdf, 37, 99, 235, cm)
+  pdf.circle(W / 2, avatarY + avatarR, avatarR, 'F') // student blue fallback
 
   if (studentData.photo) {
     // Clip circle via a round rect approximation
@@ -275,7 +275,7 @@ export async function generateIDCardDirect(studentData: {
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(5)
   setTextColorC(pdf, 30, 58, 138, cm)
-  pdf.text('CARD VERIFICATION', 5, 47)
+  pdf.text('ATTENDANCE CREDENTIAL', 5, 47)
   setDrawColorC(pdf, 219, 234, 254, cm)
   pdf.line(5, 49, W - 5, 49)
 
@@ -303,7 +303,7 @@ export async function generateIDCardDirect(studentData: {
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(3.5)
     setTextColorC(pdf, 99, 102, 241, cm)
-    pdf.text('SCAN TO VERIFY', W - 11.5, 62, { align: 'center' })
+    pdf.text('SCAN FOR ATTENDANCE', W - 11.5, 62, { align: 'center' })
   }
 
   // Back footer
@@ -331,10 +331,10 @@ export async function generateBirthdayCertificateDirect(certificateData: {
   colorMode?: 'color' | 'bw'
 }) {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  setFillColorC(pdf, 251, 247, 236, certificateData.colorMode)
+  setFillColorC(pdf, 239, 246, 255, certificateData.colorMode)
   pdf.rect(0, 0, 210, 297, 'F')
 
-  setDrawColorC(pdf, 196, 163, 84, certificateData.colorMode)
+  setDrawColorC(pdf, 30, 58, 138, certificateData.colorMode)
   pdf.setLineWidth(2)
   pdf.rect(10, 10, 190, 277)
 
@@ -342,17 +342,17 @@ export async function generateBirthdayCertificateDirect(certificateData: {
 
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(12)
-  setTextColorC(pdf, 87, 59, 12, certificateData.colorMode)
+  setTextColorC(pdf, 30, 58, 138, certificateData.colorMode)
   pdf.text('Evershine Academy', 105, 48, { align: 'center' })
 
   pdf.setFont('helvetica', 'italic')
   pdf.setFontSize(8)
-  setTextColorC(pdf, 100, 70, 20, certificateData.colorMode)
-  pdf.text('"We Make your Children More Valuable"', 105, 54, { align: 'center' })
+  setTextColorC(pdf, 30, 58, 138, certificateData.colorMode)
+  pdf.text('"We Make Your Children More Valuable"', 105, 54, { align: 'center' })
 
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7.5)
-  setTextColorC(pdf, 87, 59, 12, certificateData.colorMode)
+  setTextColorC(pdf, 30, 58, 138, certificateData.colorMode)
   pdf.text('Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony', 105, 60, { align: 'center' })
   pdf.text('Boys: 0328-4010522 | Girls: 0324-8985526', 105, 65, { align: 'center' })
 
@@ -372,7 +372,7 @@ export async function generateBirthdayCertificateDirect(certificateData: {
 
   if (certificateData.photo) {
     setDrawColorC(pdf, 255, 255, 255, certificateData.colorMode)
-    setFillColorC(pdf, 254, 243, 199, certificateData.colorMode)
+    setFillColorC(pdf, 219, 234, 254, certificateData.colorMode)
     pdf.roundedRect(85, 130, 40, 40, 20, 20, 'F')
     addImageIfPresent(pdf, certificateData.photo, 87, 132, 36, 36)
   }
@@ -380,10 +380,6 @@ export async function generateBirthdayCertificateDirect(certificateData: {
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(10)
   pdf.text(`Date of Birth: ${formatDateString(certificateData.date)}`, 105, 195, { align: 'center' })
-
-  if (certificateData.qrCode) {
-    addImageIfPresent(pdf, certificateData.qrCode, 160, 230, 35, 35)
-  }
 
   drawSignatureLine(pdf, 'Authorized Signature', 120, 262, certificateData.colorMode)
   pdf.setFont('helvetica', 'bold')
@@ -464,10 +460,6 @@ export async function generatePerformanceCardDirect(performanceData: {
   pdf.text(`Attendance: ${performanceData.attendance}`, 20, y + 18)
   pdf.text(`Conduct: ${performanceData.conduct}`, 20, y + 26)
 
-  if (performanceData.qrCode) {
-    addImageIfPresent(pdf, performanceData.qrCode, 160, 230, 35, 35)
-  }
-
   drawSignatureLine(pdf, 'Class Teacher', 120, 262, performanceData.colorMode)
   return pdf
 }
@@ -530,10 +522,6 @@ export async function generateResultCardDirect(data: {
   pdf.text(`Total: ${data.totalMarks}`, 20, tableY + 12)
   pdf.text(`Percentage: ${data.percentage}%`, 20, tableY + 20)
   pdf.text(`Grade: ${data.grade}`, 20, tableY + 28)
-
-  if (data.qrCode) {
-    addImageIfPresent(pdf, data.qrCode, 160, 230, 35, 35)
-  }
 
   drawSignatureLine(pdf, 'Principal', 120, 262, data.colorMode)
   return pdf
@@ -605,10 +593,6 @@ export async function generateBonafideCertificateDirect(data: {
     pdf.text(`Valid Until: ${formatDateString(data.validUntil)}`, 20, 162)
   }
 
-  if (data.qrCode) {
-    addImageIfPresent(pdf, data.qrCode, 160, 220, 35, 35)
-  }
-
   drawSignatureLine(pdf, 'Authorized Signature', 120, 262, data.colorMode)
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(9)
@@ -651,10 +635,6 @@ export async function generateReportDirect(reportData: {
     pdf.line(20, lineY + 2, 190, lineY + 2)
     lineY += 10
   })
-
-  if (reportData.qrCode) {
-    addImageIfPresent(pdf, reportData.qrCode, 160, 240, 35, 35)
-  }
 
   drawSignatureLine(pdf, 'Report Approved By', 120, 262, reportData.colorMode)
   return pdf
@@ -703,7 +683,7 @@ export async function generateTeacherProfileDirect(data: {
     pdf.roundedRect(20, 40, 32, 32, 6, 6, 'F')
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(14)
-    setTextColorC(pdf, 29, 78, 216, data.colorMode)
+    setTextColorC(pdf, 4, 120, 87, data.colorMode)
     pdf.text(`${data.firstName[0]}${data.lastName[0]}`, 36, 58, { align: 'center' })
   }
 
@@ -725,7 +705,7 @@ export async function generateTeacherProfileDirect(data: {
   const drawSectionTitle = (title: string, yPos: number) => {
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(10)
-    setTextColorC(pdf, 29, 78, 216, data.colorMode)
+    setTextColorC(pdf, 4, 120, 87, data.colorMode)
     pdf.text(title.toUpperCase(), 20, yPos)
     setDrawColorC(pdf, 229, 231, 235, data.colorMode)
     pdf.line(20, yPos + 2, 190, yPos + 2)
@@ -801,11 +781,6 @@ export async function generateTeacherProfileDirect(data: {
   printRow('Qualification:', data.qualification, 'Experience (Years):', `${data.experienceYears} Years`, y)
   y += 8
   printRow('Monthly Salary:', data.monthlySalary ? `Rs ${data.monthlySalary.toLocaleString()}` : 'N/A', 'Joining Date:', data.joiningDate ? formatDateString(data.joiningDate) : 'N/A', y)
-
-  // QR Code for verification at bottom
-  if (data.qrCode) {
-    addImageIfPresent(pdf, data.qrCode, 160, 230, 30, 30)
-  }
 
   drawSignatureLine(pdf, 'HR Administrator', 60, 262, data.colorMode)
   drawSignatureLine(pdf, 'Principal Seal', 140, 262, data.colorMode)
@@ -954,13 +929,6 @@ export async function generateTeacherIDCardDirect(data: TeacherIDCardData): Prom
     setTextColorC(pdf, 15, 23, 42, data.colorMode)
     pdf.text((val ?? '').substring(0, 22), 48, y + 4)
   })
-  // QR code
-  if (data.qrCode) {
-    setFillColorC(pdf, 241, 245, 249, data.colorMode)
-    pdf.roundedRect(53, 34, 16, 16, 2, 2, 'F')
-    addImageIfPresent(pdf, data.qrCode, 54, 35, 14, 14)
-  }
-
   // Footer
   setFillColorC(pdf, 6, 95, 70, data.colorMode)
   pdf.rect(0, 50, 85, 4, 'F')
@@ -989,6 +957,7 @@ export interface ExperienceLetterData {
   principalTitle: string
   issueDate: string
   referenceNo?: string
+  photo?: string
   logo?: string
   colorMode?: 'color' | 'bw'
 }
@@ -1003,7 +972,7 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
   pdf.rect(0, 0, 210, 4, 'F')
 
   // Letterhead
-  drawLetterhead(pdf, 'EVERSHINE ACADEMY', '"We Make your Children More Valuable"', data.logo, data.colorMode)
+  drawLetterhead(pdf, 'EVERSHINE ACADEMY', '"We Make Your Children More Valuable"', data.logo, data.colorMode)
 
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(8)
@@ -1022,6 +991,15 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
   setTextColorC(pdf, 75, 85, 99, data.colorMode)
   pdf.text(`Ref No: ${refNo}`, 20, 42)
   pdf.text(`Date: ${formatDateString(data.issueDate)}`, 190, 42, { align: 'right' })
+
+  // Keep the direct export consistent with the staff experience preview by
+  // including the real profile photo when one is available.
+  if (data.photo) {
+    setDrawColorC(pdf, 6, 95, 70, data.colorMode)
+    pdf.setLineWidth(0.4)
+    pdf.rect(166, 45, 24, 30, 'S')
+    addImageIfPresent(pdf, data.photo, 167, 46, 22, 28)
+  }
 
   // Title
   pdf.setFont('helvetica', 'bold')
@@ -1100,3 +1078,83 @@ export async function generateExperienceLetterDirect(data: ExperienceLetterData)
 
   return pdf
 }
+
+// Administration directory cards intentionally have no QR code. QR
+// credentials are reserved for student ID cards and attendance tracking.
+export interface AdministrationDirectoryCardData {
+  name: string
+  roleLabel: 'SUPER ADMINISTRATOR' | 'ACCOUNT MANAGER'
+  employeeId?: string
+  email: string
+  phone?: string
+  department?: string
+  campus?: string
+  photo?: string
+  logo?: string
+  colorMode?: 'color' | 'bw'
+}
+
+export async function generateAdministrationDirectoryCardDirect(
+  data: AdministrationDirectoryCardData
+): Promise<jsPDF> {
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85, 54] })
+  const cm = data.colorMode
+  setFillColorC(pdf, 254, 242, 242, cm)
+  pdf.rect(0, 0, 85, 54, 'F')
+  setFillColorC(pdf, 127, 29, 29, cm)
+  pdf.rect(0, 0, 7, 54, 'F')
+  pdf.rect(0, 50, 85, 4, 'F')
+
+  if (data.photo) {
+    setFillColorC(pdf, 255, 255, 255, cm)
+    pdf.roundedRect(11, 9, 22, 27, 2, 2, 'F')
+    addImageIfPresent(pdf, data.photo, 12, 10, 20, 25)
+  } else {
+    setFillColorC(pdf, 254, 226, 226, cm)
+    pdf.roundedRect(11, 9, 22, 27, 2, 2, 'F')
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(11)
+    setTextColorC(pdf, 127, 29, 29, cm)
+    pdf.text(data.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(), 22, 24, { align: 'center' })
+  }
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(7)
+  setTextColorC(pdf, 127, 29, 29, cm)
+  pdf.text('EVERSHINE ACADEMY', 38, 10)
+  pdf.setFontSize(4.5)
+  setTextColorC(pdf, 185, 28, 28, cm)
+  pdf.text(data.roleLabel, 38, 15)
+  pdf.setFontSize(9)
+  setTextColorC(pdf, 15, 23, 42, cm)
+  pdf.text(formatPersonName(data.name), 38, 23)
+
+  const rows: Array<[string, string]> = [
+    ['Email', data.email],
+    ['Employee ID', data.employeeId || '—'],
+    ['Department', data.department || 'Administration'],
+    ['Campus', data.campus || 'All Campuses'],
+  ]
+  pdf.setFontSize(4.5)
+  rows.forEach(([label, value], index) => {
+    const y = 29 + index * 4.5
+    setTextColorC(pdf, 127, 29, 29, cm)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(`${label}:`, 38, y)
+    setTextColorC(pdf, 15, 23, 42, cm)
+    pdf.setFont('helvetica', 'normal')
+    pdf.text(value.substring(0, 30), 55, y)
+  })
+
+  setTextColorC(pdf, 255, 255, 255, cm)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(3.5)
+  pdf.text(`${data.phone || 'Administration'} | Official directory record`, 42.5, 52.5, { align: 'center' })
+  return pdf
+}
+
+export const generateSuperAdminCardDirect = (data: Omit<AdministrationDirectoryCardData, 'roleLabel'>) =>
+  generateAdministrationDirectoryCardDirect({ ...data, roleLabel: 'SUPER ADMINISTRATOR' })
+
+export const generateAccountManagerCardDirect = (data: Omit<AdministrationDirectoryCardData, 'roleLabel'>) =>
+  generateAdministrationDirectoryCardDirect({ ...data, roleLabel: 'ACCOUNT MANAGER' })

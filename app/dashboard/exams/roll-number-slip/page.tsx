@@ -13,7 +13,7 @@
  *  - STUDENT role only
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
@@ -25,7 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Download, FileText, RefreshCw, AlertCircle, GraduationCap, Printer } from 'lucide-react'
-import type { RollNumberSlipPDFOptions, SlipExamSlot } from '@/lib/pdf-upgrades'
+import { exportPreviewDocument } from '@/lib/documents/export-preview'
+import type { SlipExamSlot } from '@/lib/pdf-upgrades'
 
 // ─── API response types ───────────────────────────────────────────────────────
 interface SlipStudent {
@@ -61,22 +62,6 @@ interface SlipResponse {
 
 interface ExamSession { id: string; name: string; term: string }
 
-// ─── Utility: URL → base64 data URL ─────────────────────────────────────────
-async function urlToBase64(url: string): Promise<string | undefined> {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return undefined
-  }
-}
-
 function fmtDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('en-PK', {
@@ -92,10 +77,10 @@ function fmtDay(iso: string) {
 
 // ─── Design tokens (shared between HTML preview and PDF) ─────────────────────
 const NAVY  = '#1e3a8a'
-const TEAL  = '#0d9488'
+const TEAL  = '#2563eb'
 const BLUE  = '#3b82f6'
-const AMBER = '#fbbf24'
-const AMBER_BG = '#fffbeb'
+const AMBER = '#bfdbfe'
+const AMBER_BG = '#eff6ff'
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function RollNumberSlipPage() {
@@ -104,12 +89,7 @@ export default function RollNumberSlipPage() {
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('__latest__')
   const [isGenerating, setIsGenerating]           = useState(false)
-  const [logoBase64, setLogoBase64]               = useState<string | undefined>()
-
-  // Pre-load logo as base64 for PDF embedding
-  useEffect(() => {
-    urlToBase64('/bglogo.png').then(setLogoBase64)
-  }, [])
+  const documentCaptureRef = useRef<HTMLDivElement>(null)
 
   // ── Exam sessions ─────────────────────────────────────────────────────────
   const { data: examSessions = [] } = useQuery<ExamSession[]>({
@@ -132,38 +112,17 @@ export default function RollNumberSlipPage() {
 
   // ── PDF download ─────────────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
-    if (!slip?.dateSheet) return
+    if (!slip?.dateSheet || !documentCaptureRef.current) return
     setIsGenerating(true)
     try {
-      const { generateRollNumberSlipPDF } = await import('@/lib/pdf-upgrades')
-
-      // Convert student photo to base64 if available
-      let photoBase64: string | undefined
-      if (slip.student.profilePicture) {
-        photoBase64 = await urlToBase64(slip.student.profilePicture)
-      }
-
-      const options: RollNumberSlipPDFOptions = {
-        studentName:        slip.student.name,
-        fatherName:         slip.student.fatherName,
-        registrationNumber: slip.student.registrationNumber,
-        rollNumber:         slip.student.rollNumber,
-        gender:             slip.student.gender,
-        className:          slip.section.className,
-        sectionName:        slip.section.sectionName,
-        shiftName:          slip.section.shiftName,
-        campus:             slip.student.campus,
-        batch:              slip.student.batch,
-        dateSheetTitle:     slip.dateSheet.title,
-        examSessionName:    slip.examSession.name,
-        slots:              slip.dateSheet.slots,
-        photoUrl:           photoBase64,
-        logoUrl:            logoBase64,
-        colorMode:          'color',
-      }
-
-      const pdf = generateRollNumberSlipPDF(options)
-      pdf.save(`roll-number-slip-${slip.student.rollNumber}-${Date.now()}.pdf`)
+      // Export the exact rendered preview. This keeps the downloaded PDF in
+      // lockstep with what the student sees (including the real photo, logo,
+      // responsive table sizing, and all field values).
+      await exportPreviewDocument(
+        documentCaptureRef.current,
+        `roll-number-slip-${slip.student.rollNumber}-${Date.now()}`,
+        'color',
+      )
       notify.success('Roll Number Slip downloaded successfully')
     } catch (err) {
       console.error('[RollNumberSlip]', err)
@@ -171,7 +130,7 @@ export default function RollNumberSlipPage() {
     } finally {
       setIsGenerating(false)
     }
-  }, [slip, logoBase64])
+  }, [slip])
 
   // ── Guards ────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
@@ -296,6 +255,11 @@ export default function RollNumberSlipPage() {
           <div className="flex justify-center print:justify-start">
             <div
               id="roll-number-slip-preview"
+              ref={documentCaptureRef}
+              data-document-page
+              data-pdf-physical-unit="mm"
+              data-pdf-physical-width="210"
+              data-pdf-physical-height="297"
               className="bg-white shadow-2xl border border-slate-200 print:shadow-none print:border-none"
               style={{
                 width: '210mm',
@@ -360,7 +324,7 @@ export default function RollNumberSlipPage() {
                     EVERSHINE ACADEMY
                   </div>
                   <div style={{ fontSize: 8.5, color: TEAL, fontStyle: 'italic', marginTop: 2 }}>
-                    "We Make your Children More Valueable"
+                    &quot;We Make Your Children More Valuable&quot;
                   </div>
                   <div style={{ fontSize: 7.5, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>
                     Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony
@@ -486,8 +450,8 @@ export default function RollNumberSlipPage() {
                   fontSize: 8.5,
                   fontFamily: '"Noto Sans", sans-serif',
                 }}>
-                  <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 5 }}>IMPORTANT INSTRUCTIONS:</div>
-                  <ol style={{ margin: 0, paddingLeft: 18, color: '#5c2d0a', lineHeight: 1.8 }}>
+                  <div style={{ fontWeight: 700, color: NAVY, marginBottom: 5 }}>IMPORTANT INSTRUCTIONS:</div>
+                  <ol style={{ margin: 0, paddingLeft: 18, color: '#1e3a8a', lineHeight: 1.8 }}>
                     <li>Students must bring this printed Roll Number Slip and their official ID Card to the examination hall.</li>
                     <li>Arrive at least 15 minutes before start time. Entry will NOT be permitted after the exam begins.</li>
                     <li>Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.</li>

@@ -242,9 +242,18 @@ export default function AttendancePage() {
 
   const handleDetected = (code: string) => {
     const scannedVal = code.trim().toLowerCase()
+    // Student ID cards carry the attendance-only ESA-QR-{registration}
+    // credential. Accept that canonical form as well as manual registration
+    // and roll-number input, while still limiting the match to the loaded
+    // class roster.
+    const registrationFromCard = scannedVal.startsWith('esa-qr-')
+      ? scannedVal.slice('esa-qr-'.length)
+      : scannedVal
     const studentIdx = roster.findIndex(
       (r) =>
         r.registrationNumber.toLowerCase() === scannedVal ||
+        r.registrationNumber.toLowerCase().replace(/\//g, '-') === registrationFromCard ||
+        r.registrationNumber.toLowerCase() === registrationFromCard ||
         (r.rollNumber && r.rollNumber.toLowerCase() === scannedVal)
     )
     if (studentIdx !== -1) {

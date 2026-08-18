@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api-client'
+import QRScannerModal from '@/components/QRScannerModal'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { notify } from '@/lib/notify'
 import {
-  Loader2, QrCode, Download, RefreshCw, CheckCircle,
+  Loader2, QrCode, Download, RefreshCw, CheckCircle, ScanLine,
   ClipboardList, UserCheck, UserX, Clock, Info, Timer
 } from 'lucide-react'
 
@@ -106,6 +107,7 @@ export default function TeacherAttendancePage() {
   const [statusMap,      setStatusMap]      = useState<Record<string, AttStatus>>({})
   const [qrCode,         setQrCode]         = useState<string | null>(null)
   const [qrExpiresAt,    setQrExpiresAt]    = useState<Date | null>(null)
+  const [cardScannerOpen, setCardScannerOpen] = useState(false)
 
   /* ── Queries ── */
   const { data: teacherClassesRaw } = useQuery({
@@ -182,6 +184,26 @@ export default function TeacherAttendancePage() {
       notify.success('QR code generated — valid for 30 minutes')
     },
     onError: (e: Error) => notify.error(e.message),
+  })
+
+  /* ── Scan a student ID card attendance credential ── */
+  const cardScanMutation = useMutation({
+    mutationFn: (studentQrCode: string) => fetchApi<{
+      alreadyMarked?: boolean
+      studentEnrollmentId: string
+      student?: { firstName: string; lastName: string }
+      status: AttStatus
+    }>('/api/enrollment-attendance/student-card-scan', {
+      method: 'POST',
+      body: JSON.stringify({ classSectionId, attendanceDate: date, studentQrCode }),
+    }),
+    onSuccess: (data) => {
+      setStatusMap((current) => ({ ...current, [data.studentEnrollmentId]: data.status }))
+      void refetch()
+      const name = data.student ? `${data.student.firstName} ${data.student.lastName}` : 'Student'
+      notify.success(data.alreadyMarked ? `${name} was already marked present` : `${name} marked present`)
+    },
+    onError: (e: Error) => notify.error(e.message || 'Unable to record student-card attendance'),
   })
 
   /* ── Export ── */
@@ -329,6 +351,14 @@ export default function TeacherAttendancePage() {
               </button>
             ))}
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setCardScannerOpen(true)}
+            disabled={cardScanMutation.isPending}
+            className="gap-2"
+          >
+            <ScanLine className="w-4 h-4" /> Scan Student Card
+          </Button>
 
           {/* ── MANUAL TAB ── */}
           {activeTab === 'manual' && (
@@ -577,6 +607,14 @@ export default function TeacherAttendancePage() {
           )}
         </>
       )}
+
+      <QRScannerModal
+        open={cardScannerOpen}
+        onClose={() => setCardScannerOpen(false)}
+        onDetected={(code) => {
+          if (!cardScanMutation.isPending) cardScanMutation.mutate(code)
+        }}
+      />
     </div>
   )
 }

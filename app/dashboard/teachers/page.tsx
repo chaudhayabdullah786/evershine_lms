@@ -322,7 +322,6 @@ function TeacherDetailsDialog({ teacherId, onClose }: { teacherId: string | null
         houseName: teacher.house?.name,
         classes: teacher.classes,
         photo: teacher.profilePicture,
-        qrCode: teacher.employeeId,
       })
       notify.success('PDF Profile downloaded successfully')
     } catch (err: any) {

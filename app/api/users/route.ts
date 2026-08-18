@@ -34,6 +34,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Campus admins may manage campus accounts, but must never enumerate the
+  // highest-privilege Super Administrator identities.
+  if (session.user.role === 'ADMIN') {
+    where.role = where.role?.in
+      ? { in: where.role.in.filter((role: Role) => role !== 'SUPER_ADMIN') }
+      : { not: 'SUPER_ADMIN' as Role }
+  }
+
   if (query) {
     // WHY no mode: 'insensitive' on any contains clause below:
     // MySQL utf8mb4_unicode_ci collation handles case-insensitive LIKE natively.
@@ -122,6 +130,7 @@ export async function GET(request: NextRequest) {
         email: u.email,
         role: u.role,
         isActive: u.isActive,
+        profilePictureUrl: u.profilePictureUrl,
         name,
         lastLogin: u.lastLogin,
         adminProfile: u.admin ? {

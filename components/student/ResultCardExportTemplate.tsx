@@ -5,11 +5,12 @@ interface ResultCardExportTemplateProps {
   profile: any;
   exam: any;
   rows: any[];
-  qrCodeDataUrl: string;
+  /** @deprecated QR codes are reserved for student ID-card attendance. */
+  qrCodeDataUrl?: string;
   profilePictureDataUrl: string;
 }
 
-export function ResultCardExportTemplate({ profile, exam, rows, qrCodeDataUrl, profilePictureDataUrl }: ResultCardExportTemplateProps) {
+export function ResultCardExportTemplate({ profile, exam, rows, profilePictureDataUrl }: ResultCardExportTemplateProps) {
   if (!profile || !exam) return null;
 
   const totalMarks = rows.reduce((s, r) => s + (r.totalMarks || 0), 0);
@@ -60,7 +61,7 @@ export function ResultCardExportTemplate({ profile, exam, rows, qrCodeDataUrl, p
             <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
             <div>
               <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">Evershine Academy</h2>
-              <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valueable</p>
+              <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
               <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
             </div>
           </div>
@@ -160,12 +161,7 @@ export function ResultCardExportTemplate({ profile, exam, rows, qrCodeDataUrl, p
         <div className="flex-1 min-h-[16px]" />
         
         <div className="w-full flex justify-between items-end mb-4 relative z-10">
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="w-16 h-16 border-2 border-[#1e3a8a]/30 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
-              <img src={qrCodeDataUrl || undefined} alt="QR Verify" className="w-full h-full" />
-            </div>
-            <span className="text-[8px] font-bold text-[#1e3a8a] uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">Scan to Verify</span>
-          </div>
+          <span className="text-[8px] text-gray-400 uppercase tracking-widest">Official academic record</span>
 
           <div className="flex flex-col items-center">
             <div className="w-44 border-b border-gray-400 pb-1 flex items-end justify-center h-10">

@@ -14,6 +14,33 @@ export type TeacherDocType =
   | 'TEACHER_EXPERIENCE_LETTER'
   | 'TEACHER_PROFILE'
 
+export type AdministrationDocType = 'SUPER_ADMIN_CARD' | 'ACCOUNT_MANAGER_CARD'
+
+export interface AdministrationDocRegistryEntry {
+  type: AdministrationDocType
+  label: string
+  description: string
+  pageKey: 'super_admin_card' | 'account_manager_card'
+  orientation: 'landscape'
+}
+
+export const ADMINISTRATION_DOC_REGISTRY: AdministrationDocRegistryEntry[] = [
+  {
+    type: 'SUPER_ADMIN_CARD',
+    label: 'Super Administrator Card',
+    description: 'Red administration directory card with identity, role, campus, and contact fields.',
+    pageKey: 'super_admin_card',
+    orientation: 'landscape',
+  },
+  {
+    type: 'ACCOUNT_MANAGER_CARD',
+    label: 'Account Manager Card',
+    description: 'Red finance-staff directory card with employee and campus details.',
+    pageKey: 'account_manager_card',
+    orientation: 'landscape',
+  },
+]
+
 export interface TeacherDocRegistryEntry {
   type: TeacherDocType
   /** Human-readable label shown in admin UI */
@@ -32,7 +59,7 @@ export const TEACHER_DOC_REGISTRY: TeacherDocRegistryEntry[] = [
   {
     type: 'TEACHER_ID_CARD',
     label: 'Teacher ID Card',
-    description: 'Official emerald-themed staff identity card with photo, designation, and QR verification.',
+    description: 'Official emerald-themed staff identity card with photo, designation, and employee details.',
     icon: 'Briefcase',
     pageKey: 'teacher_id_card',
     orientation: 'landscape',

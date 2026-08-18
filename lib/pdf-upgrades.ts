@@ -4,7 +4,7 @@
  *
  * Enforces EverShine Academy branding standards:
  * - Title: EVERSHINE ACADEMY
- * - Slogan: "We Make your Children More Valueable"
+ * - Slogan: "We Make Your Children More Valuable"
  * - Address: Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony
  * - Contacts: Boys: 0328-4010522, Girls: 0324-8985526
  */
@@ -83,8 +83,8 @@ function drawBrandingHeader(pdf: jsPDF, title: string, subtitle: string, logoUrl
   // Slogan
   pdf.setFont('helvetica', 'italic')
   pdf.setFontSize(8.5)
-  setTextColor(pdf, 13, 148, 136, bw) // Teal
-  pdf.text('"We Make your Children More Valueable"', 105, 17, { align: 'center' })
+  setTextColor(pdf, 37, 99, 235, bw) // Student blue
+  pdf.text('"We Make Your Children More Valuable"', 105, 17, { align: 'center' })
 
   // Details
   pdf.setFont('helvetica', 'normal')
@@ -150,11 +150,11 @@ export function generateExamDateSheetPDF(options: DateSheetPDFOptions): jsPDF {
 
   // Sub-title / Instructions box
   let y = 48
-  setFillColor(pdf, 254, 243, 199, bw) // Amber
+  setFillColor(pdf, 239, 246, 255, bw) // Student blue soft
   pdf.roundedRect(15, y, 180, 15, 2, 2, 'F')
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(8)
-  setTextColor(pdf, 146, 64, 14, bw) // Dark amber
+  setTextColor(pdf, 30, 58, 138, bw) // Student navy
   pdf.text('IMPORTANT INSTRUCTIONS FOR STUDENTS:', 18, y + 4)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7.5)
@@ -419,21 +419,6 @@ export function generateResultCardPDF(options: ResultCardPDFOptions): jsPDF {
   const posText = options.classPosition !== null ? `${options.classPosition} Position` : 'Pending'
   pdf.text(posText, 170, y + 17)
 
-  // QR verification code + verification label
-  if (options.qrCodeUrl) {
-    try {
-      const type = options.qrCodeUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-      pdf.addImage(options.qrCodeUrl, type, 15, 230, 24, 24)
-      
-      pdf.setFont('helvetica', 'normal')
-      pdf.setFontSize(5.5)
-      setTextColor(pdf, 107, 114, 128, bw)
-      pdf.text('SCAN QR CODE TO VERIFY', 27, 258, { align: 'center' })
-    } catch (e) {
-      // ignore
-    }
-  }
-
   // Signatures at bottom
   drawSignatureLine(pdf, 'Class Teacher Signature', 75, 245, bw)
   drawSignatureLine(pdf, 'Principal Stamp & Sign', 155, 245, bw)
@@ -498,10 +483,10 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
 
   // Colors
   const cNavy  = { r: 30, g: 58, b: 138 }
-  const cTeal  = { r: 13, g: 148, b: 136 }
+  const cTeal  = { r: 37, g: 99, b: 235 }
   const cBlue  = { r: 59, g: 130, b: 246 }
-  const cAmber = { r: 251, g: 191, b: 36 }
-  const cAmberBg = { r: 255, g: 251, b: 235 }
+  const cAmber = { r: 191, g: 219, b: 254 }
+  const cAmberBg = { r: 239, g: 246, b: 255 }
   const cBorder = { r: 203, g: 213, b: 225 }
 
   // ── Background ──────────────────────────────────────────────────────────────
@@ -593,7 +578,7 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
   pdf.setFont('helvetica', 'italic')
   pdf.setFontSize(7.5)
   setTextColor(pdf, cTeal.r, cTeal.g, cTeal.b, bw)
-  pdf.text('"We Make your Children More Valueable"', 105, 18, { align: 'center' })
+  pdf.text('"We Make Your Children More Valuable"', 105, 18, { align: 'center' })
 
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7)
@@ -780,12 +765,12 @@ export function generateRollNumberSlipPDF(options: RollNumberSlipPDFOptions): js
 
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(7.5)
-  setTextColor(pdf, 146, 64, 14, bw)
+  setTextColor(pdf, cNavy.r, cNavy.g, cNavy.b, bw)
   pdf.text('IMPORTANT INSTRUCTIONS:', 17, y + 5)
 
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7)
-  setTextColor(pdf, 92, 45, 10, bw)
+  setTextColor(pdf, cNavy.r, cNavy.g, cNavy.b, bw)
   pdf.text('1.  Students must bring this printed Roll Number Slip and their official ID Card to the examination hall.', 17, y + 10)
   pdf.text('2.  Arrive at least 15 minutes before start time. Entry will NOT be permitted after the exam begins.', 17, y + 14.5)
   pdf.text('3.  Mobile phones, calculators, and unauthorized materials are strictly prohibited in the exam hall.', 17, y + 19)
