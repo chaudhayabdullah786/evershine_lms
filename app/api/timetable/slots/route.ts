@@ -5,6 +5,7 @@ import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { createTimetableSlotSchema, publishTimetableSchema } from '@/lib/validation/academic'
 import { assertAcademicYearEditable, validateTimetableSlot } from '@/lib/academic/engine'
 import { timetableConflictDetails, timetableConflictSummary } from '@/lib/academic/timetable-errors'
+import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Prisma, Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
@@ -18,22 +19,26 @@ export async function GET(request: NextRequest) {
   const classSectionId = searchParams.get('classSectionId')
   const publishedOnly = searchParams.get('published') === 'true'
 
-  const slots = await prisma.timetableSlot.findMany({
-    where: {
-      ...(academicYearId && { academicYearId }),
-      ...(classSectionId && { classSectionId }),
-      ...(publishedOnly && { isPublished: true }),
-    },
-    include: {
-      subjectOffering: { include: { subject: true } },
-      teacher: { select: { firstName: true, lastName: true } },
-      room: true,
-      classSection: { include: { shift: true, campus: { select: { name: true } } } },
-    },
-    orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-  })
+  try {
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        ...(academicYearId && { academicYearId }),
+        ...(classSectionId && { classSectionId }),
+        ...(publishedOnly && { isPublished: true }),
+      },
+      include: {
+        subjectOffering: { include: { subject: true } },
+        teacher: { select: { firstName: true, lastName: true } },
+        room: true,
+        classSection: { include: { shift: true, campus: { select: { name: true } } } },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    })
 
-  return successResponse(slots)
+    return successResponse(slots)
+  } catch (err) {
+    return timetablePersistenceError(err, 'load slots')
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -63,32 +68,36 @@ export async function POST(request: NextRequest) {
     return errors.forbidden('Academic year is locked')
   }
 
-  const conflicts = await validateTimetableSlot(slotData)
-  if (conflicts.length > 0) {
-    return errorResponseConflicts(conflicts)
+  try {
+    const conflicts = await validateTimetableSlot(slotData)
+    if (conflicts.length > 0) {
+      return errorResponseConflicts(conflicts)
+    }
+
+    const slot = await prisma.$transaction(async (tx) => {
+      const created = await tx.timetableSlot.create({
+        data: {
+          ...slotData,
+          roomId: slotData.roomId ?? null,
+          isPublished: false,
+        } satisfies Prisma.TimetableSlotUncheckedCreateInput,
+      })
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'CREATE',
+          entityType: 'TimetableSlot',
+          entityId: created.id,
+          changes: { ...slotData, roomId: slotData.roomId ?? null },
+        },
+      })
+      return created
+    })
+
+    return createdResponse(slot)
+  } catch (err) {
+    return timetablePersistenceError(err, 'create slot')
   }
-
-  const slot = await prisma.$transaction(async (tx) => {
-    const created = await tx.timetableSlot.create({
-      data: {
-        ...slotData,
-        roomId: slotData.roomId ?? null,
-        isPublished: false,
-      } satisfies Prisma.TimetableSlotUncheckedCreateInput,
-    })
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'CREATE',
-        entityType: 'TimetableSlot',
-        entityId: created.id,
-        changes: { ...slotData, roomId: slotData.roomId ?? null },
-      },
-    })
-    return created
-  })
-
-  return createdResponse(slot)
 }
 
 /** PUT — publish timetable (locks slots as read-only for teachers) */
@@ -107,27 +116,34 @@ export async function PUT(request: NextRequest) {
     return errors.forbidden('Academic year is locked')
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.timetableSlot.updateMany({
-      where: {
-        academicYearId: parsed.data.academicYearId,
-        ...(parsed.data.classSectionId && { classSectionId: parsed.data.classSectionId }),
-      },
-      data: { isPublished: true },
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.timetableSlot.updateMany({
+        where: {
+          academicYearId: parsed.data.academicYearId,
+          ...(parsed.data.classSectionId && { classSectionId: parsed.data.classSectionId }),
+        },
+        data: { isPublished: true },
+      })
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'PUBLISH',
+          entityType: 'Timetable',
+          entityId: parsed.data.academicYearId,
+          changes: {
+            academicYearId: parsed.data.academicYearId,
+            ...(parsed.data.classSectionId ? { classSectionId: parsed.data.classSectionId } : {}),
+          },
+        },
+      })
+      return updated
     })
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'PUBLISH',
-        entityType: 'Timetable',
-        entityId: parsed.data.academicYearId,
-        changes: parsed.data,
-      },
-    })
-    return updated
-  })
 
-  return successResponse(result, 'Timetable published')
+    return successResponse(result, 'Timetable published')
+  } catch (err) {
+    return timetablePersistenceError(err, 'publish timetable')
+  }
 }
 
 function errorResponseConflicts(

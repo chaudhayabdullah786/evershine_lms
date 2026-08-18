@@ -28,6 +28,7 @@
     "db:migrate:academic": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/migrate-legacy-academic.ts",
     "db:migrate:academic:dry": "ts-node -r tsconfig-paths/register --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-legacy-academic.ts --dry-run",
     "db:setup:academic": "npm run db:seed:academic && npm run db:migrate:academic",
+    "db:reconcile:timetable": "node scripts/reconcile-timetable-schema.js",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "postinstall": "prisma generate"

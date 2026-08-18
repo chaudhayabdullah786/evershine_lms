@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
+import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Role } from '@prisma/client'
 import { z } from 'zod'
 
@@ -134,8 +135,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (err) {
-    console.error('[PERIODS SEED] Transaction failed:', err)
-    return errors.internal()
+    return timetablePersistenceError(err, 'seed period offerings')
   }
 
   return successResponse(seededOfferings, `${seededOfferings.length} period block(s) ready`)
