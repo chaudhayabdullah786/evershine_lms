@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PAYMENT_DETAILS,
   parsePaymentDetails,
+  paymentDetailsRowsFromSnapshot,
   serializePaymentDetails,
 } from '@/lib/fees/payment-details'
 import {
@@ -40,6 +41,7 @@ describe('canonical document record mapping', () => {
       { label: 'Meezan Bank IBAN', value: 'PK39MEZN00003011275565' },
       { label: 'Meezan Bank Branch', value: 'Meezan Digital Centre' },
     ]))
+    expect(paymentDetailsRowsFromSnapshot(null)).toEqual(rows)
   })
 
   it('creates a two-page administration directory card', async () => {
@@ -51,5 +53,7 @@ describe('canonical document record mapping', () => {
       colorMode: 'bw',
     })
     expect(pdf.getNumberOfPages()).toBe(2)
+    expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(85.6, 1)
+    expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(54, 1)
   })
 })

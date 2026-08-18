@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { checkPermission } from '@/lib/rbac'
 import { errors, successResponse } from '@/lib/api-response'
 import { updateChallanSchema } from '@/lib/validation/fee'
+import { serializePaymentDetails } from '@/lib/fees/payment-details'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -85,7 +86,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  return successResponse(invoice)
+  // Older issued challans may predate the canonical payment snapshot. Keep
+  // their historical row intact while ensuring every displayed/issued copy
+  // contains the current verified instructions.
+  return successResponse({ ...invoice, bankAccounts: invoice.bankAccounts || serializePaymentDetails() })
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {

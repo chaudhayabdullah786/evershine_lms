@@ -14,6 +14,7 @@ import { errors, successResponse } from '@/lib/api-response'
 import type { Role } from '@prisma/client'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getCanonicalStudentClassSection } from '@/lib/academic/record-formatters'
+import { serializePaymentDetails } from '@/lib/fees/payment-details'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
       remainingDues: due,
       status: calculatedStatus,
       proofStatus: inv.proofStatus || 'No Proof Uploaded',
-      bankAccounts: inv.bankAccounts || 'Default Bank',
+      bankAccounts: inv.bankAccounts || serializePaymentDetails(),
       issuedDate: inv.createdAt,
     }
   })

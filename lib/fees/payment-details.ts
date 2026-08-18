@@ -26,7 +26,7 @@ export const DEFAULT_PAYMENT_DETAILS: PaymentDetails = {
     iban: 'PK39MEZN00003011275565',
     branch: 'Meezan Digital Centre',
   },
-  note: 'Please share the E-Receipt after completing the transaction.',
+  note: 'It is mandatory to share the E-Receipt after completing your transaction.',
 }
 
 /** Stable text snapshot stored on each invoice for audit/history. */
@@ -64,4 +64,10 @@ export function parsePaymentDetails(value?: string | null): PaymentDetailRow[] {
 
 export function paymentDetailsRows(details: PaymentDetails = DEFAULT_PAYMENT_DETAILS): PaymentDetailRow[] {
   return parsePaymentDetails(serializePaymentDetails(details))
+}
+
+/** Always render canonical instructions when an older invoice has no snapshot. */
+export function paymentDetailsRowsFromSnapshot(snapshot?: string | null): PaymentDetailRow[] {
+  const rows = parsePaymentDetails(snapshot)
+  return rows.length > 0 ? rows : paymentDetailsRows()
 }

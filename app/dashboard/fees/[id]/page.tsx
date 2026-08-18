@@ -15,7 +15,7 @@ import { PaymentProofUploadModal } from '@/components/fees/PaymentProofUploadMod
 import { ArrowLeft, Printer, Ban, Trash2, DollarSign, Loader2, FileText, CheckCircle, AlertTriangle, UploadCloud, Eye, Download } from 'lucide-react'
 import Link from 'next/link'
 import { notify } from '@/lib/notify'
-import { parsePaymentDetails } from '@/lib/fees/payment-details'
+import { paymentDetailsRowsFromSnapshot } from '@/lib/fees/payment-details'
 
 interface FeeItem {
   id: string
@@ -68,7 +68,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 const renderBankAccountsTable = (bankAccountsStr: string) => {
-  const rows = parsePaymentDetails(bankAccountsStr)
+  const rows = paymentDetailsRowsFromSnapshot(bankAccountsStr)
   if (rows.length === 0) {
     return <p className="text-[10px] text-gray-500 italic">Please deposit cash at the Accounts Office.</p>
   }
