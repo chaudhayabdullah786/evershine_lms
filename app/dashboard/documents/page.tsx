@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { sessionShiftFormalLabel } from '@/lib/validation/shift'
 import { buildDocumentFileName, exportPreviewDocument, type DocumentType } from '@/lib/documents/export-preview'
+import { DOCUMENT_PALETTE, documentUsesAttendanceQr } from '@/lib/pdf/document-design'
 
 interface Student {
   id: string
@@ -76,6 +77,17 @@ interface Teacher {
   campus: { id: string; name: string } | null
   batch: { id: string; name: string } | null
   isActive: boolean
+}
+
+interface AdministrationUser {
+  id: string
+  email: string
+  name: string
+  role: 'SUPER_ADMIN' | 'ACCOUNTANT'
+  isActive: boolean
+  profilePictureUrl?: string | null
+  adminProfile?: { employeeId?: string; campusName?: string; department?: string; phoneNumber?: string } | null
+  accountantProfile?: { employeeId?: string; campusName?: string; phoneNumber?: string } | null
 }
 
 
@@ -135,6 +147,7 @@ export default function DocumentsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const isAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'ADMIN'
+  const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
   const isStudent = session?.user?.role === 'STUDENT'
   const isAuthorizedDocumentUser = isAdmin || isStudent
 
@@ -156,6 +169,8 @@ export default function DocumentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [docType, setDocType] = useState<DocumentType>('id_card')
   const isTeacherDoc = docType === 'teacher_id_card' || docType === 'teacher_experience' || docType === 'teacher_profile'
+  const isAdministrationDoc = docType === 'super_admin_card' || docType === 'account_manager_card'
+  const isStaffDoc = isTeacherDoc || isAdministrationDoc
   const [reportSubtype, setReportSubtype] = useState<'fees' | 'attendance' | 'performance'>('fees')
   const [isGenerating, setIsGenerating] = useState(false)
   const [colorMode, setColorMode] = useState<'color' | 'bw'>(() => {
@@ -176,6 +191,9 @@ export default function DocumentsPage() {
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null)
   const [teacherSearch, setTeacherSearch] = useState('')
   const [teacherProfileDataUrl, setTeacherProfileDataUrl] = useState('')
+  const [selectedAdministrationUser, setSelectedAdministrationUser] = useState<AdministrationUser | null>(null)
+  const [administrationSearch, setAdministrationSearch] = useState('')
+  const [administrationProfileDataUrl, setAdministrationProfileDataUrl] = useState('')
   // Experience Letter editable fields
   const [expResponsibilities, setExpResponsibilities] = useState(
     'Delivered lectures in assigned subjects and prepared lesson plans\nConducted assessments and maintained student grade records\nCoordinated with parents and administration on student progress\nContributed to school events and extracurricular activities'
@@ -202,42 +220,22 @@ export default function DocumentsPage() {
   }, [selectedStudent])
 
   useEffect(() => {
-    const knownQrData = docType === 'birthday' && selectedStudent
-        ? `https://evershineacadmey.com/verify/birthday/${selectedStudent.registrationNumber}`
-        : docType === 'bonafide' && selectedStudent
-          ? `https://evershineacadmey.com/verify/bonafide/${selectedStudent.registrationNumber}`
-          : docType === 'result_card' && selectedStudent
-            ? `https://evershineacadmey.com/verify/result/${selectedStudent.registrationNumber}`
-            : docType === 'performance_card' && selectedStudent
-              ? `https://evershineacadmey.com/verify/performance/${selectedStudent.registrationNumber}`
-              : docType === 'id_card' && selectedStudent
-                ? `https://evershineacadmey.com/verify/id/${selectedStudent.registrationNumber}`
-                : `https://evershineacadmey.com/verify/report/${reportSubtype}`
-
-    const colorMap: Record<string, string> = {
-      id_card: '#1e3a8a',
-      birthday: '#d4af37',
-      bonafide: '#1e3a8a',
-      result_card: '#1e3a8a',
-      performance_card: '#1e3a8a',
-      reports: '#374151',
-      teacher_id_card: '#065F46',
-      teacher_experience: '#065F46',
-    }
-
-    if (knownQrData && (selectedStudent || docType === 'reports')) {
-      QRCode.toDataURL(knownQrData, {
+    // QR is intentionally limited to the student ID card. It is an
+    // attendance credential, not a document-verification shortcut.
+    setQrCodeDataUrl('')
+    if (documentUsesAttendanceQr(docType) && selectedStudent?.idCardQRCode) {
+      QRCode.toDataURL(selectedStudent.idCardQRCode, {
         width: 300,
         margin: 1,
-        color: { dark: colorMap[docType] || '#000000', light: '#ffffff' }
+        color: { dark: DOCUMENT_PALETTE.student.primary, light: '#ffffff' }
       }).then(url => setQrCodeDataUrl(url)).catch(console.error)
     }
-  }, [selectedStudent, docType, reportSubtype])
+  }, [selectedStudent, docType])
   
   // Document capture ref
   const documentCaptureRef = useRef<HTMLDivElement>(null)
 
-  const previewWidth = (docType === 'id_card' || docType === 'teacher_id_card') ? 680 : 595
+  const previewWidth = (docType === 'id_card' || docType === 'teacher_id_card' || isAdministrationDoc) ? 680 : 595
   const previewStyles: CSSProperties = {
     width: `${previewWidth}px`,
     minWidth: `${previewWidth}px`,
@@ -273,6 +271,14 @@ export default function DocumentsPage() {
   })
   const teacherSearchResults = teacherSearchData?.data ?? []
 
+  const administrationRole = docType === 'super_admin_card' ? 'SUPER_ADMIN' : 'ACCOUNTANT'
+  const { data: administrationSearchData, isLoading: isAdministrationSearchLoading } = useQuery({
+    queryKey: ['administration-search-docs', administrationRole, administrationSearch],
+    queryFn: () => fetchPaginatedApi<AdministrationUser>(`/api/users?role=${administrationRole}&limit=10&query=${encodeURIComponent(administrationSearch)}`),
+    enabled: administrationSearch.length >= 2 && isAdministrationDoc && (docType !== 'super_admin_card' || isSuperAdmin),
+  })
+  const administrationSearchResults = administrationSearchData?.data ?? []
+
   // Load teacher profile picture when teacher changes
   useEffect(() => {
     if (!selectedTeacher?.profilePicture) { setTeacherProfileDataUrl(''); return }
@@ -281,6 +287,14 @@ export default function DocumentsPage() {
       .then(blob => { const reader = new FileReader(); reader.onloadend = () => setTeacherProfileDataUrl(reader.result as string); reader.readAsDataURL(blob) })
       .catch(() => setTeacherProfileDataUrl(''))
   }, [selectedTeacher])
+
+  useEffect(() => {
+    if (!selectedAdministrationUser?.profilePictureUrl) { setAdministrationProfileDataUrl(''); return }
+    fetch(selectedAdministrationUser.profilePictureUrl)
+      .then(r => r.blob())
+      .then(blob => { const reader = new FileReader(); reader.onloadend = () => setAdministrationProfileDataUrl(reader.result as string); reader.readAsDataURL(blob) })
+      .catch(() => setAdministrationProfileDataUrl(''))
+  }, [selectedAdministrationUser])
 
   // For students: resolve their own student record via /api/students/profile
   // WHY: session.user.id is the Auth user ID, NOT the student record ID.
@@ -397,12 +411,16 @@ export default function DocumentsPage() {
       notify.error('Preview container is not initialized.')
       return
     }
-    if (!selectedStudent && !isTeacherDoc && docType !== 'reports' && docType !== 'exports') {
+    if (!selectedStudent && !isStaffDoc && docType !== 'reports' && docType !== 'exports') {
       notify.error('Please select a student to generate their document.')
       return
     }
     if (isTeacherDoc && !selectedTeacher) {
       notify.error('Please select a staff member to generate their document.')
+      return
+    }
+    if (isAdministrationDoc && !selectedAdministrationUser) {
+      notify.error('Please select an administration user to generate their document.')
       return
     }
 
@@ -417,8 +435,10 @@ export default function DocumentsPage() {
         ? `${selectedStudent.firstName} ${selectedStudent.lastName}`
         : selectedTeacher
           ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}`
-          : 'Administrative_Report'
-      const safeIdentifier = selectedStudent?.registrationNumber ?? selectedStudent?.id ?? selectedTeacher?.employeeId ?? 'unknown'
+          : selectedAdministrationUser
+            ? selectedAdministrationUser.name
+            : 'Administrative_Report'
+      const safeIdentifier = selectedStudent?.registrationNumber ?? selectedStudent?.id ?? selectedTeacher?.employeeId ?? selectedAdministrationUser?.id ?? 'unknown'
 
       if (docType === 'reports' && !liveReport) {
         notify.error('Report data is still loading. Please wait and try again.')
@@ -452,30 +472,8 @@ export default function DocumentsPage() {
         }))
       }
 
-      const knownQrData = encodeURIComponent(
-        docType === 'birthday'
-          ? `https://evershineacadmey.com/verify/birthday/${safeIdentifier}`
-          : docType === 'bonafide'
-            ? `https://evershineacadmey.com/verify/bonafide/${safeIdentifier}`
-            : docType === 'result_card'
-              ? `https://evershineacadmey.com/verify/result/${safeIdentifier}`
-              : docType === 'performance_card'
-                ? `https://evershineacadmey.com/verify/performance/${safeIdentifier}`
-                : docType === 'id_card'
-                  ? `https://evershineacadmey.com/verify/id/${safeIdentifier}`
-                  : docType === 'teacher_id_card'
-                    ? `https://evershineacadmey.com/verify/staff/${safeIdentifier}`
-                    : docType === 'teacher_experience'
-                      ? `https://evershineacadmey.com/verify/exp/${safeIdentifier}`
-                      : docType === 'student_profile'
-                        ? `https://evershineacadmey.com/verify/profile/${safeIdentifier}`
-                        : docType === 'teacher_profile'
-                          ? `https://evershineacadmey.com/verify/staff-profile/${safeIdentifier}`
-                          : `https://evershineacadmey.com/verify/report/${reportSubtype}`,
-      )
-
-      if (!selectedStudent && !isTeacherDoc && docType !== 'reports' && docType !== 'exports') {
-        throw new Error('Student or teacher required for document generation')
+      if (!selectedStudent && !isStaffDoc && docType !== 'reports' && docType !== 'exports') {
+        throw new Error('A document subject is required for document generation')
       }
 
       const fileName = buildDocumentFileName(docType, reportSubtype, safeIdentifier)
@@ -770,7 +768,7 @@ export default function DocumentsPage() {
               </button>
               {/* ── Teacher Document Tabs (admin only) ── */}
               <button
-                onClick={() => { setDocType('teacher_id_card'); setSelectedTeacher(null); setTeacherSearch('') }}
+                onClick={() => { setDocType('teacher_id_card'); setSelectedStudent(null); setSelectedAdministrationUser(null); setSelectedTeacher(null); setTeacherSearch('') }}
                 className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-lg border text-[10px] sm:text-xs font-bold transition-all ${
                   docType === 'teacher_id_card'
                     ? 'bg-emerald-600/5 text-emerald-700 border-emerald-500 shadow-sm shadow-emerald-50'
@@ -780,7 +778,7 @@ export default function DocumentsPage() {
                 <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 mb-1" /> <span>Staff ID</span>
               </button>
               <button
-                onClick={() => { setDocType('teacher_experience'); setSelectedTeacher(null); setTeacherSearch('') }}
+                onClick={() => { setDocType('teacher_experience'); setSelectedStudent(null); setSelectedAdministrationUser(null); setSelectedTeacher(null); setTeacherSearch('') }}
                 className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-lg border text-[10px] sm:text-xs font-bold transition-all ${
                   docType === 'teacher_experience'
                     ? 'bg-emerald-600/5 text-emerald-700 border-emerald-500 shadow-sm shadow-emerald-50'
@@ -790,7 +788,7 @@ export default function DocumentsPage() {
                 <FileText className="w-4 h-4 sm:w-5 sm:h-5 mb-1" /> <span>Exp. Letter</span>
               </button>
               <button
-                onClick={() => { setDocType('teacher_profile'); setSelectedTeacher(null); setTeacherSearch('') }}
+                onClick={() => { setDocType('teacher_profile'); setSelectedStudent(null); setSelectedAdministrationUser(null); setSelectedTeacher(null); setTeacherSearch('') }}
                 className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-lg border text-[10px] sm:text-xs font-bold transition-all ${
                   docType === 'teacher_profile'
                     ? 'bg-emerald-600/5 text-emerald-700 border-emerald-500 shadow-sm shadow-emerald-50'
@@ -799,13 +797,29 @@ export default function DocumentsPage() {
               >
                 <User className="w-4 h-4 sm:w-5 sm:h-5 mb-1" /> <span>Staff Profile</span>
               </button>
+              {isSuperAdmin && <button
+                onClick={() => { setDocType('super_admin_card'); setSelectedStudent(null); setSelectedTeacher(null); setSelectedAdministrationUser(null); setAdministrationSearch('') }}
+                className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-lg border text-[10px] sm:text-xs font-bold transition-all ${
+                  docType === 'super_admin_card' ? 'bg-red-600/5 text-red-700 border-red-500 shadow-sm shadow-red-50' : 'bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 mb-1" /> <span>Super Admin Card</span>
+              </button>}
+              <button
+                onClick={() => { setDocType('account_manager_card'); setSelectedStudent(null); setSelectedTeacher(null); setSelectedAdministrationUser(null); setAdministrationSearch('') }}
+                className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-lg border text-[10px] sm:text-xs font-bold transition-all ${
+                  docType === 'account_manager_card' ? 'bg-red-600/5 text-red-700 border-red-500 shadow-sm shadow-red-50' : 'bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <CircleDollarSign className="w-4 h-4 sm:w-5 sm:h-5 mb-1" /> <span>Account Manager</span>
+              </button>
               </>
               )}
             </CardContent>
           </Card>
 
           {/* Student Search Gated */}
-          {docType !== 'reports' && docType !== 'exports' && !isStudent && !isTeacherDoc && (
+          {docType !== 'reports' && docType !== 'exports' && !isStudent && !isStaffDoc && (
             <Card className="rounded-xl border shadow-sm bg-white overflow-hidden">
               <CardHeader className="border-b bg-gray-50/50 py-2.5 sm:py-3.5 px-3 sm:px-4">
                 <CardTitle className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-gray-400">Target Student</CardTitle>
@@ -992,6 +1006,48 @@ export default function DocumentsPage() {
             </Card>
           )}
 
+          {!isStudent && isAdministrationDoc && (
+            <Card className="rounded-xl border shadow-sm bg-white overflow-hidden border-red-100">
+              <CardHeader className="border-b bg-red-50/50 py-2.5 sm:py-3.5 px-3 sm:px-4">
+                <CardTitle className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-red-700">Target Administration User</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3 sm:pt-4 space-y-2.5">
+                {!selectedAdministrationUser ? (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder={`Search ${administrationRole === 'SUPER_ADMIN' ? 'super administrators' : 'account managers'}...`}
+                        value={administrationSearch}
+                        onChange={(e) => setAdministrationSearch(e.target.value)}
+                        className="pl-9 text-xs h-9 sm:h-10 bg-white border-red-200 focus:border-red-500"
+                      />
+                    </div>
+                    {isAdministrationSearchLoading && <Skeleton className="h-16 w-full rounded-lg" />}
+                    {administrationSearchResults.length > 0 && (
+                      <div className="border border-red-100 rounded-lg divide-y overflow-hidden shadow-sm bg-white max-h-48 overflow-y-auto">
+                        {administrationSearchResults.map((u) => (
+                          <button key={u.id} onClick={() => { setSelectedAdministrationUser(u); setAdministrationSearch('') }} className="w-full text-left px-3 sm:px-4 py-2 hover:bg-red-50/30 flex justify-between items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-gray-900 truncate">{u.name}</p>
+                              <p className="text-[9px] text-gray-400 font-medium">{u.email}</p>
+                            </div>
+                            <span className="text-[8px] font-mono font-bold bg-red-50 border border-red-100 px-1 py-0.5 rounded text-red-700">{u.role}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-red-50 border border-red-100 rounded-xl gap-2">
+                    <div className="min-w-0"><p className="text-xs sm:text-sm font-black text-red-900 truncate">{selectedAdministrationUser.name}</p><p className="text-[9px] text-red-700 font-bold mt-0.5">{selectedAdministrationUser.email}</p></div>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedAdministrationUser(null)} className="text-[9px] font-bold text-gray-500 hover:text-red-700 h-8">Change</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Subtype for system reports */}
           {docType === 'reports' && (
             <Card className="rounded-xl border shadow-sm bg-white overflow-hidden">
@@ -1096,7 +1152,7 @@ export default function DocumentsPage() {
           <h3 className="text-xs sm:text-sm font-black uppercase text-gray-400 tracking-wider px-1">Live Document Canvas (A4 Aspect)</h3>
           
           <div className="bg-gray-100 p-3 sm:p-6 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-start overflow-auto max-h-[50vh] sm:max-h-[70vh] md:max-h-[80vh] w-full shadow-inner">
-            {selectedStudent || docType === 'reports' || docType === 'exports' || (isTeacherDoc && selectedTeacher) ? (
+            {selectedStudent || docType === 'reports' || docType === 'exports' || (isTeacherDoc && selectedTeacher) || (isAdministrationDoc && selectedAdministrationUser) ? (
               <>
                 {docType === 'exports' ? (
                   <div className="w-full max-w-xl bg-white rounded-xl border shadow-sm p-6 flex flex-col space-y-6 text-left">
@@ -1244,7 +1300,7 @@ export default function DocumentsPage() {
                     {/* Front Face */}
                     <div
                       id="id-card-template-front"
-                      className="w-[680px] h-[428px] bg-white shrink-0 rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-[#cbd5e1] overflow-hidden"
+                      className="w-[680px] h-[428px] bg-white shrink-0 rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-[#a7f3d0] overflow-hidden"
                       style={{ width: '680px', height: '428px', fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
                       data-card="front"
                       data-pdf-width="680"
@@ -1354,20 +1410,16 @@ export default function DocumentsPage() {
                           
                           <div className="w-[130px] h-[130px] bg-white p-2.5 border-[3px] border-[#dbeafe] rounded-2xl shadow-sm flex items-center justify-center relative mb-5">
                             {qrCodeDataUrl ? (
-                              <img 
-                                src={qrCodeDataUrl}
-                                alt="Verification QR Code"
-                                className="w-full h-full object-contain"
-                              />
+                              <img src={qrCodeDataUrl} alt="Attendance QR Code" className="w-full h-full object-contain" />
                             ) : (
                               <div className="w-full h-full bg-gray-50 flex items-center justify-center rounded-xl border border-dashed border-[#d1d5db]">
-                                <span className="text-[10px] text-[#9ca3af] font-medium">Generating...</span>
+                                <span className="text-[10px] text-[#9ca3af] font-medium text-center">Attendance QR unavailable</span>
                               </div>
                             )}
                           </div>
                           <div className="w-[160px] bg-[#1e3a8a] text-white px-4 py-2.5 rounded-lg text-center shadow-md border border-[#1e40af]">
-                            <span className="text-[10px] font-black tracking-[0.2em] uppercase block leading-[1.2]">Scan to Verify</span>
-                            <span className="text-[8px] font-medium text-[#bfdbfe] mt-1 block opacity-90 leading-[1.2]">Official System Record</span>
+                            <span className="text-[10px] font-black tracking-[0.2em] uppercase block leading-[1.2]">Scan for Attendance</span>
+                            <span className="text-[8px] font-medium text-[#bfdbfe] mt-1 block opacity-90 leading-[1.2]">Student attendance credential</span>
                           </div>
                       </div>
 
@@ -1422,8 +1474,8 @@ export default function DocumentsPage() {
                 {docType === 'birthday' && selectedStudent && (
                   <div
                     data-document-page
-                    className="w-[595px] min-h-[842px] bg-[#fffdf8] border-[12px] border-solid border-[#d4af37] flex flex-col items-center relative overflow-hidden shrink-0"
-                    style={{ fontFamily: 'Georgia, serif', minHeight: '842px', boxSizing: 'border-box', boxShadow: 'inset 0 0 40px rgba(212,175,55,0.15)' }}
+                    className="w-[595px] min-h-[842px] bg-[#eff6ff] border-[12px] border-solid border-[#1e3a8a] flex flex-col items-center relative overflow-hidden shrink-0"
+                    style={{ fontFamily: 'Georgia, serif', minHeight: '842px', boxSizing: 'border-box', boxShadow: 'inset 0 0 40px rgba(30,58,138,0.15)' }}
                   >
                     <div className="absolute inset-x-0 top-24 flex justify-center pointer-events-none opacity-5">
                       <div className="w-[300px] h-[300px]">
@@ -1431,35 +1483,35 @@ export default function DocumentsPage() {
                       </div>
                     </div>
                     
-                    {/* Golden Ornamental Inner Borders */}
-                    <div className="absolute inset-[6px] border border-[#d4af37]/40 pointer-events-none" />
-                    <div className="absolute inset-[10px] border border-[#d4af37]/20 pointer-events-none" />
+                    {/* Student-blue ornamental inner borders */}
+                    <div className="absolute inset-[6px] border border-[#1e3a8a]/40 pointer-events-none" />
+                    <div className="absolute inset-[10px] border border-[#1e3a8a]/20 pointer-events-none" />
 
                     {/* Corner Ornaments */}
-                    <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-[#d4af37]" />
-                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-[#d4af37]" />
-                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-[#d4af37]" />
-                    <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-[#d4af37]" />
+                    <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-[#1e3a8a]" />
+                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-[#1e3a8a]" />
+                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-[#1e3a8a]" />
+                    <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-[#1e3a8a]" />
 
                     {/* Logo & Header */}
-                    <div className="mt-8 w-full max-w-xs rounded-2xl border border-[#d4af37]/30 bg-white/90 p-3 shadow-md flex flex-col items-center gap-1 relative z-10">
-                      <div className="rounded-full border border-[#d4af37]/40 bg-[#fffdf8] p-1.5 flex items-center justify-center shadow-inner">
-                        <AcademyLogo className="w-8 h-8 text-[#d4af37]" />
+                    <div className="mt-8 w-full max-w-xs rounded-2xl border border-[#1e3a8a]/30 bg-white/90 p-3 shadow-md flex flex-col items-center gap-1 relative z-10">
+                      <div className="rounded-full border border-[#1e3a8a]/40 bg-white p-1.5 flex items-center justify-center shadow-inner">
+                        <AcademyLogo className="w-8 h-8 text-[#1e3a8a]" />
                       </div>
                       <div className="text-center">
-                        <h2 className="text-[#d4af37] text-[16px] font-black uppercase tracking-[0.2em]">EverShine Academy</h2>
-                        <p className="text-[7.5px] text-gray-500 uppercase tracking-widest font-black mt-0.5">We Make your Children More Valuable</p>
+                        <h2 className="text-[#1e3a8a] text-[16px] font-black uppercase tracking-[0.2em]">EverShine Academy</h2>
+                        <p className="text-[7.5px] text-gray-500 uppercase tracking-widest font-black mt-0.5">We Make Your Children More Valuable</p>
                         <p className="text-[6.5px] text-gray-600 font-bold leading-normal mt-0.5 max-w-[240px] mx-auto">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
-                        <p className="text-[7.5px] text-[#d4af37] font-black mt-0.5">📱 Boys: 0328-4010522 · Girls: 0324-8985526</p>
+                        <p className="text-[7.5px] text-[#1e3a8a] font-black mt-0.5">📱 Boys: 0328-4010522 · Girls: 0324-8985526</p>
                       </div>
                     </div>
 
-                    <div className="w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent my-4 relative z-10" />
+                    <div className="w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#1e3a8a] to-transparent my-4 relative z-10" />
 
                     {/* Student Photo */}
-                    <div className="w-20 h-20 rounded-full border-4 border-[#d4af37] overflow-hidden bg-[#fffdf8] flex items-center justify-center shadow-md relative z-10">
+                    <div className="w-20 h-20 rounded-full border-4 border-[#1e3a8a] overflow-hidden bg-white flex items-center justify-center shadow-md relative z-10">
                       <img
-                        src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#d4af37')}
+                        src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#1e3a8a')}
                         alt={`${selectedStudent.firstName} ${selectedStudent.lastName}`}
                         className="w-full h-full"
                         style={{ objectFit: 'cover' }}
@@ -1480,10 +1532,10 @@ export default function DocumentsPage() {
                         <h2 className="text-[22px] sm:text-[24px] font-black text-[#1e3a8a] tracking-[0.08em] leading-tight">
                           {formatPersonNameLocal(selectedStudent.firstName, selectedStudent.lastName)}
                         </h2>
-                        <div className="mt-3 h-[2px] w-32 sm:w-40 md:w-48 lg:w-56 bg-[#d4af37] rounded-full mx-auto" />
+                        <div className="mt-3 h-[2px] w-32 sm:w-40 md:w-48 lg:w-56 bg-[#1e3a8a] rounded-full mx-auto" />
                       </div>
                       <p className="text-[9px] text-gray-500 font-bold uppercase mt-3 tracking-[0.2em] bg-gray-50/80 px-3 py-1 rounded-full border border-gray-200 whitespace-nowrap">
-                        Class: {selectedStudent.class?.name || 'Scholar'} <span className="mx-1 text-[#d4af37]">•</span> Roll No: {selectedStudent.rollNumber || '—'}
+                        Class: {selectedStudent.class?.name || 'Scholar'} <span className="mx-1 text-[#1e3a8a]">•</span> Roll No: {selectedStudent.rollNumber || '—'}
                       </p>
                     </div>
 
@@ -1493,7 +1545,7 @@ export default function DocumentsPage() {
                     </p>
 
                     {/* Date Details */}
-                    <div className="mt-4 flex flex-col items-center bg-[#fdfaf1] px-6 py-3 rounded-lg border border-[#d4af37]/20 shadow-sm relative z-10">
+                    <div className="mt-4 flex flex-col items-center bg-white px-6 py-3 rounded-lg border border-[#1e3a8a]/20 shadow-sm relative z-10">
                       <span className="text-[9px] uppercase font-bold text-gray-500 tracking-[0.2em]">Date of Birth</span>
                       <span className="text-[14px] font-black text-gray-900 mt-1 uppercase tracking-[0.12em] leading-tight text-center whitespace-nowrap">
                         {selectedStudent.dateOfBirth && !isNaN(new Date(selectedStudent.dateOfBirth).getTime()) ? new Date(selectedStudent.dateOfBirth).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Unknown Date'}
@@ -1501,18 +1553,7 @@ export default function DocumentsPage() {
                     </div>
 
                     <div className="flex-1 min-h-[16px]" />
-                    {/* QR + Signatures row */}
                     <div className="w-full px-8 flex items-end justify-between mb-6 relative z-10">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-16 h-16 bg-white rounded-lg p-1 border border-[#d4af37]/40 shadow-sm">
-                          <img
-                            src={qrCodeDataUrl}
-                            alt="Scan to Verify"
-                            className="w-full h-full"
-                          />
-                        </div>
-                        <span className="text-[8px] font-bold text-[#d4af37] uppercase tracking-widest bg-yellow-50/50 px-2 py-0.5 rounded border border-yellow-200">Verify</span>
-                      </div>
                       <div className="flex gap-6 flex-nowrap shrink-0">
                         <div className="flex flex-col items-center">
                           <div className="w-28 border-b border-gray-400 pb-1 flex items-end justify-center h-10">
@@ -1555,7 +1596,7 @@ export default function DocumentsPage() {
                           <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                           <div>
                             <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
+                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                           </div>
                         </div>
@@ -1641,18 +1682,6 @@ export default function DocumentsPage() {
                       <div className="flex-1 min-h-[16px]" />
                       {/* Verification Block */}
                       <div className="w-full flex justify-between items-end mb-4 relative z-10">
-                        {/* Secure QR */}
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-16 h-16 border-2 border-[#1e3a8a]/30 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
-                            <img
-                              src={qrCodeDataUrl || undefined}
-                              alt="QR Verify"
-                              className="w-full h-full"
-                            />
-                          </div>
-                          <span className="text-[8px] font-bold text-[#1e3a8a] uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">Scan to Verify</span>
-                        </div>
-
                         {/* Signature block */}
                         <div className="block text-center">
                           <div className="w-44 border-b border-gray-400 pb-2 mx-auto mb-2">
@@ -1676,8 +1705,8 @@ export default function DocumentsPage() {
                       boxSizing: 'border-box',
                       height: '842px',
                       overflow: 'hidden',
-                      border: '4px solid black',
-                      outline: '1px solid black',
+                      border: '4px solid #1e3a8a',
+                      outline: '1px solid #1e3a8a',
                       outlineOffset: '-10px',
                     }}
                   >
@@ -1690,7 +1719,7 @@ export default function DocumentsPage() {
                       {/* HEADER */}
                       <div className="w-full flex items-center gap-4 pb-3 border-b-2 border-black">
                         <div className="w-20 h-20 shrink-0">
-                          <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-black" />
+                          <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-[#1e3a8a]" />
                         </div>
                         <div className="flex-1 text-center">
                           <h1 className="text-[22px] font-black uppercase tracking-wide text-black leading-tight mb-1">EVERSHINE ACADEMY</h1>
@@ -1841,15 +1870,8 @@ export default function DocumentsPage() {
                             <span style={{ fontSize: '8px', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>Principal</span>
                           </div>
                         </div>
-                        {/* QR + Disclaimer */}
-                        <div className="w-full flex items-center justify-between" style={{ marginTop: '6px', paddingTop: '5px', borderTop: '1px solid #e5e7eb' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                            <div style={{ width: '38px', height: '38px', border: '1px solid #d1d5db', padding: '2px', background: '#fff' }}>
-                              <img src={qrCodeDataUrl} alt="QR" style={{ width: '100%', height: '100%' }} />
-                            </div>
-                            <span style={{ fontSize: '6px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>Scan to Verify</span>
-                          </div>
-                          <p style={{ fontSize: '6.5px', color: '#9ca3af', textAlign: 'right', lineHeight: '1.4', fontStyle: 'italic', maxWidth: '72%' }}>This document is computer-generated by EverShine Academy. For authenticity, scan the QR code.</p>
+                        <div className="w-full flex justify-end" style={{ marginTop: '6px', paddingTop: '5px', borderTop: '1px solid #e5e7eb' }}>
+                          <p style={{ fontSize: '6.5px', color: '#9ca3af', textAlign: 'right', lineHeight: '1.4', fontStyle: 'italic' }}>This document is computer-generated by EverShine Academy.</p>
                         </div>
                       </div>
                     </div>
@@ -1889,7 +1911,7 @@ export default function DocumentsPage() {
                             <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                             <div>
                               <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                              <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
+                              <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
                               <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                             </div>
                           </div>
@@ -1995,17 +2017,6 @@ export default function DocumentsPage() {
                         <div className="flex-1 min-h-[16px]" />
                         {/* QR + Signature Footer */}
                         <div className="w-full flex justify-between items-end mb-4 relative z-10">
-                          {/* Secure QR */}
-                          <div className="flex flex-col items-center gap-1.5">
-                            <div className="w-16 h-16 border-2 border-[#1e3a8a]/30 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
-                              <img
-                                src={qrCodeDataUrl}
-                                alt="QR Verify"
-                                className="w-full h-full"
-                              />
-                            </div>
-                            <span className="text-[8px] font-bold text-[#1e3a8a] uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">Scan to Verify</span>
-                          </div>
                           {/* Signature block */}
                           <div className="block text-center">
                             <div className="w-44 border-b border-gray-400 pb-2 mx-auto mb-2">
@@ -2036,7 +2047,7 @@ export default function DocumentsPage() {
                           <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
                           <div>
                             <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
+                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                           </div>
                         </div>
@@ -2280,23 +2291,11 @@ export default function DocumentsPage() {
                       })()}
 
                       <div className="flex-1 min-h-[16px]" />
-                      {/* Bottom stamp with Secure QR */}
+                      {/* Bottom stamp and report provenance */}
                       <div className="w-full flex justify-between items-end mb-4 relative z-10">
                         <div className="text-[8px] text-gray-500 max-w-[200px] leading-relaxed">
                           <p className="font-black text-gray-600 uppercase tracking-widest mb-0.5 border-b border-gray-300 pb-0.5 inline-block">Evershine Reports Engine</p>
                           <p>Automated document generated securely from live academic database records. Not valid without official seal.</p>
-                        </div>
-
-                        {/* Secure QR */}
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-16 h-16 border border-[#1e3a8a]/30 p-1 rounded bg-white shadow-sm flex-shrink-0">
-                            <img
-                              src={qrCodeDataUrl}
-                              alt="QR Verify"
-                              className="w-full h-full"
-                            />
-                          </div>
-                          <span className="text-[8px] font-bold text-[#1e3a8a] uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">Scan to Verify</span>
                         </div>
 
                         <div className="flex flex-col items-center">
@@ -2306,6 +2305,36 @@ export default function DocumentsPage() {
                           <span className="text-[9px] uppercase font-bold text-gray-600 mt-1 tracking-widest">Superintendent Sign</span>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── ADMINISTRATION DIRECTORY CARD PREVIEW (CR80 FORMAT) ─── */}
+                {isAdministrationDoc && selectedAdministrationUser && (
+                  <div data-document-page className="w-[680px] h-[428px] bg-[#fef2f2] rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-red-200 overflow-hidden shrink-0" style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}>
+                    <div className="w-[18px] h-full bg-[#7f1d1d] shrink-0" />
+                    <div className="w-[210px] h-full bg-red-50 flex flex-col items-center justify-center p-6 border-r-2 border-red-100">
+                      <div className="w-[130px] h-[150px] rounded-2xl border-[3px] border-red-200 bg-white overflow-hidden flex items-center justify-center shadow-sm">
+                        {administrationProfileDataUrl ? <img src={administrationProfileDataUrl} alt="Administration user" className="w-full h-full object-cover" /> : <span className="text-3xl font-black text-red-800">{selectedAdministrationUser.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>}
+                      </div>
+                      <div className="mt-5 w-[160px] bg-[#7f1d1d] text-white px-4 py-2.5 rounded-lg text-center shadow-md">
+                        <span className="text-[10px] font-black tracking-[0.18em] uppercase block">Official staff record</span>
+                        <span className="text-[8px] text-red-100 mt-1 block">No QR code issued</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 p-8 bg-white flex flex-col">
+                      <div className="border-b-2 border-red-100 pb-4 mb-5">
+                        <p className="text-[11px] font-black tracking-[0.2em] text-red-700 uppercase">Evershine Academy</p>
+                        <h2 className="text-[27px] font-black text-slate-900 mt-2">{selectedAdministrationUser.name}</h2>
+                        <p className="text-[12px] font-bold text-red-800 mt-1">{selectedAdministrationUser.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Account Manager'}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-[12px]">
+                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Email</p><p className="font-bold text-slate-900 break-all mt-1">{selectedAdministrationUser.email}</p></div>
+                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Employee ID</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.employeeId || selectedAdministrationUser.accountantProfile?.employeeId || '—'}</p></div>
+                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Department</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.department || 'Finance & Administration'}</p></div>
+                        <div><p className="text-[9px] uppercase tracking-wider font-black text-red-700">Campus</p><p className="font-bold text-slate-900 mt-1">{selectedAdministrationUser.adminProfile?.campusName || selectedAdministrationUser.accountantProfile?.campusName || 'All Campuses'}</p></div>
+                      </div>
+                      <div className="mt-auto pt-5 border-t border-red-100 flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-widest"><span>Active account: {selectedAdministrationUser.isActive ? 'Yes' : 'No'}</span><span>Issued by academy administration</span></div>
                     </div>
                   </div>
                 )}
@@ -2326,55 +2355,55 @@ export default function DocumentsPage() {
                       data-pdf-physical-unit="mm"
                     >
                       {/* Left Sidebar Accent */}
-                      <div className="w-[18px] h-[428px] bg-[#0f172a] shrink-0 z-20 relative" />
+                      <div className="w-[18px] h-[428px] bg-[#064e3b] shrink-0 z-20 relative" />
                       
                       {/* Main Front Content */}
-                      <div className="w-[452px] flex flex-col pt-7 pb-6 pl-8 pr-6 relative z-10 h-[428px] bg-[#f8fafc]">
+                      <div className="w-[452px] flex flex-col pt-7 pb-6 pl-8 pr-6 relative z-10 h-[428px] bg-[#ecfdf5]">
                         
                         {/* Header: Logo and Institute Name */}
-                        <div className="flex items-center border-b-2 border-[#cbd5e1] pb-4 mb-5 relative z-10 shrink-0">
-                          <div className="w-[54px] h-[54px] flex items-center justify-center shrink-0 bg-white rounded-xl shadow-sm border border-[#e2e8f0] p-1.5 mr-4">
-                            <AcademyLogo className="w-full h-full text-[#0f172a]" />
+                        <div className="flex items-center border-b-2 border-[#a7f3d0] pb-4 mb-5 relative z-10 shrink-0">
+                          <div className="w-[54px] h-[54px] flex items-center justify-center shrink-0 bg-white rounded-xl shadow-sm border border-[#a7f3d0] p-1.5 mr-4">
+                            <AcademyLogo className="w-full h-full text-[#047857]" />
                           </div>
                           <div className="flex flex-col w-[330px]">
-                            <h2 className="text-[24px] font-black tracking-tight text-[#0f172a] leading-[1.2] m-0 uppercase whitespace-nowrap">EverShine Academy</h2>
-                            <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#475569] leading-[1.2] mt-1 block whitespace-nowrap">Staff Identity Card</span>
+                            <h2 className="text-[24px] font-black tracking-tight text-[#064e3b] leading-[1.2] m-0 uppercase whitespace-nowrap">EverShine Academy</h2>
+                            <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#047857] leading-[1.2] mt-1 block whitespace-nowrap">Staff Identity Card</span>
                           </div>
                         </div>
 
                         {/* Details Table (Html2canvas Safe) */}
                         <div className="flex flex-col gap-[12px] text-[14px] font-bold text-[#1f2937] relative z-10 flex-1 w-full">
                           <div className="flex items-start">
-                             <div className="w-[110px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Name</div>
-                             <div className="text-[#94a3b8] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
-                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.firstName} {selectedTeacher.lastName}</div>
+                             <div className="w-[110px] text-[#047857] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Name</div>
+                             <div className="text-[#a7f3d0] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
+                             <div className="text-[#064e3b] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.firstName} {selectedTeacher.lastName}</div>
                           </div>
                           <div className="flex items-start">
-                             <div className="w-[110px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Designation</div>
-                             <div className="text-[#94a3b8] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
-                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.designation || 'Staff'}</div>
+                             <div className="w-[110px] text-[#047857] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Designation</div>
+                             <div className="text-[#a7f3d0] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
+                             <div className="text-[#064e3b] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.designation || 'Staff'}</div>
                           </div>
                           <div className="flex items-start">
-                             <div className="w-[110px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Employee ID</div>
-                             <div className="text-[#94a3b8] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
-                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.employeeId}</div>
+                             <div className="w-[110px] text-[#047857] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Employee ID</div>
+                             <div className="text-[#a7f3d0] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
+                             <div className="text-[#064e3b] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.employeeId}</div>
                           </div>
                           <div className="flex items-start">
-                             <div className="w-[110px] text-[#6b7280] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Contact</div>
-                             <div className="text-[#94a3b8] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
-                             <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.phoneNumber || 'N/A'}</div>
+                             <div className="w-[110px] text-[#047857] uppercase tracking-wider text-[11px] font-bold leading-[1.2] pt-[2px]">Contact</div>
+                             <div className="text-[#a7f3d0] font-normal mr-3 leading-[1.2] pt-[2px]">:</div>
+                             <div className="text-[#064e3b] font-black text-[15px] leading-[1.2] w-[270px] break-words">{selectedTeacher.phoneNumber || 'N/A'}</div>
                           </div>
                         </div>
 
                         {/* Footer Functional */}
                         <div className="mt-auto flex justify-between items-end relative z-10 w-full shrink-0">
                             <div className="block">
-                               <div className="text-[10px] text-[#6b7280] font-bold leading-[1.2] mb-1 block">Issued:</div>
-                               <div className="text-[13px] font-black text-[#0f172a] leading-[1.2] whitespace-nowrap block">{new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                               <div className="text-[10px] text-[#047857] font-bold leading-[1.2] mb-1 block">Issued:</div>
+                               <div className="text-[13px] font-black text-[#064e3b] leading-[1.2] whitespace-nowrap block">{new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                             </div>
                             <div className="block text-center">
-                                <div className="w-[130px] border-b-[2px] border-[#0f172a] pb-2 mx-auto mb-2">
-                                   <span className="font-serif italic text-[#0f172a] text-[13px] leading-[1.2] block">System Authorized</span>
+                                <div className="w-[130px] border-b-[2px] border-[#047857] pb-2 mx-auto mb-2">
+                                   <span className="font-serif italic text-[#064e3b] text-[13px] leading-[1.2] block">System Authorized</span>
                                 </div>
                                 <span className="text-[9px] uppercase font-bold text-[#6b7280] tracking-widest leading-[1.2] block">Director / Principal</span>
                             </div>
@@ -2382,20 +2411,20 @@ export default function DocumentsPage() {
                       </div>
 
                       {/* Right Panel Avatar */}
-                      <div className="w-[210px] bg-[#0f172a] shrink-0 relative flex flex-col items-center justify-center z-20">
+                      <div className="w-[210px] bg-[#064e3b] shrink-0 relative flex flex-col items-center justify-center z-20">
                          {/* Avatar Box */}
                          <div className="relative z-10 flex flex-col items-center w-full px-6">
-                           <div className="w-[150px] h-[190px] rounded-[14px] p-[6px] bg-[#334155] border border-[#475569] shadow-xl relative flex items-center justify-center">
+                           <div className="w-[150px] h-[190px] rounded-[14px] p-[6px] bg-[#047857] border border-[#a7f3d0] shadow-xl relative flex items-center justify-center">
                             <div className="w-full h-full rounded-[8px] overflow-hidden bg-[#f8fafc] border-[3px] border-white relative shadow-inner">
                               <img
-                                src={teacherProfileDataUrl || getAvatarDataUrl(selectedTeacher.firstName, selectedTeacher.lastName, '#0f172a')}
+                                src={teacherProfileDataUrl || getAvatarDataUrl(selectedTeacher.firstName, selectedTeacher.lastName, '#047857')}
                                 alt={`${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
                                 className="w-full h-full object-cover relative z-10"
                                 crossOrigin="anonymous"
                               />
                             </div>
                            </div>
-                           <div className="mt-6 bg-white text-[#0f172a] px-6 py-2 rounded-full text-[13px] font-black uppercase tracking-widest shadow-lg leading-[1.2] border border-[#e2e8f0]">
+                           <div className="mt-6 bg-white text-[#064e3b] px-6 py-2 rounded-full text-[13px] font-black uppercase tracking-widest shadow-lg leading-[1.2] border border-[#a7f3d0]">
                              Staff
                            </div>
                          </div>
@@ -2405,7 +2434,7 @@ export default function DocumentsPage() {
                     {/* Back Face */}
                     <div
                       id="teacher-card-template-back"
-                      className="w-[680px] h-[428px] bg-white shrink-0 rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-[#cbd5e1] overflow-hidden"
+                      className="w-[680px] h-[428px] bg-white shrink-0 rounded-[20px] shadow-lg relative flex flex-row border-[3px] border-[#a7f3d0] overflow-hidden"
                       style={{ width: '680px', height: '428px', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box' }}
                       data-card="back"
                       data-pdf-width="680"
@@ -2415,26 +2444,16 @@ export default function DocumentsPage() {
                       data-pdf-physical-unit="mm"
                     >
                       {/* Left Panel Verification Area */}
-                      <div className="w-[210px] bg-[#f8fafc] flex flex-col items-center justify-center p-6 relative border-r-2 border-[#e2e8f0] z-20 shrink-0 h-[428px]">
+                      <div className="w-[210px] bg-[#ecfdf5] flex flex-col items-center justify-center p-6 relative border-r-2 border-[#a7f3d0] z-20 shrink-0 h-[428px]">
                           {/* Top decorative line */}
-                          <div className="absolute top-0 left-0 w-full h-1.5 bg-[#0f172a]" />
+                          <div className="absolute top-0 left-0 w-full h-1.5 bg-[#047857]" />
                           
-                          <div className="w-[130px] h-[130px] bg-white p-2.5 border-[3px] border-[#e2e8f0] rounded-2xl shadow-sm flex items-center justify-center relative mb-5">
-                            {qrCodeDataUrl ? (
-                              <img 
-                                src={qrCodeDataUrl}
-                                alt="Verification QR Code"
-                                className="w-full h-full object-contain"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-50 flex items-center justify-center rounded-xl border border-dashed border-[#d1d5db]">
-                                <span className="text-[10px] text-[#9ca3af] font-medium">Generating...</span>
-                              </div>
-                            )}
+                          <div className="w-[130px] h-[130px] bg-white p-2.5 border-[3px] border-[#a7f3d0] rounded-2xl shadow-sm flex items-center justify-center relative mb-5">
+                            <span className="text-[10px] text-[#047857] font-semibold text-center leading-relaxed">No QR code<br />on staff cards</span>
                           </div>
-                          <div className="w-[160px] bg-[#0f172a] text-white px-4 py-2.5 rounded-lg text-center shadow-md border border-[#1e293b]">
-                            <span className="text-[10px] font-black tracking-[0.2em] uppercase block leading-[1.2]">Scan to Verify</span>
-                            <span className="text-[8px] font-medium text-[#94a3b8] mt-1 block opacity-90 leading-[1.2]">Official System Record</span>
+                          <div className="w-[160px] bg-[#064e3b] text-white px-4 py-2.5 rounded-lg text-center shadow-md border border-[#047857]">
+                            <span className="text-[10px] font-black tracking-[0.2em] uppercase block leading-[1.2]">STAFF RECORD</span>
+                            <span className="text-[8px] font-medium text-[#a7f3d0] mt-1 block opacity-90 leading-[1.2]">Issued by administration</span>
                           </div>
                       </div>
 
@@ -2446,35 +2465,35 @@ export default function DocumentsPage() {
                             <div className="block w-full pt-2">
                                 <div className="block w-full mb-6">
                                     <div className="text-[#9ca3af] uppercase tracking-wider text-[10px] font-bold leading-[1.2] mb-1.5 block">Campus Allocation</div>
-                                    <div className="text-[#0f172a] font-black text-[15px] leading-[1.2] w-full break-words block">{selectedTeacher.campus?.name ?? 'Madina Town Campus'}</div>
+                                    <div className="text-[#064e3b] font-black text-[15px] leading-[1.2] w-full break-words block">{selectedTeacher.campus?.name ?? 'Madina Town Campus'}</div>
                                 </div>
                                 
                                 <div className="flex flex-row w-full gap-[30px] mb-6">
                                     <div className="block w-[160px]">
                                         <div className="text-[#9ca3af] uppercase tracking-wider text-[10px] font-bold leading-[1.2] mb-1.5 block">Emergency Contact</div>
-                                        <div className="text-[#0f172a] font-black text-[14px] leading-[1.2] w-full block">{selectedTeacher.emergencyContact || '—'}</div>
+                                        <div className="text-[#064e3b] font-black text-[14px] leading-[1.2] w-full block">{selectedTeacher.emergencyContact || '—'}</div>
                                     </div>
                                     <div className="block w-[160px]">
                                         <div className="text-[#9ca3af] uppercase tracking-wider text-[10px] font-bold leading-[1.2] mb-1.5 block">Academy HR Contact</div>
-                                        <div className="text-[#0f172a] font-black text-[14px] leading-[1.2] w-full block">0328-4010522</div>
+                                        <div className="text-[#064e3b] font-black text-[14px] leading-[1.2] w-full block">0328-4010522</div>
                                     </div>
                                 </div>
 
                                 <div className="block w-full">
                                     <div className="text-[#9ca3af] uppercase tracking-wider text-[10px] font-bold leading-[1.2] mb-1.5 block">CNIC / Identity No</div>
-                                    <div className="text-[#0f172a] font-bold text-[13px] leading-[1.4] w-full break-words block font-mono">{selectedTeacher.cnic || '—'}</div>
+                                    <div className="text-[#064e3b] font-bold text-[13px] leading-[1.4] w-full break-words block font-mono">{selectedTeacher.cnic || '—'}</div>
                                 </div>
                             </div>
                             
                             {/* Important Note Box */}
                             <div className="mt-auto pt-5 w-full">
-                                <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-4 w-full">
+                                <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl p-4 w-full">
                                     <div className="flex items-center mb-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#ef4444] mr-2" />
-                                        <div className="text-[11px] uppercase font-black tracking-widest text-[#0f172a] leading-[1.2]">Important Notice</div>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#047857] mr-2" />
+                                        <div className="text-[11px] uppercase font-black tracking-widest text-[#064e3b] leading-[1.2]">Important Notice</div>
                                     </div>
                                     <p className="text-[10px] text-[#4b5563] leading-[1.5] font-medium m-0 p-0 w-full">
-                                        This identity card is the property of <strong className="text-[#1f2937]">EverShine Academy</strong>. It must be worn and visible at all times while on campus. If found by a third party, please return to the administration immediately.
+                                        This identity card is the property of <strong className="text-[#064e3b]">EverShine Academy</strong>. It must be worn and visible at all times while on campus. If found by a third party, please return to the administration immediately.
                                     </p>
                                 </div>
                             </div>
@@ -2509,7 +2528,7 @@ export default function DocumentsPage() {
                           <AcademyLogo className="w-14 h-14 text-[#065F46] shrink-0" />
                           <div>
                             <h2 className="text-[20px] font-black uppercase text-[#065F46] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make your Children More Valuable</p>
+                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
                             <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near Labor Gulshan Colony</p>
                           </div>
                         </div>
@@ -2539,7 +2558,7 @@ export default function DocumentsPage() {
                         {/* Teacher Photo placeholder / Avatar */}
                         <div className="w-16 h-16 rounded-lg border-2 border-[#065F46] overflow-hidden shadow flex-shrink-0 bg-white flex items-center justify-center">
                           <img
-                            src={getAvatarDataUrl(selectedTeacher.firstName, selectedTeacher.lastName, '#065F46')}
+                            src={teacherProfileDataUrl || getAvatarDataUrl(selectedTeacher.firstName, selectedTeacher.lastName, '#065F46')}
                             alt={`${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
                             className="w-full h-full"
                             style={{ objectFit: 'cover' }}
@@ -2632,8 +2651,8 @@ export default function DocumentsPage() {
                       color: '#111827',
                       boxSizing: 'border-box',
                       height: '842px',
-                      border: '4px solid black',
-                      outline: '1px solid black',
+                      border: '4px solid #1e3a8a',
+                      outline: '1px solid #1e3a8a',
                       outlineOffset: '-10px',
                     }}
                   >
@@ -2642,15 +2661,15 @@ export default function DocumentsPage() {
                       {/* Header */}
                       <div className="w-full flex items-center justify-between">
                         <div className="w-16 h-16 shrink-0">
-                          <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-black" />
+                          <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-[#1e3a8a]" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[18px] font-black uppercase tracking-wider text-black leading-tight mb-1.5">EVERSHINE ACADEMY</h1>
-                          <div className="w-56 h-[2px] bg-black mx-auto"></div>
+                          <h1 className="text-[18px] font-black uppercase tracking-wider text-[#1e3a8a] leading-tight mb-1.5">EVERSHINE ACADEMY</h1>
+                          <div className="w-56 h-[2px] bg-[#1e3a8a] mx-auto"></div>
                           <p className="text-[8px] font-bold tracking-widest mt-1.5 uppercase text-gray-600">Pakistan Education System</p>
-                          <div className="mt-1 text-[11px] font-black uppercase border border-black inline-block px-3 py-0.5 bg-gray-100">Admission / Student Profile</div>
+                          <div className="mt-1 text-[11px] font-black uppercase border border-[#1e3a8a] inline-block px-3 py-0.5 bg-[#eff6ff] text-[#1e3a8a]">Admission / Student Profile</div>
                         </div>
-                        <div className="w-20 h-24 shrink-0 border-2 border-black p-0.5 flex items-center justify-center bg-gray-50">
+                        <div className="w-20 h-24 shrink-0 border-2 border-[#1e3a8a] p-0.5 flex items-center justify-center bg-[#eff6ff]">
                           {profilePictureDataUrl ? (
                             <img src={profilePictureDataUrl} alt="Photo" className="w-full h-full object-cover" />
                           ) : (
@@ -2659,8 +2678,8 @@ export default function DocumentsPage() {
                         </div>
                       </div>
 
-                      <div className="w-full border-2 border-black bg-white">
-                        <div className="bg-gray-100 border-b-2 border-black px-2 py-0.5 text-[10.5px] font-black uppercase text-center tracking-wide">Student Information</div>
+                      <div className="w-full border-2 border-[#1e3a8a] bg-white">
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-0.5 text-[10.5px] font-black uppercase text-center tracking-wide text-[#1e3a8a]">Student Information</div>
                         <table className="w-full text-left text-[10px]" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr className="border-b border-gray-300">
@@ -2704,8 +2723,8 @@ export default function DocumentsPage() {
                       </div>
 
                       {/* Main Grid: Guardian Info */}
-                      <div className="w-full border-2 border-black mt-2 bg-white">
-                        <div className="bg-gray-100 border-b-2 border-black px-2 py-1 text-[12px] font-black uppercase text-center">
+                      <div className="w-full border-2 border-[#1e3a8a] mt-2 bg-white">
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-1 text-[12px] font-black uppercase text-center text-[#1e3a8a]">
                           Parent / Guardian Information
                         </div>
                         <table className="w-full text-left text-[11px] font-medium" style={{ borderCollapse: 'collapse' }}>
@@ -2739,8 +2758,8 @@ export default function DocumentsPage() {
                       </div>
 
                       {/* Declaration */}
-                      <div className="w-full border-2 border-black mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '150px' }}>
-                        <div className="bg-gray-100 border-b-2 border-black px-2 py-1 text-[12px] font-black uppercase text-center">
+                      <div className="w-full border-2 border-[#1e3a8a] mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '150px' }}>
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-1 text-[12px] font-black uppercase text-center text-[#1e3a8a]">
                           Declaration & Undertaking
                         </div>
                         <div className="px-6 py-3 text-[10.5px] text-justify leading-relaxed font-medium">
@@ -2752,14 +2771,14 @@ export default function DocumentsPage() {
                         {/* Signatures using Absolute Positioning for perfect html2canvas capture */}
                         <div className="absolute bottom-4 left-0 right-0 px-10 flex justify-between items-end w-full">
                           <div className="block text-center" style={{ width: '38%' }}>
-                            <div className="w-full border-b-[1.5px] border-black h-6 mb-2"></div>
+                            <div className="w-full border-b-[1.5px] border-[#1e3a8a] h-6 mb-2"></div>
                             <span className="text-[10px] font-bold uppercase block">Signature of Parent / Guardian</span>
                           </div>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', fontSize: '6px', fontWeight: '900', color: 'rgba(0,0,0,0.3)', textAlign: 'center', lineHeight: '1.3', flexShrink: 0 }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid rgba(30,58,138,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', fontSize: '6px', fontWeight: '900', color: 'rgba(30,58,138,0.55)', textAlign: 'center', lineHeight: '1.3', flexShrink: 0 }}>
                             OFFICIAL<br />SEAL
                           </div>
                           <div className="block text-center" style={{ width: '38%' }}>
-                            <div className="w-full border-b-[1.5px] border-black h-6 mb-2"></div>
+                            <div className="w-full border-b-[1.5px] border-[#1e3a8a] h-6 mb-2"></div>
                             <span className="text-[10px] font-bold uppercase block">Principal / Administrator</span>
                           </div>
                         </div>
@@ -2812,7 +2831,7 @@ export default function DocumentsPage() {
                           <tbody>
                             <tr className="border-b border-gray-300">
                               <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Employee ID:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-mono font-black text-blue-900">{selectedTeacher.employeeId}</td>
+                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-mono font-black text-[#065F46]">{selectedTeacher.employeeId}</td>
                               <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Joining Date:</td>
                               <td className="w-[22%] px-2 py-2 font-bold">{new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK')}</td>
                             </tr>
@@ -2938,4 +2957,3 @@ export default function DocumentsPage() {
     </div>
   )
 }
-

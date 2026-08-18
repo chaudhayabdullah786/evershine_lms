@@ -22,6 +22,8 @@ import {
   generateTeacherProfileDirect,
   generateTeacherIDCardDirect,
   generateExperienceLetterDirect,
+  generateAdministrationDirectoryCardDirect,
+  type AdministrationDirectoryCardData,
   type TeacherIDCardData,
   type ExperienceLetterData,
 } from './pdf/direct-generators'
@@ -966,10 +968,24 @@ export async function generateTeacherIDCard(
  * Uses the jsPDF direct generator — no html2canvas involved.
  */
 export async function generateExperienceLetter(
-  data: Omit<ExperienceLetterData, 'logo'> & { colorMode?: 'color' | 'bw' }
+  data: Omit<ExperienceLetterData, 'logo' | 'photo'> & { photo?: string; colorMode?: 'color' | 'bw' }
 ): Promise<void> {
   const logo = await toDataUrl('/favicon-128x128.png')
-  const pdf = await generateExperienceLetterDirect({ ...data, logo })
+  const pdf = await generateExperienceLetterDirect({ ...data, photo: await toDataUrl(data.photo), logo })
   const safeName = `${data.firstName}_${data.lastName}`.replace(/\s+/g, '_')
   pdf.save(`${data.employeeId}-${safeName}-experience-letter.pdf`)
+}
+
+/** Generates a red administration directory card without a QR code. */
+export async function generateAdministrationDirectoryCard(
+  data: Omit<AdministrationDirectoryCardData, 'photo' | 'logo'> & { photo?: string }
+): Promise<void> {
+  const logo = await toDataUrl('/favicon-128x128.png')
+  const pdf = await generateAdministrationDirectoryCardDirect({
+    ...data,
+    photo: await toDataUrl(data.photo),
+    logo,
+  })
+  const safeName = data.name.replace(/\s+/g, '_')
+  pdf.save(`${safeName}-${data.roleLabel.toLowerCase().replace(/\s+/g, '-')}.pdf`)
 }
