@@ -31,11 +31,18 @@ export async function exportPreviewDocument(
   fileName: string,
   colorMode: 'color' | 'bw' = 'color'
 ) {
-  const pageEl = element.querySelector('[data-document-page]') as HTMLElement | null
+  // Support both the Documents centre marker and the shared academic
+  // ResultReportCard/roll-slip marker used by other portals.
+  const pageEl = element.querySelector('[data-document-page], [data-pdf-page]') as HTMLElement | null
   const captureTarget = pageEl ?? element
 
-  const targetWidth = captureTarget.style.width || '595px'
-  const targetHeight = captureTarget.style.height || '842px'
+  // Preview pages commonly size themselves through Tailwind classes instead of
+  // inline styles. Resolve the rendered dimensions so the export uses the same
+  // canvas the user sees, even when the preview is inside a scroll container.
+  const computed = window.getComputedStyle(captureTarget)
+  const rendered = captureTarget.getBoundingClientRect()
+  const targetWidth = captureTarget.style.width || (rendered.width ? `${Math.round(rendered.width)}px` : computed.width || '595px')
+  const targetHeight = captureTarget.style.height || (rendered.height ? `${Math.round(rendered.height)}px` : computed.height || '842px')
 
   const widthNum = parseInt(targetWidth, 10) || 595
   const heightNum = parseInt(targetHeight, 10) || 842
@@ -44,10 +51,16 @@ export async function exportPreviewDocument(
   const savedWidth = captureTarget.style.width
   const savedMinWidth = captureTarget.style.minWidth
   const savedMaxWidth = captureTarget.style.maxWidth
+  const savedHeight = captureTarget.style.height
+  const savedMinHeight = captureTarget.style.minHeight
+  const savedMaxHeight = captureTarget.style.maxHeight
   const savedPosition = captureTarget.style.position
   captureTarget.style.width = targetWidth
   captureTarget.style.minWidth = targetWidth
   captureTarget.style.maxWidth = targetWidth
+  captureTarget.style.height = targetHeight
+  captureTarget.style.minHeight = targetHeight
+  captureTarget.style.maxHeight = targetHeight
 
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   await new Promise<void>((resolve) => setTimeout(resolve, 80))
@@ -58,12 +71,19 @@ export async function exportPreviewDocument(
       filename: fileName,
       orientation,
       scale: 3,
+      // All non-card document pages are designed on an A4 canvas. Card faces
+      // carry their own CR80 physical dimensions and override this in the
+      // shared renderer.
+      format: 'a4',
       colorMode,
     })
   } finally {
     captureTarget.style.width = savedWidth
     captureTarget.style.minWidth = savedMinWidth
     captureTarget.style.maxWidth = savedMaxWidth
+    captureTarget.style.height = savedHeight
+    captureTarget.style.minHeight = savedMinHeight
+    captureTarget.style.maxHeight = savedMaxHeight
     captureTarget.style.position = savedPosition
   }
 }
