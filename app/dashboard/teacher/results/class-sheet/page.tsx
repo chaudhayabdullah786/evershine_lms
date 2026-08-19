@@ -19,16 +19,20 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { CheckCircle2, ExternalLink, Loader2, Save, Table2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DEFAULT_RESULT_CARD_CONFIG, parseResultCardConfig, type ResultCardConfig } from '@/lib/academic/result-card-config'
 
 type ClassSection = { id: string; className: string; sectionName: string }
 type ResultSession = { id: string; name: string; type: string; status: string }
 type CellStatus = 'MARKS' | 'ABSENT' | 'NA'
 type Cell = { value: string; status: CellStatus }
+type CardConfig = ResultCardConfig
 type Sheet = {
   resultSession: ResultSession
   section: { id: string; className: string; sectionName: string; shift: { name: string; code: string } | null }
   subjects: Array<{ id: string; name: string; code: string; totalMarks: number }>
   canDeclare: boolean
+  resultCardConfig: CardConfig
   students: Array<{
     id: string
     firstName: string
@@ -39,6 +43,7 @@ type Sheet = {
     result: {
       id: string
       declarationStatus: 'DRAFT' | 'DECLARED'
+      manualPosition: number | null
       subjectResults: Array<{
         subjectOfferingId: string
         totalMarks: number
@@ -64,7 +69,10 @@ function ClassResultSheetInner() {
   const [classSectionId, setClassSectionId] = useState('')
   const [resultSessionId, setResultSessionId] = useState('')
   const [cells, setCells] = useState<Record<string, Record<string, Cell>>>({})
+  const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_RESULT_CARD_CONFIG)
+  const [manualPositions, setManualPositions] = useState<Record<string, string>>({})
   const initializedKey = useRef('')
+  const configKey = useRef('')
 
   const { data: sections = [] } = useQuery<ClassSection[]>({
     queryKey: ['teacher-sections'],
@@ -92,7 +100,24 @@ function ClassResultSheetInner() {
       next[student.id] = Object.fromEntries(sheet.subjects.map((subject) => [subject.id, createCell(scoreMap.get(subject.id))]))
     }
     setCells(next)
+    if (configKey.current !== contextKey) {
+      configKey.current = contextKey
+      setCardConfig(parseResultCardConfig(sheet.resultCardConfig))
+      setManualPositions(Object.fromEntries(sheet.students.map((student) => [student.id, student.result?.manualPosition == null ? '' : String(student.result.manualPosition)])))
+    }
   }, [contextKey, sheet])
+
+  const saveCardConfig = useMutation({
+    mutationFn: () => fetchApi(`/api/teacher-portal/result-card-config`, {
+      method: 'PATCH',
+      body: JSON.stringify({ classSectionId, examSessionId: resultSessionId, config: cardConfig }),
+    }),
+    onSuccess: () => {
+      notify.success('Result-card display settings saved')
+      queryClient.invalidateQueries({ queryKey: ['teacher-class-result-sheet', classSectionId, resultSessionId] })
+    },
+    onError: (error: Error) => notify.error(error.message),
+  })
 
   const saveDrafts = useMutation({
     mutationFn: () => {
@@ -102,8 +127,11 @@ function ClassResultSheetInner() {
         body: JSON.stringify({
           classSectionId,
           resultSessionId,
-          rows: sheet.students.map((student) => ({
-            studentId: student.id,
+              rows: sheet.students.map((student) => ({
+                studentId: student.id,
+                manualPosition: cardConfig.positionMode === 'MANUAL' && manualPositions[student.id]?.trim()
+                  ? Number(manualPositions[student.id])
+                  : null,
             subjectResults: sheet.subjects.map((subject) => {
               const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
               return {
@@ -204,10 +232,77 @@ function ClassResultSheetInner() {
       </Card>
 
       {sheet && (
+        <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">2. Configure the printed result card</CardTitle>
+            <CardDescription>These choices control the student, guardian, and PDF result card. Internal IDs are never printed.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="result-card-exam-title">Exam title on card</Label>
+                <Input id="result-card-exam-title" value={cardConfig.examTitleOverride ?? ''} placeholder={sheet.resultSession.name} onChange={(event) => setCardConfig((current) => ({ ...current, examTitleOverride: event.target.value || null }))} />
+                <p className="text-xs text-slate-500">Leave blank to use the published exam or result-cycle name.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="result-card-academy-name">Academy name on card</Label>
+                <Input id="result-card-academy-name" value={cardConfig.academyNameOverride ?? ''} placeholder="Evershine Academy" onChange={(event) => setCardConfig((current) => ({ ...current, academyNameOverride: event.target.value || null }))} />
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-900">Show on the printed card</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {([
+                  ['showStudentInfo', 'Student information'],
+                  ['showSubjectNames', 'Subject names'],
+                  ['showTotalMarks', 'Total marks'],
+                  ['showObtainedMarks', 'Obtained marks'],
+                  ['showPercentage', 'Percentage'],
+                  ['showGrade', 'Grade'],
+                  ['showResultStatus', 'Pass / fail status'],
+                  ['showPerformanceBatch', 'Performance group'],
+                  ['showTeacherRemarks', 'Teacher remarks'],
+                  ['showCustomFields', 'Custom assessment fields'],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm">
+                    <Checkbox checked={cardConfig[key]} onCheckedChange={(checked) => setCardConfig((current) => ({ ...current, [key]: checked }))} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Class position</p>
+                  <p className="text-xs text-slate-500">Hidden by default. Only approved or teacher-entered positions are printed.</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox checked={cardConfig.showClassPosition} onCheckedChange={(checked) => setCardConfig((current) => ({ ...current, showClassPosition: checked, positionMode: checked ? (current.positionMode === 'HIDDEN' ? 'SYSTEM_APPROVED' : current.positionMode) : 'HIDDEN' }))} />
+                  Show class position
+                </label>
+              </div>
+              {cardConfig.showClassPosition && (
+                <div className="mt-3 max-w-sm space-y-1.5">
+                  <Label>Position source</Label>
+                  <select className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={cardConfig.positionMode} onChange={(event) => setCardConfig((current) => ({ ...current, positionMode: event.target.value as CardConfig['positionMode'] }))}>
+                    <option value="SYSTEM_APPROVED">Use system rank after teacher approval</option>
+                    <option value="MANUAL">Teacher enters each student&apos;s position</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <Button className="gap-2" onClick={() => saveCardConfig.mutate()} disabled={saveCardConfig.isPending}>
+              {saveCardConfig.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save card settings
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-base">2. Enter class marks</CardTitle>
+              <CardTitle className="text-base">3. Enter class marks</CardTitle>
               <CardDescription>{sheet.section.className} — {sheet.section.sectionName} · {sheet.students.length} active students · {sheet.subjects.length} courses</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -228,6 +323,7 @@ function ClassResultSheetInner() {
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                       <th className="sticky left-0 z-10 bg-slate-50 px-3 py-3">Student</th>
+                      {cardConfig.showClassPosition && cardConfig.positionMode === 'MANUAL' && <th className="min-w-[120px] px-3 py-3">Position</th>}
                       {sheet.subjects.map((subject) => <th key={subject.id} className="min-w-[150px] px-3 py-3">{subject.name}<span className="block normal-case text-[10px] font-normal">{subject.code} · /{subject.totalMarks}</span></th>)}
                       <th className="px-3 py-3">Details</th>
                     </tr>
@@ -241,6 +337,9 @@ function ClassResultSheetInner() {
                             <p className="font-medium text-slate-900">{student.firstName} {student.lastName}</p>
                             <p className="text-xs text-slate-500">Roll {student.rollNumber}</p>
                           </td>
+                          {cardConfig.showClassPosition && cardConfig.positionMode === 'MANUAL' && <td className="px-3 py-3">
+                            <Input type="number" min={1} max={sheet.students.length} placeholder="—" value={manualPositions[student.id] ?? ''} disabled={declared} onChange={(event) => setManualPositions((current) => ({ ...current, [student.id]: event.target.value }))} className="h-9" aria-label={`${student.firstName} ${student.lastName} position`} />
+                          </td>}
                           {sheet.subjects.map((subject) => {
                             const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
                             return (
@@ -291,6 +390,7 @@ function ClassResultSheetInner() {
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
     </div>
   )

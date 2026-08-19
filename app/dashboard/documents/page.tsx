@@ -25,6 +25,7 @@ import { sessionShiftFormalLabel } from '@/lib/validation/shift'
 import { buildDocumentFileName, exportPreviewDocument, type DocumentType } from '@/lib/documents/export-preview'
 import { DOCUMENT_PALETTE, documentUsesAttendanceQr } from '@/lib/pdf/document-design'
 import { getCanonicalStudentClassSection, getCanonicalStudentRollNumber, getCanonicalStudentShift, type EnrollmentRecord } from '@/lib/academic/record-formatters'
+import { getDisplayedPosition, parseResultCardConfig, toNumericMark, formatExamSessionLabel } from '@/lib/academic/result-card-config'
 
 interface Student {
   id: string
@@ -391,8 +392,8 @@ export default function DocumentsPage() {
     if (!activeTermResult?.subjectResults) return []
     return activeTermResult.subjectResults.map((sr: any) => ({
       subject: sr.subjectOffering?.subject?.name || 'Unknown',
-      total: sr.totalMarks,
-      obtained: sr.obtainedMarks,
+      total: toNumericMark(sr.totalMarks) ?? 0,
+      obtained: toNumericMark(sr.obtainedMarks),
       grade: sr.grade,
       status: sr.resultStatus,
     }))
@@ -403,8 +404,21 @@ export default function DocumentsPage() {
   }, [subjectsToRender])
 
   const totalObtained = useMemo(() => {
-    return subjectsToRender.reduce((sum: number, s: any) => sum + s.obtained, 0)
+    return subjectsToRender.reduce((sum: number, s: any) => sum + (s.obtained ?? 0), 0)
   }, [subjectsToRender])
+
+  const activeResultCardConfig = useMemo(
+    () => parseResultCardConfig(activeTermResult?.resultCardConfig),
+    [activeTermResult],
+  )
+  const activeResultPosition = useMemo(
+    () => getDisplayedPosition(activeResultCardConfig, activeTermResult?.classPosition, activeTermResult?.manualPosition),
+    [activeResultCardConfig, activeTermResult],
+  )
+  const activeResultLabel = useMemo(
+    () => activeTermResult?.examSessionLabel || formatExamSessionLabel(activeTermResult?.examSessionId),
+    [activeTermResult],
+  )
 
   const cumulativePercentage = useMemo(() => {
     if (activeTermResult) {
@@ -947,9 +961,10 @@ export default function DocumentsPage() {
                             onChange={(e) => setSelectedExamSessionId(e.target.value)}
                             className="w-full text-xs h-9 bg-white border border-gray-200 rounded-lg px-2"
                           >
-                            {termSessions.map((t: any) => (
-                              <option key={t} value={t}>{t.toUpperCase()}</option>
-                            ))}
+                            {termSessions.map((t: any) => {
+                              const result = termResultsData?.find((item: any) => item.examSessionId === t)
+                              return <option key={t} value={t}>{result?.examSessionLabel || formatExamSessionLabel(t)}</option>
+                            })}
                             {termSessions.length === 0 && (
                               <option value="">No declared terms found</option>
                             )}
@@ -1766,7 +1781,7 @@ export default function DocumentsPage() {
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-[#1e3a8a]" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[22px] font-black uppercase tracking-wide text-black leading-tight mb-1">EVERSHINE ACADEMY</h1>
+                          <h1 className="text-[22px] font-black uppercase tracking-wide text-black leading-tight mb-1">{activeResultCardConfig.academyNameOverride || 'EVERSHINE ACADEMY'}</h1>
                           <div className="w-72 h-[2px] bg-black mx-auto mb-1" />
                           <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-gray-600">Pakistan Education System</p>
                           <p className="text-[8px] text-gray-500 mt-0.5">Madina Town, near Mandiala Warraich Road, Labor Gulshan Colony</p>
@@ -1779,12 +1794,12 @@ export default function DocumentsPage() {
                       {/* TITLE */}
                       <div className="w-full text-center mt-2.5 mb-2.5">
                         <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-black inline-block border border-black px-6 py-0.5 bg-gray-50">
-                          {selectedExamSessionId ? `${selectedExamSessionId.replace(/-/g, ' ')}` : 'Official Result Card'}
+                          {activeResultCardConfig.examTitleOverride || activeResultLabel}
                         </h2>
                       </div>
 
                       {/* STUDENT INFO + PHOTO */}
-                      <div className="w-full flex items-stretch border border-black mb-3.5">
+                      {activeResultCardConfig.showStudentInfo && <div className="w-full flex items-stretch border border-black mb-3.5">
                         <div className="flex-1 p-2.5 text-[9px] space-y-1">
                           <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                             <div className="flex gap-1"><span className="font-bold uppercase w-24 shrink-0">Roll No:</span><span className="font-black underline">{selectedStudentRollNumber}</span></div>
@@ -1807,17 +1822,17 @@ export default function DocumentsPage() {
                             <span className="text-[7px] text-gray-400 font-bold uppercase text-center leading-tight">Passport<br/>Photo</span>
                           )}
                         </div>
-                      </div>
+                      </div>}
                       {/* MARKS TABLE */}
                       <table className="w-full text-[9px]" style={{ borderCollapse: 'collapse', border: '1px solid black' }}>
                         <thead>
                           <tr style={{ background: '#1e3a8a', color: 'white' }}>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'left', width: '38%' }}>Subject</th>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Total Marks</th>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Obtained Marks</th>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>%</th>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Grade</th>
-                            <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Result</th>
+                            {activeResultCardConfig.showSubjectNames && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'left', width: '38%' }}>Subject</th>}
+                            {activeResultCardConfig.showTotalMarks && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Total Marks</th>}
+                            {activeResultCardConfig.showObtainedMarks && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Obtained Marks</th>}
+                            {activeResultCardConfig.showPercentage && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>%</th>}
+                            {activeResultCardConfig.showGrade && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Grade</th>}
+                            {activeResultCardConfig.showResultStatus && <th style={{ border: '1px solid #1e3a8a', padding: '4px 6px', textAlign: 'center' }}>Result</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1825,26 +1840,26 @@ export default function DocumentsPage() {
                             <tr><td colSpan={6} style={{ border: '1px solid black', padding: '12px', textAlign: 'center', color: '#9ca3af', fontWeight: 'bold' }}>No exam results recorded for this student.</td></tr>
                           ) : (
                             subjectsToRender.map((s: any, idx: number) => {
-                              const pct = s.total > 0 ? Math.round((s.obtained / s.total) * 100) : 0
+                                  const pct = s.total > 0 && s.obtained !== null ? Math.round((s.obtained / s.total) * 100) : 0
                               return (
                                 <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', fontWeight: 'bold' }}>{s.subject}</td>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: 'bold' }}>{s.total}</td>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{s.obtained}</td>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: 'bold' }}>{pct}%</td>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontFamily: 'monospace' }}>{s.grade}</td>
-                                  <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontSize: '8.5px', textTransform: 'uppercase' }}>{s.status}</td>
+                                  {activeResultCardConfig.showSubjectNames && <td style={{ border: '1px solid black', padding: '4px 6px', fontWeight: 'bold' }}>{s.subject}</td>}
+                                  {activeResultCardConfig.showTotalMarks && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: 'bold' }}>{s.total}</td>}
+                                  {activeResultCardConfig.showObtainedMarks && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{s.obtained ?? '—'}</td>}
+                                  {activeResultCardConfig.showPercentage && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: 'bold' }}>{pct}%</td>}
+                                  {activeResultCardConfig.showGrade && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontFamily: 'monospace' }}>{s.grade}</td>}
+                                  {activeResultCardConfig.showResultStatus && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontSize: '8.5px', textTransform: 'uppercase' }}>{s.status}</td>}
                                 </tr>
                               )
                             })
                           )}
                           <tr style={{ background: '#eff6ff' }}>
                             <td style={{ border: '1px solid black', padding: '4px 6px', fontWeight: '900', textTransform: 'uppercase', fontSize: '8.5px' }}>Total</td>
-                            <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{totalPossible}</td>
-                            <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{totalObtained}</td>
-                            <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{cumulativePercentage}%</td>
-                            <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontFamily: 'monospace' }}>{activeTermResult?.grade || getOverallGrade(cumulativePercentage)}</td>
-                            <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontSize: '8.5px', textTransform: 'uppercase' }}>{cumulativePercentage >= 40 ? 'Pass' : 'Fail'}</td>
+                            {activeResultCardConfig.showTotalMarks && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{totalPossible}</td>}
+                            {activeResultCardConfig.showObtainedMarks && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{totalObtained}</td>}
+                            {activeResultCardConfig.showPercentage && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900' }}>{cumulativePercentage}%</td>}
+                            {activeResultCardConfig.showGrade && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontFamily: 'monospace' }}>{activeTermResult?.grade || getOverallGrade(cumulativePercentage)}</td>}
+                            {activeResultCardConfig.showResultStatus && <td style={{ border: '1px solid black', padding: '4px 6px', textAlign: 'center', fontWeight: '900', fontSize: '8.5px', textTransform: 'uppercase' }}>{cumulativePercentage >= 40 ? 'Pass' : 'Fail'}</td>}
                           </tr>
                         </tbody>
                       </table>
@@ -1852,29 +1867,31 @@ export default function DocumentsPage() {
                       {/* Result Summary */}
                       <div className="w-full mt-2 pb-1 border-b border-black text-[9px] flex justify-between items-center">
                         <div>
-                          <span className="font-bold">Result Status: </span>
-                          <span className="font-black text-indigo-900">{cumulativePercentage}% &nbsp;|&nbsp; Grade: {activeTermResult?.grade || getOverallGrade(cumulativePercentage)} &nbsp;|&nbsp; {cumulativePercentage >= 40 ? 'PASS' : 'FAIL'}</span>
+                          {activeResultCardConfig.showResultStatus && <>
+                            <span className="font-bold">Result Status: </span>
+                            <span className="font-black text-indigo-900">{cumulativePercentage}% &nbsp;|&nbsp; Grade: {activeTermResult?.grade || getOverallGrade(cumulativePercentage)} &nbsp;|&nbsp; {cumulativePercentage >= 40 ? 'PASS' : 'FAIL'}</span>
+                          </>}
                         </div>
                         <div className="text-right">
                           <span className="font-bold text-gray-500 uppercase">Term: </span>
-                          <span className="font-black text-indigo-700">{selectedExamSessionId ? selectedExamSessionId.toUpperCase() : '—'}</span>
+                          <span className="font-black text-indigo-700">{activeResultLabel}</span>
                         </div>
                       </div>
 
                       {/* Performance Batch, Position & Remarks */}
                       <div className="w-full mt-2 grid grid-cols-2 gap-2 text-[9px]">
                         <div className="border border-black p-2 bg-gray-50 flex flex-col justify-center space-y-1">
-                          <div className="flex justify-between"><span className="font-bold">Class Position:</span><span className="font-black underline">{activeTermResult?.classPosition ? `${activeTermResult.classPosition}${activeTermResult.classPosition === 1 ? 'st' : activeTermResult.classPosition === 2 ? 'nd' : activeTermResult.classPosition === 3 ? 'rd' : 'th'}` : '—'}</span></div>
-                          <div className="flex justify-between"><span className="font-bold">Performance Batch:</span><span className="font-black text-blue-700 font-mono">{activeTermResult?.performanceBatch || '—'}</span></div>
+                          {activeResultPosition !== null && <div className="flex justify-between"><span className="font-bold">Class Position:</span><span className="font-black underline">{activeResultPosition}{activeResultPosition === 1 ? 'st' : activeResultPosition === 2 ? 'nd' : activeResultPosition === 3 ? 'rd' : 'th'}</span></div>}
+                          {activeResultCardConfig.showPerformanceBatch && <div className="flex justify-between"><span className="font-bold">Performance Batch:</span><span className="font-black text-blue-700 font-mono">{activeTermResult?.performanceBatch || '—'}</span></div>}
                         </div>
-                        <div className="border border-black p-2 bg-gray-50 flex flex-col justify-between">
+                        {activeResultCardConfig.showTeacherRemarks && <div className="border border-black p-2 bg-gray-50 flex flex-col justify-between">
                           <span className="font-bold block mb-0.5">Teacher's Remarks:</span>
                           <span className="italic font-medium text-gray-700 leading-tight block">{activeTermResult?.teacherRemarks || 'No remarks recorded.'}</span>
-                        </div>
+                        </div>}
                       </div>
 
                       {/* Term Custom Fields */}
-                      {activeTermResult?.customFields && Array.isArray(activeTermResult.customFields) && (activeTermResult.customFields as any[]).length > 0 && (
+                      {activeResultCardConfig.showCustomFields && activeTermResult?.customFields && Array.isArray(activeTermResult.customFields) && (activeTermResult.customFields as any[]).length > 0 && (
                         <div className="w-full mt-2 border border-black p-2 bg-gray-50/50 text-[9px]">
                           <span className="font-bold block mb-1">Additional Assessments & co-curricular metrics:</span>
                           <div className="grid grid-cols-3 gap-2">

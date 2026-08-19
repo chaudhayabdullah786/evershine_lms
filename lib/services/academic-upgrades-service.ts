@@ -543,7 +543,7 @@ export class AcademicUpgradesService {
     }
     if (examSessionId && examSessionId !== 'all') {
       whereClause.examSessionId = examSessionId
-      return prisma.termResult.findFirst({
+      const result = await prisma.termResult.findFirst({
         where: whereClause,
         include: {
           classSection: {
@@ -557,9 +557,17 @@ export class AcademicUpgradesService {
           },
         },
       })
+      if (!result) return null
+      const config = await prisma.resultCardConfig.findUnique({
+        where: { classSectionId_examSessionId: {
+          classSectionId: result.classSectionId,
+          examSessionId: result.examSessionId,
+        } },
+      })
+      return { ...result, resultCardConfig: config }
     }
 
-    return prisma.termResult.findMany({
+    const results = await prisma.termResult.findMany({
       where: whereClause,
       include: {
         classSection: {
@@ -574,6 +582,20 @@ export class AcademicUpgradesService {
       },
       orderBy: { examSessionId: 'desc' },
     })
+    if (results.length === 0) return results
+    const configs = await prisma.resultCardConfig.findMany({
+      where: {
+        OR: results.map((result) => ({
+          classSectionId: result.classSectionId,
+          examSessionId: result.examSessionId,
+        })),
+      },
+    })
+    const configByKey = new Map(configs.map((config) => [`${config.classSectionId}:${config.examSessionId}`, config]))
+    return results.map((result) => ({
+      ...result,
+      resultCardConfig: configByKey.get(`${result.classSectionId}:${result.examSessionId}`) ?? null,
+    }))
   }
 
   static async getClassResultsSheet(classSectionId: string, examSessionId: string) {

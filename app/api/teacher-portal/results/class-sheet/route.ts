@@ -15,6 +15,7 @@ import { getOrSyncSectionEnrollments } from '@/lib/academic/roster-helper'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 import { deriveGrade, derivePerformanceBatch, deriveResultStatus } from '@/lib/academic/result-utils'
 import { resolveClassContext } from '@/lib/teacher-access'
+import { parseResultCardConfig } from '@/lib/academic/result-card-config'
 
 const scoreSchema = z.object({
   subjectOfferingId: z.string().min(1),
@@ -34,6 +35,7 @@ const scoreSchema = z.object({
 
 const rowSchema = z.object({
   studentId: z.string().min(1),
+  manualPosition: z.number().int().positive().nullable().optional(),
   teacherRemarks: z.string().max(1000).optional(),
   customFields: z.array(z.object({ label: z.string().trim().min(1).max(100), value: z.string().max(500) })).max(50).optional(),
   subjectResults: z.array(scoreSchema).min(1).max(100),
@@ -155,6 +157,7 @@ async function loadContext(classSectionId: string, resultSessionId: string, teac
           overallPercentage: true,
           grade: true,
           performanceBatch: true,
+          manualPosition: true,
           teacherRemarks: true,
           customFields: true,
           subjectResults: {
@@ -171,6 +174,11 @@ async function loadContext(classSectionId: string, resultSessionId: string, teac
       })
     : []
   const resultByStudent = new Map(results.map((result) => [result.studentId, result]))
+  const resultCardConfig = prisma.resultCardConfig?.findUnique
+    ? await prisma.resultCardConfig.findUnique({
+        where: { classSectionId_examSessionId: { classSectionId, examSessionId: resultSessionId } },
+      })
+    : null
 
   return {
     academicYear,
@@ -179,6 +187,7 @@ async function loadContext(classSectionId: string, resultSessionId: string, teac
     enrollments,
     results,
     resultByStudent,
+    resultCardConfig: parseResultCardConfig(resultCardConfig),
     canManageAllOfferings,
   }
 }
@@ -202,6 +211,7 @@ export async function GET(request: NextRequest) {
         status: 'OPEN',
       },
       section: context.section,
+      resultCardConfig: context.resultCardConfig,
       subjects: context.offerings.map((offering) => ({
         id: offering.id,
         name: offering.subject.name,
@@ -222,13 +232,14 @@ export async function GET(request: NextRequest) {
             fatherName: enrollment.student.fatherName ?? '',
             registrationNumber: enrollment.student.registrationNumber,
             rollNumber: enrollment.rollNumber,
-            result: result
+      result: result
               ? {
                   id: result.id,
                   declarationStatus: result.declarationStatus,
                   overallPercentage: Number(result.overallPercentage),
                   grade: result.grade,
                   performanceBatch: result.performanceBatch,
+                  manualPosition: result.manualPosition,
                   teacherRemarks: result.teacherRemarks,
                   customFields: result.customFields,
                   subjectResults: result.subjectResults
@@ -272,6 +283,18 @@ export async function POST(request: NextRequest) {
       .find((score) => !allowedOfferingIds.has(score.subjectOfferingId))
     if (invalidOffering) return errors.forbidden('One or more subjects are not offered in this section or are not assigned to you.')
 
+    if (context.resultCardConfig.positionMode === 'MANUAL' && context.resultCardConfig.showClassPosition) {
+      const positions = rows
+        .map((row) => row.manualPosition)
+        .filter((position): position is number => position !== undefined && position !== null)
+      if (positions.some((position) => position > context.enrollments.length)) {
+        return errors.badRequest(`Manual positions must be between 1 and ${context.enrollments.length}.`)
+      }
+      if (new Set(positions).size !== positions.length) {
+        return errors.badRequest('Each manually entered class position must be unique.')
+      }
+    }
+
     const existingDeclared = context.results.filter(
       (result) => rows.some((row) => row.studentId === result.studentId) && result.declarationStatus === 'DECLARED'
     )
@@ -307,6 +330,7 @@ export async function POST(request: NextRequest) {
             overallPercentage: 0,
             grade: deriveGrade(0),
             performanceBatch: derivePerformanceBatch(0),
+            manualPosition: row.manualPosition ?? undefined,
             teacherRemarks: row.teacherRemarks ?? undefined,
             customFields: row.customFields ?? undefined,
             teacherId: teacherContext.teacher.id,
@@ -316,6 +340,7 @@ export async function POST(request: NextRequest) {
             overallPercentage: 0,
             grade: deriveGrade(0),
             performanceBatch: derivePerformanceBatch(0),
+            manualPosition: row.manualPosition !== undefined ? row.manualPosition : undefined,
             // Omitted details mean "leave the existing value unchanged".
             // This lets the class grid update marks without erasing custom
             // fields or teacher remarks entered in the detail editor.

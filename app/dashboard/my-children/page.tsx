@@ -20,6 +20,7 @@ import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPan
 import ResultReportCard, { type ReportCardResult, type ReportCardStudent } from '@/components/academic/ResultReportCard'
 import { TaskMarksPanel, type TaskResultItem } from '@/components/academic/TaskMarksPanel'
 import { MonthlyMonitoringGrid } from '@/components/academic/MonthlyMonitoringGrid'
+import { getDisplayedPosition, type ResultCardConfig } from '@/lib/academic/result-card-config'
 
 const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -70,6 +71,8 @@ type ChildAcademic = {
     overallPercentage: number
     grade: string
     classPosition: number | null
+    manualPosition: number | null
+    resultCardConfig?: ResultCardConfig
     performanceBatch: string
     teacherRemarks: string | null
     customFields: Array<{ label: string; value: string }>
@@ -586,9 +589,9 @@ export default function MyChildrenPage() {
                                   <Badge className={`${batchColorClass} text-[10px] font-bold border py-0`}>
                                     {sessionResult.performanceBatch}
                                   </Badge>
-                                  {sessionResult.classPosition !== null && (
+                                  {getDisplayedPosition(sessionResult.resultCardConfig, sessionResult.classPosition, sessionResult.manualPosition) !== null && (
                                     <Badge className="bg-slate-900 hover:bg-slate-900 text-white text-[10px] font-bold py-0">
-                                      Rank #{sessionResult.classPosition}
+                                      Rank #{getDisplayedPosition(sessionResult.resultCardConfig, sessionResult.classPosition, sessionResult.manualPosition)}
                                     </Badge>
                                   )}
                                 </div>

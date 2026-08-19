@@ -18,6 +18,7 @@ import type { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { assertGuardianAccessToStudent } from '@/lib/academic/guardian'
 import { getTeacherClassSectionIds } from '@/lib/academic/teacher-scope'
+import { formatExamSessionLabel, parseResultCardConfig } from '@/lib/academic/result-card-config'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -76,7 +77,35 @@ export async function GET(request: NextRequest) {
         examSessionId ?? undefined,
         declaredOnly
       )
-      return successResponse(card)
+      const rawResults = Array.isArray(card) ? card : card ? [card] : []
+      const sessionIds = [...new Set(rawResults.map((result) => result.examSessionId))]
+      const [exams, academicYears] = sessionIds.length > 0
+        ? await Promise.all([
+            prisma.exam.findMany({ where: { id: { in: sessionIds } }, select: { id: true, name: true } }),
+            prisma.academicYear.findMany({ where: { id: { in: sessionIds } }, select: { id: true, name: true } }),
+          ])
+        : [[], []]
+      const examNames = new Map(exams.map((exam) => [exam.id, exam.name]))
+      const yearNames = new Map(academicYears.map((year) => [year.id, `${year.name} — Annual Result`]))
+      const normalized = rawResults.map((result) => {
+        const resultWithConfig = result as typeof result & { resultCardConfig?: unknown }
+        return {
+        ...result,
+        examSessionLabel: examNames.get(result.examSessionId)
+          ?? yearNames.get(result.examSessionId)
+          ?? formatExamSessionLabel(result.examSessionId),
+        resultCardConfig: parseResultCardConfig(resultWithConfig.resultCardConfig),
+        manualPosition: result.manualPosition ?? null,
+        overallPercentage: Number(result.overallPercentage),
+        subjectResults: result.subjectResults.map((subjectResult) => ({
+          ...subjectResult,
+          totalMarks: Number(subjectResult.totalMarks),
+          obtainedMarks: subjectResult.obtainedMarks === null ? null : Number(subjectResult.obtainedMarks),
+          percentage: subjectResult.percentage === null ? null : Number(subjectResult.percentage),
+        })),
+        }
+      })
+      return successResponse(Array.isArray(card) ? normalized : normalized[0] ?? null)
     }
 
     if (classSectionId && examSessionId) {

@@ -59,6 +59,7 @@ const resultDetailSelect = {
   grade: true,
   performanceBatch: true,
   classPosition: true,
+  manualPosition: true,
   teacherRemarks: true,
   customFields: true,
   student: { select: { id: true, firstName: true, lastName: true, rollNumber: true } },
