@@ -1,65 +1,98 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AlertTriangle, CreditCard, Lock, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, CreditCard, Info, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 
 interface OverdueData {
   hasOverdue: boolean
   totalOverdue: number
   overdueCount: number
+  invoices: Array<{
+    id: string
+    challanNumber: string
+    month: string
+    studentName: string
+    outstandingAmount: number
+  }>
 }
 
 export function FeeOverdueModal() {
   const pathname = usePathname()
-  const DISMISS_KEY = 'studentFeeOverdueModalDismissed'
-  const [data, setData] = useState<OverdueData | null>(null)
-  const [isDismissed, setIsDismissed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
+  const { data: session } = useSession()
+  const role = session?.user?.role
+  const viewerKey = session?.user?.id ? `${role}:${session.user.id}` : ''
+  const [isDismissed, setIsDismissed] = useState(false)
+  const previousViewerKey = useRef(viewerKey)
+  const cardRef = useRef<HTMLDivElement>(null)
 
-    try {
-      return window.sessionStorage.getItem(DISMISS_KEY) === 'true'
-    } catch {
-      return false
-    }
+  const { data, refetch } = useQuery<OverdueData>({
+    queryKey: ['fee-overdue-reminder', viewerKey],
+    enabled: Boolean(viewerKey && ['STUDENT', 'PARENT', 'GUARDIAN'].includes(role ?? '')),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    retry: false,
+    queryFn: async () => {
+      const response = await fetch('/api/student/fees/overdue', { cache: 'no-store' })
+      if (!response.ok) throw new Error('Unable to load fee reminder')
+      return response.json() as Promise<OverdueData>
+    },
   })
 
+  // A dismissal belongs to the current login only. A new login (including the
+  // same user logging in again) starts with a fresh reminder state.
   useEffect(() => {
-    if (isDismissed) {
-      return
+    if (previousViewerKey.current !== viewerKey) {
+      setIsDismissed(false)
+      previousViewerKey.current = viewerKey
+    }
+  }, [viewerKey])
+
+  // Re-check after route changes so a payment completed on the fee page clears
+  // the reminder without requiring a full browser refresh.
+  useEffect(() => {
+    if (viewerKey) void refetch()
+  }, [pathname, refetch, viewerKey])
+
+  useEffect(() => {
+    if (isDismissed || !data?.hasOverdue || pathname?.startsWith('/dashboard/fees')) return
+
+    const dismissOnOutsideClick = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setIsDismissed(true)
+      }
+    }
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDismissed(true)
     }
 
-    fetch('/api/student/fees/overdue')
-      .then(res => res.json())
-      .then(json => {
-        if (json.hasOverdue) {
-          setData(json)
-        }
-      })
-      .catch(err => console.error('Error fetching overdue fees', err))
-  }, [isDismissed])
+    document.addEventListener('click', dismissOnOutsideClick)
+    document.addEventListener('keydown', dismissOnEscape)
+    return () => {
+      document.removeEventListener('click', dismissOnOutsideClick)
+      document.removeEventListener('keydown', dismissOnEscape)
+    }
+  }, [data?.hasOverdue, isDismissed, pathname])
 
   const handleClose = () => {
-    try {
-      window.sessionStorage.setItem(DISMISS_KEY, 'true')
-    } catch {
-      // ignore storage errors and still close the modal
-    }
-
     setIsDismissed(true)
   }
 
-  const shouldShowModal = Boolean(data && !pathname?.startsWith('/dashboard/fees') && !isDismissed)
+  const firstInvoice = data?.invoices?.[0]
+  const isGuardian = role === 'PARENT' || role === 'GUARDIAN'
+  const destination = isGuardian ? '/dashboard/my-children' : firstInvoice ? `/dashboard/fees/${firstInvoice.id}` : '/dashboard/fees'
+  const shouldShowModal = Boolean(data?.hasOverdue && !pathname?.startsWith('/dashboard/fees') && !isDismissed)
 
   if (!shouldShowModal) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-950/50 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="pointer-events-none fixed right-3 top-16 z-[100] w-[calc(100vw-1.5rem)] max-w-md sm:right-6 sm:top-20 sm:w-full" role="status" aria-live="polite">
+      <div ref={cardRef} className="pointer-events-auto max-h-[calc(100vh-5rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-red-200 animate-in slide-in-from-right-4 fade-in duration-300">
         <div className="relative bg-gradient-to-br from-red-600 to-rose-700 p-8 flex flex-col items-center justify-center text-white overflow-hidden">
           <button
             type="button"
@@ -75,7 +108,7 @@ export function FeeOverdueModal() {
           </div>
           <h2 className="text-2xl font-black text-center mb-1 tracking-tight">Fee Overdue Reminder</h2>
           <p className="text-red-100 text-sm font-medium text-center max-w-xs leading-relaxed">
-            Your account has overdue fees. Please visit the fee section to settle the amount and continue using the portal smoothly.
+            You have an overdue fee reminder. Close this notice to continue using your portal, or open your fee details when convenient.
           </p>
         </div>
 
@@ -91,19 +124,25 @@ export function FeeOverdueModal() {
               <span className="text-sm font-bold text-red-800">Total Amount Due</span>
               <span className="text-2xl font-black text-red-600">Rs {data.totalOverdue.toLocaleString()}</span>
             </div>
+            {isGuardian && data.invoices.slice(0, 2).map((invoice) => (
+              <div key={invoice.id} className="mt-3 flex items-center justify-between gap-3 border-t border-red-100 pt-3 text-xs text-red-700">
+                <span className="truncate">{invoice.studentName || 'Student'} · {invoice.month}</span>
+                <span className="shrink-0 font-bold">Rs {invoice.outstandingAmount.toLocaleString()}</span>
+              </div>
+            ))}
           </div>
 
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-6">
-            <Lock className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-amber-800 font-medium leading-relaxed">
-              This is a reminder only. You can continue using the dashboard, or go to the fee section to complete payment.
+              This is a reminder only. Your portal access is not blocked. You can close it now and return to it on your next login if the balance remains unpaid.
             </p>
           </div>
 
-          <Link href="/dashboard/fees" className="w-full block">
+          <Link href={destination} className="w-full block" onClick={handleClose}>
             <Button className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold h-13 text-base shadow-lg shadow-red-200 gap-2.5 rounded-xl transition-all">
               <CreditCard className="w-5 h-5" />
-              Go to Fee Section &amp; Pay Now
+              {isGuardian ? 'View Children\'s Fees' : 'View Fee Details'}
             </Button>
           </Link>
 

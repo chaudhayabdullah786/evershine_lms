@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi, fetchPaginatedApi, PaginatedResult } from '@/lib/api-client'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -185,43 +184,6 @@ export default function DashboardPage() {
   const teacherTimetableSlots = Array.isArray(teacherTimetable)
     ? teacherTimetable
     : teacherTimetable?.data ?? []
-
-  const OVERDUE_DIALOG_DISMISS_KEY = 'dashboardOverdueFeeDialogDismissed'
-  const [isOverdueDialogOpen, setIsOverdueDialogOpen] = useState(true)
-  const [isOverdueDialogDismissed, setIsOverdueDialogDismissed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
-
-    try {
-      return window.sessionStorage.getItem(OVERDUE_DIALOG_DISMISS_KEY) === 'true'
-    } catch {
-      return false
-    }
-  })
-
-  const isStudentOrGuardian = ['STUDENT', 'PARENT', 'GUARDIAN'].includes(role || '')
-  
-  const { data: overdueFees } = useQuery<any>({
-    queryKey: ['overdue-fees'],
-    queryFn: () => fetchPaginatedApi<any>('/api/fees?status=OVERDUE&limit=1'),
-    enabled: isStudentOrGuardian && !roleHomePath
-  })
-  const hasOverdueFee = overdueFees?.data && overdueFees.data.length > 0
-  const firstOverdueFee = overdueFees?.data?.[0]
-
-  const closeOverdueDialog = () => {
-    try {
-      window.sessionStorage.setItem(OVERDUE_DIALOG_DISMISS_KEY, 'true')
-    } catch {
-      // ignore storage failures and still close the dialog
-    }
-
-    setIsOverdueDialogOpen(false)
-    setIsOverdueDialogDismissed(true)
-  }
-
-  const isOverdueDialogVisible = isStudentOrGuardian && hasOverdueFee && isOverdueDialogOpen && !isOverdueDialogDismissed
 
   // Normalizing JS dayOfWeek to DB dayOfWeek (0=Monday, ..., 6=Sunday)
   const jsDay = new Date().getDay()
@@ -524,54 +486,6 @@ export default function DashboardPage() {
         </div>
       )}
       
-      {/* Overdue Fee Warning Modal */}
-      {isOverdueDialogVisible && (
-        <Dialog
-          open={isOverdueDialogVisible}
-          onOpenChange={(open) => {
-            if (!open) {
-              closeOverdueDialog()
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-md border-red-200 bg-red-50" showCloseButton>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-red-700 font-bold text-xl">
-                <AlertCircle className="w-6 h-6" />
-                FEE CHALLAN OVERDUE NOTICE
-              </DialogTitle>
-              <DialogDescription className="text-red-900 mt-2">
-                Dear Student/Guardian, your fee invoice <strong>{firstOverdueFee.challanNumber}</strong> for <strong>{firstOverdueFee.month}</strong> is past its due date.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="bg-white p-4 rounded-lg border border-red-200 shadow-sm mt-2 space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Subtotal</span>
-                <span className="font-mono">Rs {Number(firstOverdueFee.subtotal).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm text-red-600 font-medium">
-                <span>Late Fee</span>
-                <span className="font-mono">+ Rs {Number(firstOverdueFee.lateFee).toLocaleString()}</span>
-              </div>
-              <div className="border-t pt-2 mt-2 flex justify-between items-center font-black text-lg text-blue-900">
-                <span>Total Due</span>
-                <span className="font-mono">Rs {Number(firstOverdueFee.totalAmount).toLocaleString()}</span>
-              </div>
-            </div>
-            <p className="text-xs text-red-600 mt-2 font-medium">
-              Please submit payment of PKR {Number(firstOverdueFee.totalAmount).toLocaleString()} and upload the deposit screenshot immediately to avoid further late fee penalties or suspension of portal access.
-            </p>
-            <DialogFooter className="mt-4" showCloseButton>
-              <Link href={`/dashboard/fees/${firstOverdueFee.id}`} className="w-full">
-                <Button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-11">
-                  View Invoice & Upload Payment Proof
-                </Button>
-              </Link>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
       {/* Student Specific Stats */}
       {role === 'STUDENT' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
