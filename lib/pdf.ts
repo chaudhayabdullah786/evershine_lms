@@ -531,12 +531,23 @@ export async function generatePdfBlob({
         targetEl.style.maxWidth = `${captureWidth}px`
 
         const explicitHeight = targetEl.getAttribute('data-pdf-height')
+        const computedHeight = Number.parseFloat(window.getComputedStyle(targetEl).height)
+        const hasFixedCanvasHeight = Number.isFinite(computedHeight)
+          && computedHeight > 0
+          && (targetEl.hasAttribute('data-document-page') || window.getComputedStyle(targetEl).overflow === 'hidden')
+        // Fixed document canvases intentionally hide overflow. Using scrollHeight
+        // here captures the hidden overflow as a blank extension and can place
+        // the lower half of a result card outside the visible export. Prefer the
+        // rendered/fixed canvas height; only use scrollHeight for naturally-sized
+        // report or letter content.
         const captureHeight = explicitHeight
           ? parseInt(explicitHeight, 10)
-          : Math.max(
-              Math.round(targetEl.scrollHeight) || Math.round(rect.height) || pdfHeight,
-              1,
-            )
+          : hasFixedCanvasHeight
+            ? Math.round(computedHeight)
+            : Math.max(
+                Math.round(targetEl.scrollHeight) || Math.round(rect.height) || pdfHeight,
+                1,
+              )
         targetEl.style.height = `${captureHeight}px`
         targetEl.style.minHeight = `${captureHeight}px`
         targetEl.style.maxHeight = `${captureHeight}px`
@@ -656,13 +667,28 @@ export async function generatePdfBlob({
         const physicalWidthStr = targetEl.getAttribute('data-pdf-physical-width')
         const physicalHeightStr = targetEl.getAttribute('data-pdf-physical-height')
         
-        const formatWidth = physicalWidthStr ? parseFloat(physicalWidthStr) : pageWidth
-        const formatHeight = physicalHeightStr ? parseFloat(physicalHeightStr) : pageHeight
+        const hasPhysicalFormat = Boolean(physicalWidthStr && physicalHeightStr)
+        const isA4Format = format === 'a4' && !hasPhysicalFormat
+        const formatWidth = physicalWidthStr
+          ? parseFloat(physicalWidthStr)
+          : isA4Format
+            ? 210
+            : pageWidth
+        const formatHeight = physicalHeightStr
+          ? parseFloat(physicalHeightStr)
+          : isA4Format
+            ? 297
+            : pageHeight
+        const outputUnit = isA4Format
+          ? 'mm'
+          : hasPhysicalFormat
+            ? physicalUnit
+            : 'px'
 
         if (!pdf) {
           pdf = new jsPDF({
             orientation: pageOrientation,
-            unit: physicalUnit as any,
+            unit: outputUnit as any,
             format: [formatWidth, formatHeight],
           })
         } else {
