@@ -28,7 +28,6 @@ export function FeeOverdueModal() {
   const viewerKey = session?.user?.id ? `${role}:${session.user.id}` : ''
   const [isDismissed, setIsDismissed] = useState(false)
   const previousViewerKey = useRef(viewerKey)
-  const cardRef = useRef<HTMLDivElement>(null)
 
   const { data, refetch } = useQuery<OverdueData>({
     queryKey: ['fee-overdue-reminder', viewerKey],
@@ -62,19 +61,12 @@ export function FeeOverdueModal() {
   useEffect(() => {
     if (isDismissed || !data?.hasOverdue || pathname?.startsWith('/dashboard/fees')) return
 
-    const dismissOnOutsideClick = (event: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
-        setIsDismissed(true)
-      }
-    }
     const dismissOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsDismissed(true)
     }
 
-    document.addEventListener('click', dismissOnOutsideClick)
     document.addEventListener('keydown', dismissOnEscape)
     return () => {
-      document.removeEventListener('click', dismissOnOutsideClick)
       document.removeEventListener('keydown', dismissOnEscape)
     }
   }, [data?.hasOverdue, isDismissed, pathname])
@@ -91,8 +83,15 @@ export function FeeOverdueModal() {
   if (!shouldShowModal) return null
 
   return (
-    <div className="pointer-events-none fixed right-3 top-16 z-[100] w-[calc(100vw-1.5rem)] max-w-md sm:right-6 sm:top-20 sm:w-full" role="status" aria-live="polite">
-      <div ref={cardRef} className="pointer-events-auto max-h-[calc(100vh-5rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-red-200 animate-in slide-in-from-right-4 fade-in duration-300">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm animate-in fade-in duration-300 sm:p-6"
+      role="status"
+      aria-live="polite"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) handleClose()
+      }}
+    >
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-red-200 animate-in zoom-in-95 duration-300 sm:max-h-[calc(100vh-3rem)]">
         <div className="relative bg-gradient-to-br from-red-600 to-rose-700 p-8 flex flex-col items-center justify-center text-white overflow-hidden">
           <button
             type="button"
