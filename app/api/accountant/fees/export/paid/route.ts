@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { errors } from '@/lib/api-response'
 import { feeExportPaidSchema } from '@/lib/validation/accountant-fee'
 import { buildPaidListReport } from '@/lib/excel/fee-lists'
+import type { InvoiceStatus } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -36,10 +37,18 @@ export async function GET(request: NextRequest) {
   const { month, academicYear, campusId: queryCampusId, classId } = parsed.data
 
   const targetCampus = campusId || queryCampusId
+  const collectedStatuses: InvoiceStatus[] = ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERDUE']
 
   const invoices = await prisma.feeInvoice.findMany({
     where: {
-      status: 'PAID',
+      // Paid reports are based on collected payments, not only the invoice's
+      // final status. This includes valid partial payments and legacy invoices
+      // whose denormalized status was not updated after payment reconciliation.
+      status: { in: collectedStatuses },
+      OR: [
+        { paidAmount: { gt: 0 } },
+        { payments: { some: { status: 'COMPLETED' } } },
+      ],
       ...(month ? { month } : {}),
       ...(academicYear ? { academicYear } : {}),
       student: {
@@ -49,7 +58,9 @@ export async function GET(request: NextRequest) {
     },
     include: {
       student: { include: { class: true, campus: { select: { name: true } } } },
-      payments: { orderBy: { paymentDate: 'desc' } },
+      payments: {
+        orderBy: { paymentDate: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
   })

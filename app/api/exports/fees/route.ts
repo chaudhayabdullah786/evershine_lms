@@ -15,6 +15,7 @@ import type { Role } from '@prisma/client'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getCanonicalStudentClassSection } from '@/lib/academic/record-formatters'
 import { serializePaymentDetails } from '@/lib/fees/payment-details'
+import { effectivePaidAmount } from '@/lib/fees/reporting'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -51,6 +52,9 @@ export async function GET(request: NextRequest) {
       proofStatus: true,
       bankAccounts: true,
       createdAt: true,
+      payments: {
+        select: { amount: true, status: true },
+      },
       student: {
         select: {
           registrationNumber: true,
@@ -86,14 +90,16 @@ export async function GET(request: NextRequest) {
   // Format into a flat list for tabular export
   const formattedInvoices = invoices.map(inv => {
     const total = Number(inv.totalAmount)
-    const paid = Number(inv.paidAmount)
+    const paid = effectivePaidAmount(inv.paidAmount, inv.payments)
     const due = Math.max(0, total - paid)
     
     // Status normalization
     let calculatedStatus = inv.status.toString()
-    if (inv.status === 'PAID') {
+    if (inv.status === 'CANCELLED') {
+      calculatedStatus = 'CANCELLED'
+    } else if (due <= 0 && paid > 0) {
       calculatedStatus = 'PAID'
-    } else if (inv.status === 'PARTIALLY_PAID') {
+    } else if (paid > 0) {
       calculatedStatus = 'PARTIAL'
     } else if (due > 0 && new Date(inv.dueDate) < new Date()) {
       calculatedStatus = 'DEFAULTER (OVERDUE)'
