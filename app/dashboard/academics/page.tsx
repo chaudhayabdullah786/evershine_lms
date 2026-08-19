@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
 import { fadeUp, staggerContainer } from '@/lib/animations'
 import { MonitoringReportPanel } from '@/components/academic/MonitoringReportPanel'
+import { getDisplayedPosition, type ResultCardConfig } from '@/lib/academic/result-card-config'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,8 @@ interface TermResult {
   overallPercentage: number
   grade: string
   classPosition: number | null
+  manualPosition: number | null
+  resultCardConfig?: ResultCardConfig
   performanceBatch: string | null
   teacherRemarks: string | null
   customFields: Array<{ label: string; value: string }> | null
@@ -353,7 +356,7 @@ export default function StudentAcademicsPage() {
               <StatCard icon={BarChart2} label="Average Score" value={allTermResults.length > 0 ? `${stats.avg}%` : 'N/A'} sub={allTermResults.length > 0 ? 'Across all terms' : 'No results yet'} color="text-blue-700" iconBg="bg-blue-50" />
               <StatCard icon={Award} label="Overall Grade" value={allTermResults.length > 0 ? stats.grade : '—'} sub={allTermResults.length > 0 ? gradeConfig(stats.grade).label : 'Pending'} color={gradeConfig(stats.grade).text} iconBg={gradeConfig(stats.grade).bg} />
               <StatCard icon={TrendingUp} label="Highest Term" value={allTermResults.length > 0 ? `${stats.highest}%` : '—'} sub="Best term score" color="text-emerald-700" iconBg="bg-emerald-50" />
-              <StatCard icon={Star} label="Class Position" value={activeTermResult?.classPosition ? `#${activeTermResult.classPosition}` : '—'} sub={activeTermResult ? `in ${activeTermResult.examSessionId}` : 'Awaiting results'} color="text-indigo-700" iconBg="bg-indigo-50" />
+              <StatCard icon={Star} label="Class Position" value={getDisplayedPosition(activeTermResult?.resultCardConfig, activeTermResult?.classPosition, activeTermResult?.manualPosition) ? `#${getDisplayedPosition(activeTermResult?.resultCardConfig, activeTermResult?.classPosition, activeTermResult?.manualPosition)}` : '—'} sub={activeTermResult ? `in ${activeTermResult.examSessionId}` : 'Awaiting results'} color="text-indigo-700" iconBg="bg-indigo-50" />
             </motion.div>
 
 
@@ -445,12 +448,12 @@ export default function StudentAcademicsPage() {
                     </div>
                   </div>
                   {/* Position & Batch */}
-                  {(activeTermResult.classPosition || activeTermResult.performanceBatch) && (
+                  {(getDisplayedPosition(activeTermResult.resultCardConfig, activeTermResult.classPosition, activeTermResult.manualPosition) || activeTermResult.performanceBatch) && (
                     <div className="px-5 py-3 flex flex-wrap gap-4 border-b border-gray-50 bg-indigo-50/30">
-                      {activeTermResult.classPosition && (
+                      {getDisplayedPosition(activeTermResult.resultCardConfig, activeTermResult.classPosition, activeTermResult.manualPosition) && (
                         <div className="flex items-center gap-2">
                           <Star className="w-3.5 h-3.5 text-indigo-500" />
-                          <span className="text-xs font-bold text-gray-700">Class Position: <span className="font-black text-indigo-700">#{activeTermResult.classPosition}</span></span>
+                          <span className="text-xs font-bold text-gray-700">Class Position: <span className="font-black text-indigo-700">#{getDisplayedPosition(activeTermResult.resultCardConfig, activeTermResult.classPosition, activeTermResult.manualPosition)}</span></span>
                         </div>
                       )}
                       {activeTermResult.performanceBatch && (

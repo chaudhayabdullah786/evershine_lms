@@ -2348,6 +2348,12 @@ enum ResultDeclarationStatus {
   DECLARED
 }
 
+enum ResultCardPositionMode {
+  HIDDEN
+  SYSTEM_APPROVED
+  MANUAL
+}
+
 model TermResult {
   id                String                  @id @default(cuid())
   studentId         String
@@ -2356,6 +2362,7 @@ model TermResult {
   overallPercentage Decimal                 @db.Decimal(5, 2)
   grade             String
   classPosition     Int?
+  manualPosition    Int?
   // performanceBatch: auto-derived (≥90=Ever Shine, 80-89=Quaid, 60-79=Iqbal, <60=Improvement)
   // Teacher can manually override; last-writer-wins with audit log entry.
   performanceBatch  String
@@ -2381,6 +2388,33 @@ model TermResult {
   @@index([classSectionId, examSessionId])
   @@index([teacherId])
   @@index([declarationStatus])
+}
+
+model ResultCardConfig {
+  id                   String                 @id @default(cuid())
+  classSectionId       String
+  examSessionId        String
+  examTitleOverride    String?                @db.VarChar(120)
+  academyNameOverride  String?                @db.VarChar(120)
+  showStudentInfo      Boolean                @default(true)
+  showSubjectNames     Boolean                @default(true)
+  showTotalMarks       Boolean                @default(true)
+  showObtainedMarks    Boolean                @default(true)
+  showPercentage       Boolean                @default(true)
+  showGrade            Boolean                @default(true)
+  showResultStatus     Boolean                @default(true)
+  showTeacherRemarks   Boolean                @default(true)
+  showPerformanceBatch Boolean                @default(true)
+  showCustomFields     Boolean                @default(true)
+  showClassPosition    Boolean                @default(false)
+  positionMode         ResultCardPositionMode @default(HIDDEN)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@unique([classSectionId, examSessionId])
+  @@index([examSessionId])
 }
 
 model SubjectResult {

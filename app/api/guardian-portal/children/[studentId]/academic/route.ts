@@ -7,6 +7,7 @@ import { mapGradeLetter } from '@/lib/academic/grades'
 import { toPortalMonthlyMonitoringReport, type MonthlyMonitoringRepository } from '@/lib/academic/monitoring-report'
 import { toDailyMonitoringPortalEntry } from '@/lib/academic/monitoring'
 import { parseCustomResultFields } from '@/lib/academic/result-fields'
+import { parseResultCardConfig } from '@/lib/academic/result-card-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -234,6 +235,19 @@ export async function GET(
     : []
   const examNameById = new Map(scheduledExams.map((exam) => [exam.id, exam.name]))
   const resultYearNameById = new Map(resultYears.map((year) => [year.id, `${year.name} — Annual Result`]))
+  const resultCardConfigs = declaredTermResults.length && prisma.resultCardConfig?.findMany
+    ? await prisma.resultCardConfig.findMany({
+        where: {
+          OR: declaredTermResults.map((result) => ({
+            classSectionId: result.classSectionId,
+            examSessionId: result.examSessionId,
+          })),
+        },
+      })
+    : []
+  const resultCardConfigByKey = new Map(
+    resultCardConfigs.map((config) => [`${config.classSectionId}:${config.examSessionId}`, config]),
+  )
 
   const declaredResults = declaredTermResults.map((termResult) => ({
     id: termResult.id,
@@ -249,6 +263,10 @@ export async function GET(
     overallPercentage: Number(termResult.overallPercentage),
     grade: termResult.grade,
     classPosition: termResult.classPosition,
+    manualPosition: termResult.manualPosition ?? null,
+    resultCardConfig: parseResultCardConfig(
+      resultCardConfigByKey.get(`${termResult.classSectionId}:${termResult.examSessionId}`),
+    ),
     performanceBatch: termResult.performanceBatch,
     teacherRemarks: termResult.teacherRemarks,
     customFields: parseCustomResultFields(termResult.customFields),

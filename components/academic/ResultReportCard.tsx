@@ -1,6 +1,7 @@
 'use client'
 
 import React, { forwardRef } from 'react'
+import { getDisplayedPosition, parseResultCardConfig, type ResultCardConfig } from '@/lib/academic/result-card-config'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,8 +10,8 @@ export type ReportCardSubject = {
   subjectName: string
   subjectCode: string
   totalMarks: number
-  obtainedMarks: number
-  percentage: number
+  obtainedMarks: number | null
+  percentage: number | null
   grade: string
   resultStatus: string
   isPassed: boolean
@@ -34,6 +35,8 @@ export type ReportCardResult = {
   overallPercentage: number
   grade: string
   classPosition: number | null
+  manualPosition?: number | null
+  resultCardConfig?: Partial<ResultCardConfig> | null
   performanceBatch: string
   teacherRemarks: string | null
   customFields: ReportCardCustomField[]
@@ -173,6 +176,7 @@ export function ResultCardDocument({
   sessionName,
   attendancePct,
 }: ResultReportCardProps) {
+  const cardConfig = parseResultCardConfig(result.resultCardConfig)
   // Calculations
   const validSubjects = result.subjects.filter((s) => !s.isAbsent && !s.isNotApplicable)
   const totalObtained = validSubjects.reduce((acc, s) => acc + (s.obtainedMarks ?? 0), 0)
@@ -186,7 +190,8 @@ export function ResultCardDocument({
     <div className="flex-1 flex flex-col bg-white p-6 sm:p-8 space-y-6">
       {/* Header */}
       <ResultCardHeader
-        examSessionLabel={result.examSessionLabel}
+        examSessionLabel={cardConfig.examTitleOverride || result.examSessionLabel}
+        academyName={cardConfig.academyNameOverride}
         declaredAt={result.declaredAt}
         campusName={student.campus?.name}
         sessionName={sessionName}
@@ -195,11 +200,14 @@ export function ResultCardDocument({
       />
 
       {/* Student Information and Rank */}
-      <StudentInformation
-        student={student}
-        result={result}
-        sessionName={sessionName}
-      />
+      {cardConfig.showStudentInfo && (
+        <StudentInformation
+          student={student}
+          result={result}
+          sessionName={sessionName}
+          config={cardConfig}
+        />
+      )}
 
       {/* Subject Result Table */}
       <SubjectResultTable
@@ -209,16 +217,19 @@ export function ResultCardDocument({
         overallPercentage={result.overallPercentage}
         grade={result.grade}
         overallPassed={overallPassed}
+        config={cardConfig}
       />
 
       {/* Character and Development Assessment (Optional) */}
-      <CharacterAssessment
-        customFields={result.customFields}
-        attendancePct={attendancePct}
-      />
+      {cardConfig.showCustomFields && (
+        <CharacterAssessment
+          customFields={result.customFields}
+          attendancePct={attendancePct}
+        />
+      )}
 
       {/* Instructor Remarks */}
-      {result.teacherRemarks && (
+      {cardConfig.showTeacherRemarks && result.teacherRemarks && (
         <div className="page-break-inside-avoid">
           <div className="bg-[#F5F7FA] border border-[#D9E0E8] rounded-md p-3">
             <p className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
@@ -236,16 +247,14 @@ export function ResultCardDocument({
         result={result}
         totalObtained={totalObtained}
         totalPossible={totalPossible}
+        config={cardConfig}
       />
 
       {/* Signature Section */}
       <div className="mt-auto pt-6 page-break-inside-avoid">
         <SignatureSection />
         <div className="mt-6">
-          <ResultCardFooter
-            termResultId={result.termResultId}
-            declaredAt={result.declaredAt}
-          />
+            <ResultCardFooter />
         </div>
       </div>
     </div>
@@ -256,6 +265,7 @@ export function ResultCardDocument({
 
 export function ResultCardHeader({
   examSessionLabel,
+  academyName,
   declaredAt,
   campusName,
   sessionName,
@@ -263,6 +273,7 @@ export function ResultCardHeader({
   shiftName,
 }: {
   examSessionLabel: string
+  academyName?: string | null
   declaredAt: string | null
   campusName?: string | null
   sessionName?: string | null
@@ -286,7 +297,7 @@ export function ResultCardHeader({
           </div>
           <div>
             <h1 className="text-xl font-extrabold tracking-tight leading-none mb-1 text-white">
-              Evershine Academy
+              {academyName || 'Evershine Academy'}
             </h1>
             <p className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">
               {displayCampus}
@@ -344,14 +355,17 @@ export function StudentInformation({
   student,
   result,
   sessionName,
+  config,
 }: {
   student: ReportCardStudent
   result: ReportCardResult
   sessionName?: string | null
+  config: ResultCardConfig
 }) {
   const studentName = `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()
   const hasPhoto = !!student.profilePicture
   const batchStyle = getPerformanceBatchStyle(result.performanceBatch)
+  const displayedPosition = getDisplayedPosition(config, result.classPosition, result.manualPosition)
 
   return (
     <div className="flex flex-row gap-6 items-stretch justify-between py-1 page-break-inside-avoid">
@@ -391,22 +405,22 @@ export function StudentInformation({
 
       {/* Performance Status Indicators */}
       <div className="flex-shrink-0 w-44 flex flex-col gap-3 justify-center border border-[#D9E0E8] bg-[#F5F7FA] rounded-md p-3">
-        <div className="text-center">
+        {config.showPerformanceBatch && <div className="text-center">
           <p className="text-[8px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-1">
             Performance Group
           </p>
           <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} break-all`}>
             {result.performanceBatch}
           </span>
-        </div>
+        </div>}
 
-        {result.classPosition !== null && (
+        {displayedPosition !== null && (
           <div className="text-center border-t border-[#D9E0E8] pt-2">
             <p className="text-[8px] font-bold uppercase tracking-wider text-[#5F6B7A] mb-0.5">
               Class Rank
             </p>
             <p className="text-sm font-black text-[#172033]">
-              #{result.classPosition}
+              #{displayedPosition}
             </p>
           </div>
         )}
@@ -431,6 +445,7 @@ export function SubjectResultTable({
   overallPercentage,
   grade,
   overallPassed,
+  config,
 }: {
   subjects: ReportCardSubject[]
   totalObtained: number
@@ -438,6 +453,7 @@ export function SubjectResultTable({
   overallPercentage: number
   grade: string
   overallPassed: boolean
+  config: ResultCardConfig
 }) {
   return (
     <div className="flex flex-col">
@@ -445,12 +461,12 @@ export function SubjectResultTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#173B7A] text-white text-[10px] font-bold uppercase tracking-wider border-b border-[#173B7A]">
-              <th className="px-4 py-2.5 text-left font-extrabold">Subject</th>
-              <th className="px-4 py-2.5 text-center font-extrabold">Obtained Marks</th>
-              <th className="px-4 py-2.5 text-center font-extrabold">Total Marks</th>
-              <th className="px-4 py-2.5 text-center font-extrabold">Percentage</th>
-              <th className="px-4 py-2.5 text-center font-extrabold">Grade</th>
-              <th className="px-4 py-2.5 text-center font-extrabold">Status</th>
+              {config.showSubjectNames && <th className="px-4 py-2.5 text-left font-extrabold">Subject</th>}
+              {config.showObtainedMarks && <th className="px-4 py-2.5 text-center font-extrabold">Obtained Marks</th>}
+              {config.showTotalMarks && <th className="px-4 py-2.5 text-center font-extrabold">Total Marks</th>}
+              {config.showPercentage && <th className="px-4 py-2.5 text-center font-extrabold">Percentage</th>}
+              {config.showGrade && <th className="px-4 py-2.5 text-center font-extrabold">Grade</th>}
+              {config.showResultStatus && <th className="px-4 py-2.5 text-center font-extrabold">Status</th>}
               <th className="px-4 py-2.5 text-left font-extrabold max-w-xs">Remarks</th>
             </tr>
           </thead>
@@ -462,23 +478,23 @@ export function SubjectResultTable({
 
               return (
                 <tr key={sub.subjectId} className="hover:bg-[#F5F7FA] transition-colors page-break-inside-avoid">
-                  <td className="px-4 py-2.5">
+                  {config.showSubjectNames && <td className="px-4 py-2.5">
                     <span className="font-bold text-[#172033] block">{sub.subjectName}</span>
                     <span className="text-[9px] text-[#5F6B7A] font-semibold block mt-0.5">{sub.subjectCode}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-center font-extrabold text-xs">
-                    {isNA ? "—" : isAbsent ? "Abs" : sub.obtainedMarks}
-                  </td>
-                  <td className="px-4 py-2.5 text-center text-[#5F6B7A] font-semibold">
+                  </td>}
+                  {config.showObtainedMarks && <td className="px-4 py-2.5 text-center font-extrabold text-xs">
+                    {isNA ? "—" : isAbsent ? "Abs" : sub.obtainedMarks ?? "—"}
+                  </td>}
+                  {config.showTotalMarks && <td className="px-4 py-2.5 text-center text-[#5F6B7A] font-semibold">
                     {sub.totalMarks}
-                  </td>
-                  <td className="px-4 py-2.5 text-center font-extrabold text-[#2F66B3]">
-                    {isNA || isAbsent ? "—" : `${sub.percentage.toFixed(1)}%`}
-                  </td>
-                  <td className={`px-4 py-2.5 text-center font-extrabold ${getGradeColor(sub.grade)}`}>
+                  </td>}
+                  {config.showPercentage && <td className="px-4 py-2.5 text-center font-extrabold text-[#2F66B3]">
+                    {isNA || isAbsent || sub.percentage === null ? "—" : `${sub.percentage.toFixed(1)}%`}
+                  </td>}
+                  {config.showGrade && <td className={`px-4 py-2.5 text-center font-extrabold ${getGradeColor(sub.grade)}`}>
                     {isNA ? "—" : isAbsent ? "Abs" : sub.grade}
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
+                  </td>}
+                  {config.showResultStatus && <td className="px-4 py-2.5 text-center">
                     {isNA ? (
                       <span className="inline-block text-[9px] px-2 py-0.5 rounded bg-[#F5F7FA] text-[#5F6B7A] font-bold border border-[#D9E0E8]">
                         N/A
@@ -496,7 +512,7 @@ export function SubjectResultTable({
                         Fail
                       </span>
                     )}
-                  </td>
+                  </td>}
                   <td className="px-4 py-2.5 text-left max-w-xs whitespace-normal break-words text-[#5F6B7A] font-medium">
                     {sub.remarks || "—"}
                   </td>
@@ -507,19 +523,19 @@ export function SubjectResultTable({
           <tfoot>
             <tr className="bg-[#172033] text-white text-xs font-bold border-t border-[#D9E0E8]">
               <td className="px-4 py-3 font-extrabold uppercase">Total / Summary</td>
-              <td className="px-4 py-3 text-center font-black text-[#A3E2C9]">
+              {config.showObtainedMarks && <td className="px-4 py-3 text-center font-black text-[#A3E2C9]">
                 {Math.round(totalObtained * 100) / 100}
-              </td>
-              <td className="px-4 py-3 text-center text-slate-300">
+              </td>}
+              {config.showTotalMarks && <td className="px-4 py-3 text-center text-slate-300">
                 {totalPossible}
-              </td>
-              <td className="px-4 py-3 text-center font-black text-blue-200">
+              </td>}
+              {config.showPercentage && <td className="px-4 py-3 text-center font-black text-blue-200">
                 {overallPercentage.toFixed(1)}%
-              </td>
-              <td className="px-4 py-3 text-center font-black text-white">
+              </td>}
+              {config.showGrade && <td className="px-4 py-3 text-center font-black text-white">
                 {grade}
-              </td>
-              <td className="px-4 py-3 text-center">
+              </td>}
+              {config.showResultStatus && <td className="px-4 py-3 text-center">
                 {overallPassed ? (
                   <span className="inline-block text-[9px] px-2.5 py-0.5 rounded bg-[#E6F4EA] text-[#16835D] font-bold border border-[#A3E2C9]">
                     Pass
@@ -529,7 +545,7 @@ export function SubjectResultTable({
                     Fail
                   </span>
                 )}
-              </td>
+              </td>}
               <td className="px-4 py-3"></td>
             </tr>
           </tfoot>
@@ -582,10 +598,12 @@ export function PerformanceSummary({
   result,
   totalObtained,
   totalPossible,
+  config,
 }: {
   result: ReportCardResult
   totalObtained: number
   totalPossible: number
+  config: ResultCardConfig
 }) {
   const batchStyle = getPerformanceBatchStyle(result.performanceBatch)
 
@@ -596,48 +614,48 @@ export function PerformanceSummary({
           Overall Performance Summary
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div className="flex flex-col min-w-0">
+          {config.showObtainedMarks && <div className="flex flex-col min-w-0">
             <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Marks Obtained
             </span>
             <span className="text-sm font-extrabold text-[#172033] truncate">
               {Math.round(totalObtained * 100) / 100} / {totalPossible}
             </span>
-          </div>
+          </div>}
 
-          <div className="flex flex-col min-w-0">
+          {config.showPercentage && <div className="flex flex-col min-w-0">
             <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Overall Percentage
             </span>
             <span className="text-sm font-extrabold text-[#2F66B3] truncate">
               {result.overallPercentage.toFixed(2)}%
             </span>
-          </div>
+          </div>}
 
-          <div className="flex flex-col min-w-0">
+          {config.showGrade && <div className="flex flex-col min-w-0">
             <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Final Grade
             </span>
             <span className={`text-sm font-extrabold ${getGradeColor(result.grade)} truncate`}>
               {result.grade}
             </span>
-          </div>
+          </div>}
 
-          <div className="flex flex-col min-w-0 justify-center">
+          {(config.showPerformanceBatch || getDisplayedPosition(config, result.classPosition, result.manualPosition) !== null) && <div className="flex flex-col min-w-0 justify-center">
             <span className="text-[9px] font-bold text-[#5F6B7A] uppercase tracking-wider mb-1">
               Group &amp; Rank
             </span>
             <div className="flex items-center gap-2 min-w-0">
-              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} truncate`}>
+              {config.showPerformanceBatch && <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${batchStyle.bg} ${batchStyle.text} ${batchStyle.border} truncate`}>
                 {result.performanceBatch}
-              </span>
-              {result.classPosition !== null && (
+              </span>}
+              {getDisplayedPosition(config, result.classPosition, result.manualPosition) !== null && (
                 <span className="font-extrabold text-[#172033] text-xs shrink-0">
-                  Rank #{result.classPosition}
+                  Rank #{getDisplayedPosition(config, result.classPosition, result.manualPosition)}
                 </span>
               )}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
@@ -666,20 +684,11 @@ function SignatureLine({ title, subtitle }: { title: string; subtitle: string })
   )
 }
 
-export function ResultCardFooter({
-  termResultId,
-  declaredAt,
-}: {
-  termResultId: string
-  declaredAt: string | null
-}) {
+export function ResultCardFooter() {
   return (
     <div className="pt-4 border-t border-[#D9E0E8]/60 flex items-center justify-between text-[9px] text-[#5F6B7A] uppercase tracking-wider select-none font-semibold">
       <p>
         Official Document of Evershine Academy.
-      </p>
-      <p className="font-mono font-bold">
-        REF: ESA/{termResultId.slice(-8).toUpperCase()}
       </p>
     </div>
   )
