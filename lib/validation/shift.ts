@@ -28,9 +28,9 @@ export const SESSION_SHIFT_TIMES: Record<SessionShift, { start: string; end: str
  */
 export const ATTENDANCE_POLICY = {
   /** Minutes after shift start before a check-in is considered "late". */
-  defaultGraceMinutes: 30,
+  defaultGraceMinutes: 25,
   /** Number of penalty-free late arrivals allowed per calendar month. */
-  freeLatePasses: 1,
+  freeLatePasses: 0,
 } as const
 
 export const SESSION_SHIFT_BADGE_CLASS: Record<SessionShift, string> = {

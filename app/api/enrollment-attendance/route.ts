@@ -7,6 +7,7 @@ import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { resolveMarkedByTeacherId } from '@/lib/academic/attendance'
 import { getTeacherByUserId, teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
 import type { Role } from '@prisma/client'
+import { createStudentAbsenceAssessment } from '@/lib/penalties/assessments'
 
 export async function GET(request: NextRequest) {
   const { session, error } = await requireSession()
@@ -107,6 +108,11 @@ export async function POST(request: NextRequest) {
           },
         })
         out.push(row)
+        await createStudentAbsenceAssessment(tx, {
+          attendanceRecordId: row.id,
+          attendanceDate: new Date(attendanceDate),
+          markedByUserId: session.user.id,
+        })
       }
       await tx.auditLog.create({
         data: {
@@ -128,25 +134,33 @@ export async function POST(request: NextRequest) {
 
   const markedBy = await resolveMarkedByTeacherId(session.user.id)
 
-  const record = await prisma.enrollmentAttendanceRecord.upsert({
-    where: {
-      studentEnrollmentId_attendanceDate: {
+  const record = await prisma.$transaction(async (tx) => {
+    const row = await tx.enrollmentAttendanceRecord.upsert({
+      where: {
+        studentEnrollmentId_attendanceDate: {
+          studentEnrollmentId: parsed.data.studentEnrollmentId!,
+          attendanceDate: new Date(parsed.data.attendanceDate!),
+        },
+      },
+      create: {
         studentEnrollmentId: parsed.data.studentEnrollmentId!,
         attendanceDate: new Date(parsed.data.attendanceDate!),
+        status: parsed.data.status!,
+        remarks: parsed.data.remarks,
+        markedByTeacherId: markedBy,
       },
-    },
-    create: {
-      studentEnrollmentId: parsed.data.studentEnrollmentId!,
+      update: {
+        status: parsed.data.status!,
+        remarks: parsed.data.remarks,
+        markedByTeacherId: markedBy,
+      },
+    })
+    await createStudentAbsenceAssessment(tx, {
+      attendanceRecordId: row.id,
       attendanceDate: new Date(parsed.data.attendanceDate!),
-      status: parsed.data.status!,
-      remarks: parsed.data.remarks,
-      markedByTeacherId: markedBy,
-    },
-    update: {
-      status: parsed.data.status!,
-      remarks: parsed.data.remarks,
-      markedByTeacherId: markedBy,
-    },
+      markedByUserId: session.user.id,
+    })
+    return row
   })
 
   return createdResponse(record)

@@ -11,8 +11,8 @@
  * Rules (from schema comments):
  *   grossMargin             = totalIncome - totalExpenses
  *   superAdminAllocation    = grossMargin * (profitPercentage / 100)
- *   superAdminMonthlyDraw   = superAdminAllocation * 0.75
- *   reserveContribution     = superAdminAllocation * 0.25
+ *   reserveContribution     = Account Manager input (defaults to 25%)
+ *   superAdminMonthlyDraw   = superAdminAllocation - reserveContribution
  *   remainingAmount         = grossMargin - superAdminAllocation
  */
 
@@ -32,6 +32,7 @@ const generateSchema = z.object({
   profitPercentage: z.coerce.number()          // e.g. 20 → 20%
     .min(0, 'profitPercentage must be ≥ 0')
     .max(100, 'profitPercentage must be ≤ 100'),
+  reserveContribution: z.coerce.number().min(0).optional(),
   notes: z.string().max(500).optional(),
 })
 
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
     const parsed = generateSchema.safeParse(body)
     if (!parsed.success) return errors.validation(parsed.error)
 
-    const { campusId: requestedCampusId, periodLabel, periodStart, periodEnd, profitPercentage, notes } = parsed.data
+    const { campusId: requestedCampusId, periodLabel, periodStart, periodEnd, profitPercentage, reserveContribution: requestedReserveContribution, notes } = parsed.data
     const scopedCampusId = await resolveCampusScope(session.user, requestedCampusId)
 
     if (session.user.role === 'ACCOUNTANT' && !scopedCampusId) {
@@ -263,8 +264,11 @@ export async function POST(req: NextRequest) {
     const grossMargin = totalIncome - totalExpenses
     const pctFraction = profitPercentage / 100
     const superAdminAllocation = grossMargin * pctFraction
-    const superAdminMonthlyDraw = superAdminAllocation * 0.75
-    const reserveContribution = superAdminAllocation * 0.25
+    const reserveContribution = requestedReserveContribution ?? superAdminAllocation * 0.25
+    if (reserveContribution > Math.max(0, superAdminAllocation)) {
+      return errors.badRequest('Reserve contribution cannot exceed the SuperAdmin profit allocation')
+    }
+    const superAdminMonthlyDraw = superAdminAllocation - reserveContribution
     const remainingAmount = grossMargin - superAdminAllocation
 
     // ── Persist atomically ────────────────────────────────────────────────────

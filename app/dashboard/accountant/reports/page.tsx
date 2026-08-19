@@ -88,6 +88,7 @@ function GeneratePLModal({
   const [periodStart, setPeriodStart] = useState(initial?.periodStart ?? '')
   const [periodEnd, setPeriodEnd] = useState(initial?.periodEnd ?? '')
   const [profitPercentage, setProfitPercentage] = useState(String(initial?.profitPercentage ?? 20))
+  const [reserveContribution, setReserveContribution] = useState('')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [campusId, setCampusId] = useState(initial?.campusId ?? defaultCampusId ?? 'all')
@@ -115,6 +116,7 @@ function GeneratePLModal({
           periodStart: `${periodStart}T00:00:00.000Z`,
           periodEnd: `${periodEnd}T23:59:59.000Z`,
           profitPercentage: Number(profitPercentage),
+          reserveContribution: reserveContribution === '' ? undefined : Number(reserveContribution),
           notes: notes || undefined,
         }),
       })
@@ -223,8 +225,14 @@ function GeneratePLModal({
               required
             />
             <p className="text-[10px] text-gray-400 mt-1">
-              This percentage is the total SuperAdmin share from gross margin. The system splits it into 75% current draw and 25% reserve contribution.
+              This percentage is the total SuperAdmin share from gross margin. You may set the reserve amount below; blank keeps the 25% default.
             </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-black uppercase text-gray-500 block mb-1">Reserve fund contribution (PKR)</label>
+            <Input type="number" min={0} value={reserveContribution} onChange={(e) => setReserveContribution(e.target.value)} placeholder="Optional — use 25% default" className="h-9 text-sm" />
+            <p className="text-[10px] text-gray-400 mt-1">Account Manager selects a specific amount up to the SuperAdmin allocation. The remaining allocation is the monthly draw.</p>
           </div>
 
           <div>

@@ -107,6 +107,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Classes (Legacy)', href: '/dashboard/classes',      icon: GraduationCap,   roles: ['SUPER_ADMIN', 'ADMIN'], legacy: true },
   { name: 'Academic Engine', href: '/dashboard/academic',     icon: ClipboardList,   roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Penalty Policies', href: '/dashboard/policies',    icon: ShieldCheck,     roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { name: 'Penalty Assessments', href: '/dashboard/penalty-assessments', icon: ShieldCheck, roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
   { name: 'Promotions',      href: '/dashboard/promotions',   icon: GraduationCap,   roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Report Cards',    href: '/dashboard/report-cards', icon: FileText,        roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Teacher Feedback', href: '/dashboard/teacher-feedback', icon: BarChart2,   roles: ['SUPER_ADMIN', 'ADMIN'] },

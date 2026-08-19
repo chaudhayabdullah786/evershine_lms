@@ -28,6 +28,7 @@ export type TeacherAttendanceMark = {
   isPenaltyApplied: boolean
   gracePassUsed: boolean
   priorLateCount: number
+  policyId: string | null
 }
 
 export type ResolveAttendanceMarkInput = {
@@ -64,12 +65,14 @@ export async function resolveAttendanceMark(
   const shiftRow = await prisma.shift.findUnique({ where: { code: input.shift } })
   const fallbackWindow = SESSION_SHIFT_TIMES[input.shift]
   const shiftStart = shiftRow?.startTime ?? fallbackWindow.start
-  const grace = shiftRow?.lateGraceMinutes ?? ATTENDANCE_POLICY.defaultGraceMinutes
 
   const policy = await prisma.teacherPenaltyPolicy.findFirst({
     where: { OR: [{ campusId: input.teacher.campusId }, { campusId: null }], isActive: true },
     orderBy: { createdAt: 'desc' },
   })
+  // A campus policy is authoritative; the Shift value remains a fallback for
+  // campuses that have not configured a teacher policy yet.
+  const grace = policy?.lateGraceMinutes ?? shiftRow?.lateGraceMinutes ?? ATTENDANCE_POLICY.defaultGraceMinutes
 
   let status = input.status
   let hrStatus: TeacherHrAttendanceStatus
@@ -106,7 +109,7 @@ export async function resolveAttendanceMark(
         },
       })
 
-      gracePassUsed = priorLateCount < ATTENDANCE_POLICY.freeLatePasses
+      gracePassUsed = priorLateCount < (policy?.freeLatePasses ?? ATTENDANCE_POLICY.freeLatePasses)
       if (!gracePassUsed && policy) {
         calculatedPenalty =
           policy.penaltyType === 'FIXED'
@@ -133,5 +136,6 @@ export async function resolveAttendanceMark(
     isPenaltyApplied: input.isPenaltyApplied ?? penaltyAmount > 0,
     gracePassUsed,
     priorLateCount,
+    policyId: policy?.id ?? null,
   }
 }

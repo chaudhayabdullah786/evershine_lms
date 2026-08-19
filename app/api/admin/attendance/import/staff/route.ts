@@ -23,6 +23,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { resolveAttendanceMark } from '@/lib/teacher-attendance'
+import { createTeacherLateAssessment } from '@/lib/penalties/assessments'
 import type { Role, AttendanceStatus } from '@prisma/client'
 import type { SessionShift } from '@/lib/validation/shift'
 import * as XLSX from 'xlsx'
@@ -292,6 +293,7 @@ export async function POST(req: NextRequest) {
       lateMinutes: number
       penaltyAmount: number
       isPenaltyApplied: boolean
+      teacherPolicyId: string | null
     }
 
     const resolvedRecords: ResolvedRecord[] = []
@@ -312,13 +314,14 @@ export async function POST(req: NextRequest) {
         lateMinutes:      resolved.lateMinutes,
         penaltyAmount:    resolved.penaltyAmount,
         isPenaltyApplied: false, // HR must review and explicitly apply penalties
+        teacherPolicyId: resolved.policyId,
       })
     }
 
     // ── ACID transaction: upsert all records or roll back ─────────────────
     await prisma.$transaction(async (tx) => {
       for (const rec of resolvedRecords) {
-        await tx.teacherAttendance.upsert({
+        const attendanceRecord = await tx.teacherAttendance.upsert({
           where: {
             teacherId_date_shift: {
               teacherId: rec.teacher.id,
@@ -350,6 +353,15 @@ export async function POST(req: NextRequest) {
             isPenaltyApplied: rec.isPenaltyApplied,
             remarks:          rec.remarks,
           },
+        })
+        await createTeacherLateAssessment(tx, {
+            attendanceId: attendanceRecord.id,
+            teacherId: rec.teacher.id,
+            teacherPolicyId: rec.teacherPolicyId,
+            amount: rec.penaltyAmount,
+            lateMinutes: rec.lateMinutes,
+            priorLateCount: 0,
+            date: rec.date,
         })
 
         // Notify the teacher of their imported attendance record

@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/audit-logger'
 import { errors, successResponse } from '@/lib/api-response'
 import { z, ZodError, ZodIssueCode } from 'zod'
 import type { Role } from '@prisma/client'
+import { createTeacherLeaveAssessment } from '@/lib/penalties/assessments'
 
 const reviewLeaveSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED']),
@@ -101,86 +102,7 @@ export async function PUT(
       const monthStart = new Date(currentYear, currentMonth - 1, 1)
       const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999)
 
-      if (leave.applicantRole === 'STUDENT') {
-        // Look up the student and their active fee policy
-        const student = await tx.student.findFirst({
-          where: { userId: leave.applicantId },
-          include: {
-            enrollments: {
-              where: { status: 'ACTIVE' },
-              include: { classSection: { include: { batch: true } } },
-            },
-          },
-        })
-
-        if (student && student.enrollments.length > 0) {
-          const enrollment = student.enrollments[0]
-          const feePolicy = await tx.feePolicy.findFirst({
-            where: {
-              isActive: true,
-              OR: [
-                { batchId: enrollment.classSection.batchId },
-                { campusId: enrollment.classSection.campusId },
-                { batchId: null, campusId: null },
-              ],
-            },
-            orderBy: { createdAt: 'desc' },
-          })
-
-          if (feePolicy && feePolicy.allowedLeavesPerMonth > 0) {
-            // Count approved non-exempt student leaves this month
-            const approvedThisMonth = await tx.leaveRequest.count({
-              where: {
-                applicantId: leave.applicantId,
-                applicantRole: 'STUDENT',
-                status: 'APPROVED',
-                leaveType: { notIn: ['EMERGENCY', 'SICK'] },
-                startDate: { gte: monthStart, lte: monthEnd },
-              },
-            })
-
-            // +1 for the leave we are currently approving
-            const totalAfterApproval = approvedThisMonth + 1
-
-            if (totalAfterApproval > feePolicy.allowedLeavesPerMonth) {
-              // Exceeded limit — apply penalty charge to the next open fee invoice
-              const penaltyAmount = Number(feePolicy.leavePenaltyAmount)
-              if (penaltyAmount > 0) {
-                const openInvoice = await tx.feeInvoice.findFirst({
-                  where: {
-                    studentId: student.id,
-                    status: { in: ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'] },
-                  },
-                  orderBy: { dueDate: 'asc' },
-                })
-
-                if (openInvoice) {
-                  await tx.feeInvoice.update({
-                    where: { id: openInvoice.id },
-                    data: {
-                      totalAmount: { increment: penaltyAmount },
-                      penaltyAmount: { increment: penaltyAmount },
-                      isPenaltyApplied: true,
-                    },
-                  })
-                }
-
-                // Notify student of the penalty
-                await tx.notification.create({
-                  data: {
-                    userId: leave.applicantId,
-                    title: '⚠️ Leave Penalty Applied',
-                    message: `A leave penalty of Rs ${penaltyAmount.toLocaleString()} has been added to your fee invoice because you exceeded your monthly leave allowance (${feePolicy.allowedLeavesPerMonth} leave(s)/month). This was leave #${totalAfterApproval} this month. Contact Admin if this is incorrect.`,
-                    type: 'FEE_REMINDER',
-                    relatedId: leaveId,
-                    isRead: false,
-                  },
-                })
-              }
-            }
-          }
-        }
-      } else if (leave.applicantRole === 'TEACHER') {
+      if (leave.applicantRole === 'TEACHER') {
         // Look up teacher penalty policy
         const teacher = await tx.teacher.findFirst({
           where: { userId: leave.applicantId },
@@ -214,12 +136,22 @@ export async function PUT(
             if (totalAfterApproval > teacherPolicy.allowedLeavesPerMonth) {
               const penaltyAmount = Number(teacherPolicy.leavePenaltyAmount)
               if (penaltyAmount > 0) {
-                // For teachers, record penalty on salary slip or HR record via notification
+                await createTeacherLeaveAssessment(tx, {
+                  leaveId,
+                  teacherId: teacher.id,
+                  teacherPolicyId: teacherPolicy.id,
+                  amount: penaltyAmount,
+                  leaveCount: totalAfterApproval,
+                  allowedLeaves: teacherPolicy.allowedLeavesPerMonth,
+                  startDate: leave.startDate,
+                })
+                // Keep the teacher informed; finance posts the pending assessment
+                // to a salary slip after review.
                 await tx.notification.create({
                   data: {
                     userId: leave.applicantId,
                     title: '⚠️ Leave Penalty — Salary Deduction Notice',
-                    message: `A leave deduction of Rs ${penaltyAmount.toLocaleString()} will be applied to your salary this month. You have used ${totalAfterApproval} leave(s), exceeding the allowed limit of ${teacherPolicy.allowedLeavesPerMonth}/month. Contact HR if this is in error.`,
+                    message: `A pending salary deduction of Rs ${penaltyAmount.toLocaleString()} was recorded. You have used ${totalAfterApproval} leave(s), exceeding the allowed limit of ${teacherPolicy.allowedLeavesPerMonth}/month. HR must review it before posting.`,
                     type: 'INFO',
                     relatedId: leaveId,
                     isRead: false,
