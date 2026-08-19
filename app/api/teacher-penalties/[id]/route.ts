@@ -53,6 +53,8 @@ export async function PATCH(
         }),
         ...(parsed.data.allowedLeavesPerMonth !== undefined && { allowedLeavesPerMonth: parsed.data.allowedLeavesPerMonth }),
         ...(parsed.data.leavePenaltyAmount !== undefined && { leavePenaltyAmount: parsed.data.leavePenaltyAmount }),
+        ...(parsed.data.lateGraceMinutes !== undefined && { lateGraceMinutes: parsed.data.lateGraceMinutes }),
+        ...(parsed.data.freeLatePasses !== undefined && { freeLatePasses: parsed.data.freeLatePasses }),
         ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
       },
       include: { campus: { select: { name: true } } },

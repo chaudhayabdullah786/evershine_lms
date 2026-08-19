@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
         repeatMultiplier: parsed.data.repeatMultiplier ?? null,
         allowedLeavesPerMonth: parsed.data.allowedLeavesPerMonth,
         leavePenaltyAmount: parsed.data.leavePenaltyAmount,
+        lateGraceMinutes: parsed.data.lateGraceMinutes,
+        freeLatePasses: parsed.data.freeLatePasses,
       },
     })
     await tx.auditLog.create({

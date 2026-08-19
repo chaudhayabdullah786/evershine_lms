@@ -27,6 +27,7 @@ import {
 import { SESSION_SHIFT_LABELS } from '@/lib/validation/shift'
 import { resolveAttendanceMark } from '@/lib/teacher-attendance'
 import type { Role } from '@prisma/client'
+import { createTeacherLateAssessment } from '@/lib/penalties/assessments'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -182,6 +183,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         isPenaltyApplied: resolved.isPenaltyApplied,
         remarks: remarks ?? null,
       },
+    })
+
+    await createTeacherLateAssessment(tx, {
+        attendanceId: upserted.id,
+        teacherId: id,
+        teacherPolicyId: resolved.policyId,
+        amount: resolved.penaltyAmount,
+        lateMinutes: resolved.lateMinutes,
+        priorLateCount: resolved.priorLateCount,
+        date: attendanceDate,
     })
 
     await tx.auditLog.create({
