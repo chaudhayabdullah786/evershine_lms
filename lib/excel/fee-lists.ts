@@ -4,6 +4,7 @@
 
 import ExcelJS from 'exceljs'
 import type { Class, FeeInvoice, FeePayment, Student } from '@prisma/client'
+import { effectivePaidAmount } from '@/lib/fees/reporting'
 
 // ─── Shared Styling Helper ───────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ function applyBranding(
   columnsCount: number,
   headerRowIndex: number
 ) {
-  const lastColLetter = String.fromCharCode(64 + columnsCount) // Works up to Z (26 cols)
+  const lastColLetter = sheet.getColumn(columnsCount).letter
 
   // Title
   sheet.mergeCells(`A1:${lastColLetter}1`)
@@ -78,18 +79,18 @@ export async function buildPaidListReport(
     sheet,
     'EverShine Academy — Paid Fees Report',
     month ? `Month: ${month}` : 'All-Time Paid Invoices',
-    9,
+    sheet.columns.length,
     4
   )
 
-  sheet.addRow({
-    regNo: 'Reg No', name: 'Student Name', father: 'Father Name', campus: 'Campus',
-    className: 'Class', section: 'Section', month: 'Month', amountPaid: 'Amount Paid (PKR)',
-    paymentDate: 'Payment Date', method: 'Method', challan: 'Challan No'
-  })
+  sheet.getRow(4).values = [
+    'Reg No', 'Student Name', 'Father Name', 'Campus', 'Class', 'Section', 'Month',
+    'Amount Paid (PKR)', 'Payment Date', 'Method', 'Challan No'
+  ]
 
   for (const inv of invoices) {
-    const lastPayment = inv.payments[0] // Assuming ordered by date desc
+    const completedPayments = inv.payments.filter((payment) => payment.status === 'COMPLETED')
+    const lastPayment = completedPayments[0] // Ordered by payment date desc by the route
 
     const row = sheet.addRow({
       regNo: inv.student.registrationNumber,
@@ -99,7 +100,7 @@ export async function buildPaidListReport(
       className: inv.student.class?.name || 'N/A',
       section: inv.student.section || 'N/A',
       month: inv.month,
-      amountPaid: Number(inv.paidAmount),
+      amountPaid: effectivePaidAmount(inv.paidAmount, inv.payments),
       paymentDate: lastPayment ? lastPayment.paymentDate.toISOString().split('T')[0] : 'N/A',
       method: lastPayment ? lastPayment.paymentMethod : 'N/A',
       challan: inv.challanNumber,
@@ -114,9 +115,10 @@ export async function buildPaidListReport(
 
 // ─── Defaulter List ───────────────────────────────────────────────────────────
 
-type DefaulterStudent = Student & {
+type DefaulterStudent = Omit<Student, 'dueAmount'> & {
   campus: CampusSummary | null
   class: Class | null
+  dueAmount: number | Student['dueAmount']
   invoices: FeeInvoice[]
 }
 
@@ -145,15 +147,14 @@ export async function buildDefaulterListReport(
     sheet,
     'EverShine Academy — Fee Defaulters',
     'Students with outstanding dues',
-    7,
+    sheet.columns.length,
     4
   )
 
-  sheet.addRow({
-    regNo: 'Reg No', name: 'Student Name', father: 'Father Name', campus: 'Campus',
-    className: 'Class', section: 'Section', contact: 'Contact', dueAmount: 'Due Amount (PKR)',
-    challan: 'Last Challan'
-  })
+  sheet.getRow(4).values = [
+    'Reg No', 'Student Name', 'Father Name', 'Campus', 'Class', 'Section', 'Contact',
+    'Due Amount (PKR)', 'Last Challan'
+  ]
 
   for (const student of students) {
     const lastInvoice = student.invoices[0] // Assuming ordered by createdAt desc

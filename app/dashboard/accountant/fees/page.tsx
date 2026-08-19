@@ -18,6 +18,7 @@ import { Search, Plus, Trash2, Download, CreditCard, AlertTriangle, CheckCircle2
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { getCanonicalStudentClassSection, type EnrollmentRecord } from '@/lib/academic/record-formatters'
+import { academicMonthLabel } from '@/lib/fees/reporting'
 
 interface StudentResult {
   id: string; registrationNumber: string; firstName: string; lastName: string
@@ -39,7 +40,7 @@ interface ReportFiltersProps {
 const YEAR = new Date().getFullYear()
 const AY   = `${YEAR - 1}-${YEAR}`
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const THIS_MONTH = `${MONTHS[new Date().getMonth()]} ${YEAR}`
+const THIS_MONTH = academicMonthLabel(MONTHS[new Date().getMonth()], AY)
 
 async function downloadExcel(url: string, filename: string) {
   const res = await fetch(url, { credentials: 'same-origin' })
@@ -405,6 +406,10 @@ function PaidFeesTab({ campuses, classes, selectedCampusId, selectedClassId, set
   const [month, setMonth]   = useState(THIS_MONTH)
   const [ay, setAy]         = useState(AY)
   const [exporting, setExp] = useState(false)
+  const monthOptions = useMemo(
+    () => MONTHS.map((monthName) => academicMonthLabel(monthName, ay)),
+    [ay]
+  )
   const handleExport = useCallback(async () => {
     setExp(true)
     try {
@@ -462,11 +467,17 @@ function PaidFeesTab({ campuses, classes, selectedCampusId, selectedClassId, set
           <div className="space-y-1"><Label htmlFor="paid-month">Month</Label>
             <Select value={month} onValueChange={setMonth}>
               <SelectTrigger id="paid-month" className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{MONTHS.map(m => <SelectItem key={m} value={`${m} ${YEAR}`}>{m} {YEAR}</SelectItem>)}</SelectContent>
+              <SelectContent>{monthOptions.map((monthLabel) => <SelectItem key={monthLabel} value={monthLabel}>{monthLabel}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1"><Label htmlFor="paid-ay">Academic Year</Label>
-            <Input id="paid-ay" value={ay} onChange={e => setAy(e.target.value)} className="w-40" />
+            <Input id="paid-ay" value={ay} onChange={e => {
+              const nextAcademicYear = e.target.value
+              setAy(nextAcademicYear)
+              if (/^\d{4}-\d{4}$/.test(nextAcademicYear)) {
+                setMonth(academicMonthLabel(month.split(' ')[0], nextAcademicYear))
+              }
+            }} className="w-40" />
           </div>
           <Button id="export-paid-btn" onClick={handleExport} disabled={exporting} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

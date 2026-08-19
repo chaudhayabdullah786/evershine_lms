@@ -9,6 +9,8 @@ import { prisma } from '@/lib/prisma'
 import { errors } from '@/lib/api-response'
 import { feeExportDefaultersSchema } from '@/lib/validation/accountant-fee'
 import { buildDefaulterListReport } from '@/lib/excel/fee-lists'
+import { outstandingInvoiceAmount } from '@/lib/fees/reporting'
+import type { InvoiceStatus } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -37,31 +39,65 @@ export async function GET(request: NextRequest) {
 
   const targetCampus = campusId || queryCampusId
 
-  const students = await prisma.student.findMany({
+  // Include PAID for legacy/inconsistent invoices whose status was advanced
+  // before the final payment summary was reconciled. The balance calculation
+  // below still excludes rows with no outstanding amount.
+  const unpaidStatuses: InvoiceStatus[] = ['ISSUED', 'OVERDUE', 'PARTIALLY_PAID', 'PAID']
+  const invoices = await prisma.feeInvoice.findMany({
     where: {
-      dueAmount: { gt: 0 },
-      feeStatus: { in: ['PENDING', 'PARTIALLY_PAID'] },
+      status: { in: unpaidStatuses },
       ...(academicYear ? { academicYear } : {}),
-      ...(targetCampus ? { campusId: targetCampus } : {}),
-      ...(classId ? { classId } : {}),
-    },
-    include: {
-      campus: { select: { name: true } },
-      class: true,
-      feeInvoices: {
-        where: { status: { in: ['ISSUED', 'OVERDUE', 'PARTIALLY_PAID'] } },
-        orderBy: { createdAt: 'desc' },
+      student: {
+        ...(targetCampus ? { campusId: targetCampus } : {}),
+        ...(classId ? { classId } : {}),
       },
     },
-    orderBy: { dueAmount: 'desc' }, // Highest defaulters first
+    include: {
+      student: {
+        include: {
+          campus: { select: { name: true } },
+          class: true,
+        },
+      },
+      payments: {
+        orderBy: { paymentDate: 'desc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
   })
 
-  const workbook = await buildDefaulterListReport(
-    students.map((student) => ({
+  const defaultersByStudent = new Map<string, {
+    student: (typeof invoices)[number]['student']
+    dueAmount: number
+    invoices: (typeof invoices)[number][]
+  }>()
+
+  for (const invoice of invoices) {
+    const dueAmount = outstandingInvoiceAmount(invoice.totalAmount, invoice.paidAmount, invoice.payments)
+    if (dueAmount <= 0) continue
+
+    const current = defaultersByStudent.get(invoice.studentId)
+    if (current) {
+      current.dueAmount += dueAmount
+      current.invoices.push(invoice)
+    } else {
+      defaultersByStudent.set(invoice.studentId, {
+        student: invoice.student,
+        dueAmount,
+        invoices: [invoice],
+      })
+    }
+  }
+
+  const defaulters = Array.from(defaultersByStudent.values())
+    .sort((a, b) => b.dueAmount - a.dueAmount)
+    .map(({ student, dueAmount, invoices: studentInvoices }) => ({
       ...student,
-      invoices: student.feeInvoices,
+      dueAmount,
+      invoices: studentInvoices,
     }))
-  )
+
+  const workbook = await buildDefaulterListReport(defaulters)
   const buffer = await workbook.xlsx.writeBuffer()
   const bytes = Buffer.from(buffer)
   const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
