@@ -58,7 +58,7 @@ describe('FeeOverdueModal', () => {
     renderReminder()
     await screen.findByText('Fee Overdue Reminder')
 
-    fireEvent.click(document)
+    fireEvent.click(screen.getByRole('status'))
 
     await waitFor(() => expect(screen.queryByText('Fee Overdue Reminder')).toBeNull())
   })
