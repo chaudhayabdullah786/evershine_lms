@@ -170,6 +170,22 @@ enum PenaltyType {
   PERCENTAGE
 }
 
+enum PenaltyAssessmentType {
+  STUDENT_ABSENCE
+  STUDENT_LEAVE
+  TEACHER_LATE
+  TEACHER_LEAVE
+}
+
+enum PenaltyAssessmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WAIVED
+  POSTED
+  REVERSED
+}
+
 enum TeacherHrAttendanceStatus {
   PRESENT
   LATE
@@ -549,6 +565,7 @@ model Student {
   attendance              Attendance[]
   feePayments             FeePayment[]
   feeInvoices             FeeInvoice[]
+  penaltyAssessments      PenaltyAssessment[]
   results                 Result[]
   achievements            Achievement[]
   certificates            Certificate[]
@@ -739,6 +756,7 @@ model Teacher {
   classes                ClassTeacher[]
   subjects               SubjectTeacher[]
   attendance             TeacherAttendance[]
+  penaltyAssessments     PenaltyAssessment[]
   timetable              Timetable[]
   tasks                  ClassTask[]
   changeRequests         TimetableChangeRequest[]
@@ -1014,9 +1032,10 @@ model FeeInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  student  Student      @relation(fields: [studentId], references: [id])
-  items    FeeItem[]
-  payments FeePayment[]
+  student            Student             @relation(fields: [studentId], references: [id])
+  items              FeeItem[]
+  payments           FeePayment[]
+  penaltyAssessments PenaltyAssessment[]
 
   @@index([studentId])
   @@index([status])
@@ -1440,8 +1459,9 @@ model SalarySlip {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  editLogs       SalarySlipEditLog[]
-  authorizations SalaryAuthorization[]
+  editLogs           SalarySlipEditLog[]
+  authorizations     SalaryAuthorization[]
+  penaltyAssessments PenaltyAssessment[]
 
   @@index([employeeId])
   @@index([month])
@@ -1991,20 +2011,24 @@ model EnrollmentAttendanceRecord {
 }
 
 model FeePolicy {
-  id                    String      @id @default(cuid())
-  campusId              String?
-  batchId               String?
-  graceDays             Int         @default(7)
-  penaltyType           PenaltyType
-  penaltyValue          Float
-  maxPenalty            Float?
-  allowedLeavesPerMonth Int         @default(1)
-  leavePenaltyAmount    Decimal     @default(0) @db.Decimal(10, 2)
-  isActive              Boolean     @default(true)
-  createdAt             DateTime    @default(now())
+  id                      String      @id @default(cuid())
+  campusId                String?
+  batchId                 String?
+  graceDays               Int         @default(7)
+  penaltyType             PenaltyType
+  penaltyValue            Float
+  maxPenalty              Float?
+  allowedLeavesPerMonth   Int         @default(1)
+  leavePenaltyAmount      Decimal     @default(0) @db.Decimal(10, 2)
+  // Only ABSENT attendance records count toward this monthly limit.
+  allowedAbsencesPerMonth Int         @default(3)
+  absencePenaltyAmount    Decimal     @default(0) @db.Decimal(10, 2)
+  isActive                Boolean     @default(true)
+  createdAt               DateTime    @default(now())
 
-  campus Campus? @relation(fields: [campusId], references: [id])
-  batch  Batch?  @relation(fields: [batchId], references: [id])
+  campus             Campus?             @relation(fields: [campusId], references: [id])
+  batch              Batch?              @relation(fields: [batchId], references: [id])
+  penaltyAssessments PenaltyAssessment[]
 }
 
 model TeacherPenaltyPolicy {
@@ -2016,10 +2040,59 @@ model TeacherPenaltyPolicy {
   repeatMultiplier      Float?
   allowedLeavesPerMonth Int         @default(1)
   leavePenaltyAmount    Decimal     @default(0) @db.Decimal(10, 2)
+  // Late arrivals are measured against this configurable grace period.
+  lateGraceMinutes      Int         @default(25)
+  // Number of late events that may pass without a financial penalty.
+  freeLatePasses        Int         @default(0)
   isActive              Boolean     @default(true)
   createdAt             DateTime    @default(now())
 
-  campus Campus? @relation(fields: [campusId], references: [id])
+  campus             Campus?             @relation(fields: [campusId], references: [id])
+  penaltyAssessments PenaltyAssessment[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PENALTY ASSESSMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+// A qualifying attendance/leave event creates one idempotent assessment.
+// The compound source key prevents duplicate charges when attendance is
+// retried or imported more than once. Posting is a separate controlled step.
+model PenaltyAssessment {
+  id              String                  @id @default(cuid())
+  type            PenaltyAssessmentType
+  status          PenaltyAssessmentStatus @default(PENDING)
+  sourceId        String
+  studentId       String?
+  teacherId       String?
+  policyId        String?
+  teacherPolicyId String?
+  amount          Decimal                 @db.Decimal(10, 2)
+  reason          String
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  feeInvoiceId    String?
+  salarySlipId    String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  postedAt        DateTime?
+  metadata        Json?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  student              Student?              @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  teacher              Teacher?              @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  feePolicy            FeePolicy?            @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  teacherPenaltyPolicy TeacherPenaltyPolicy? @relation(fields: [teacherPolicyId], references: [id], onDelete: SetNull)
+  feeInvoice           FeeInvoice?           @relation(fields: [feeInvoiceId], references: [id], onDelete: SetNull)
+  salarySlip           SalarySlip?           @relation(fields: [salarySlipId], references: [id], onDelete: SetNull)
+
+  @@unique([type, sourceId])
+  @@index([status, type])
+  @@index([studentId, createdAt])
+  @@index([teacherId, createdAt])
+  @@index([teacherPolicyId])
+  @@index([feeInvoiceId])
+  @@index([salarySlipId])
 }
 
 model PromotionRecord {

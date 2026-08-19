@@ -54,6 +54,8 @@ export async function PATCH(
         ...(parsed.data.maxPenalty !== undefined && { maxPenalty: parsed.data.maxPenalty }),
         ...(parsed.data.allowedLeavesPerMonth !== undefined && { allowedLeavesPerMonth: parsed.data.allowedLeavesPerMonth }),
         ...(parsed.data.leavePenaltyAmount !== undefined && { leavePenaltyAmount: parsed.data.leavePenaltyAmount }),
+        ...(parsed.data.allowedAbsencesPerMonth !== undefined && { allowedAbsencesPerMonth: parsed.data.allowedAbsencesPerMonth }),
+        ...(parsed.data.absencePenaltyAmount !== undefined && { absencePenaltyAmount: parsed.data.absencePenaltyAmount }),
         ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
       },
       include: { campus: { select: { name: true } }, batch: { select: { name: true } } },

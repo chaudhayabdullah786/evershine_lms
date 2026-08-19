@@ -19,6 +19,8 @@ import {
 
 type FeePolicy = {
   id: string
+  campusId?: string | null
+  batchId?: string | null
   isActive?: boolean
   graceDays: number
   penaltyType: string
@@ -26,12 +28,15 @@ type FeePolicy = {
   maxPenalty: number | null
   allowedLeavesPerMonth: number
   leavePenaltyAmount: number | string
+  allowedAbsencesPerMonth: number
+  absencePenaltyAmount: number | string
   campus?: { name: string } | null
   batch?: { name: string } | null
 }
 
 type TeacherPolicy = {
   id: string
+  campusId?: string | null
   isActive?: boolean
   lateThreshold: number
   penaltyType: string
@@ -39,6 +44,8 @@ type TeacherPolicy = {
   repeatMultiplier: number | null
   allowedLeavesPerMonth: number
   leavePenaltyAmount: number | string
+  lateGraceMinutes: number
+  freeLatePasses: number
   campus?: { name: string } | null
 }
 
@@ -58,6 +65,8 @@ export default function PoliciesPage() {
     // Leave penalty configuration (enforced on leave approval)
     allowedLeavesPerMonth: 1,
     leavePenaltyAmount: 200,
+    allowedAbsencesPerMonth: 3,
+    absencePenaltyAmount: 200,
   })
 
   const [teacherForm, setTeacherForm] = useState({
@@ -69,7 +78,11 @@ export default function PoliciesPage() {
     // Leave penalty configuration (enforced on leave approval)
     allowedLeavesPerMonth: 1,
     leavePenaltyAmount: 500,
+    lateGraceMinutes: 25,
+    freeLatePasses: 0,
   })
+  const [editingFeeId, setEditingFeeId] = useState<string | null>(null)
+  const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null)
 
   const { data: feePolicies, isLoading: loadingFee } = useQuery({
     queryKey: ['fee-policies'],
@@ -97,8 +110,8 @@ export default function PoliciesPage() {
 
   const createFee = useMutation({
     mutationFn: () =>
-      fetchApi('/api/fee-penalties', {
-        method: 'POST',
+      fetchApi(editingFeeId ? `/api/fee-penalties/${editingFeeId}` : '/api/fee-penalties', {
+        method: editingFeeId ? 'PATCH' : 'POST',
         body: JSON.stringify({
           campusId: feeForm.campusId || null,
           batchId: feeForm.batchId || null,
@@ -108,10 +121,13 @@ export default function PoliciesPage() {
           maxPenalty: feeForm.maxPenalty ? Number(feeForm.maxPenalty) : null,
           allowedLeavesPerMonth: feeForm.allowedLeavesPerMonth,
           leavePenaltyAmount: feeForm.leavePenaltyAmount,
+          allowedAbsencesPerMonth: feeForm.allowedAbsencesPerMonth,
+          absencePenaltyAmount: feeForm.absencePenaltyAmount,
         }),
       }),
     onSuccess: () => {
-      notify.success('Fee penalty policy created')
+      notify.success(editingFeeId ? 'Fee penalty policy updated' : 'Fee penalty policy created')
+      setEditingFeeId(null)
       qc.invalidateQueries({ queryKey: ['fee-policies'] })
     },
     onError: (e: Error) => notify.error(e.message),
@@ -145,8 +161,8 @@ export default function PoliciesPage() {
 
   const createTeacher = useMutation({
     mutationFn: () =>
-      fetchApi('/api/teacher-penalties', {
-        method: 'POST',
+      fetchApi(editingTeacherId ? `/api/teacher-penalties/${editingTeacherId}` : '/api/teacher-penalties', {
+        method: editingTeacherId ? 'PATCH' : 'POST',
         body: JSON.stringify({
           campusId: teacherForm.campusId || null,
           lateThreshold: teacherForm.lateThreshold,
@@ -157,10 +173,13 @@ export default function PoliciesPage() {
             : null,
           allowedLeavesPerMonth: teacherForm.allowedLeavesPerMonth,
           leavePenaltyAmount: teacherForm.leavePenaltyAmount,
+          lateGraceMinutes: teacherForm.lateGraceMinutes,
+          freeLatePasses: teacherForm.freeLatePasses,
         }),
       }),
     onSuccess: () => {
-      notify.success('Teacher lateness policy created')
+      notify.success(editingTeacherId ? 'Teacher lateness policy updated' : 'Teacher lateness policy created')
+      setEditingTeacherId(null)
       qc.invalidateQueries({ queryKey: ['teacher-policies'] })
     },
     onError: (e: Error) => notify.error(e.message),
@@ -184,7 +203,7 @@ export default function PoliciesPage() {
           Penalty Policies
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Configure automated fee late penalties and teacher check-in lateness rules. Crons apply these daily.
+          Configure attendance rules. Only ABSENT student attendance counts toward the monthly absence limit; PRESENT, LATE, and EXCUSED never do. Qualifying events create a pending assessment for finance review before posting.
         </p>
       </div>
 
@@ -252,7 +271,13 @@ export default function PoliciesPage() {
                 <div><Label>Penalty value</Label><Input type="number" value={feeForm.penaltyValue} onChange={(e) => setFeeForm({ ...feeForm, penaltyValue: Number(e.target.value) })} /></div>
                 <div><Label>Max penalty cap (optional)</Label><Input value={feeForm.maxPenalty} onChange={(e) => setFeeForm({ ...feeForm, maxPenalty: e.target.value })} placeholder="e.g. 5000" /></div>
                 <div className="border-t border-indigo-100 pt-3 mt-1">
-                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">Leave Penalty Configuration</p>
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">Student absence rule</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label className="text-indigo-700">Allowed ABSENT/Month</Label><Input type="number" min={0} value={feeForm.allowedAbsencesPerMonth} onChange={(e) => setFeeForm({ ...feeForm, allowedAbsencesPerMonth: Number(e.target.value) })} /></div>
+                    <div><Label className="text-indigo-700">Absence penalty (Rs)</Label><Input type="number" min={0} value={feeForm.absencePenaltyAmount} onChange={(e) => setFeeForm({ ...feeForm, absencePenaltyAmount: Number(e.target.value) })} /></div>
+                  </div>
+                  <p className="text-xs text-indigo-500 mt-1.5">The 4th and each later ABSENT record creates one pending assessment. It is not added to an invoice until an authorized finance user posts it.</p>
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2 mt-3">Leave reference (no student charge)</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-indigo-700">Allowed Leaves/Month</Label>
@@ -265,11 +290,12 @@ export default function PoliciesPage() {
                         onChange={(e) => setFeeForm({ ...feeForm, leavePenaltyAmount: Number(e.target.value) })} />
                     </div>
                   </div>
-                  <p className="text-xs text-indigo-500 mt-1.5">Applied to the next fee invoice when approved leaves exceed the monthly limit. Emergency &amp; Sick leaves are always exempt.</p>
+                  <p className="text-xs text-indigo-500 mt-1.5">Approved student leave is recorded for reporting only. Student penalties are based on ABSENT attendance, not leave approvals. Emergency &amp; Sick leaves are exempt.</p>
                 </div>
                 <Button onClick={() => createFee.mutate()} disabled={createFee.isPending}>
-                  {createFee.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save fee policy'}
+                  {createFee.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingFeeId ? 'Update fee policy' : 'Save fee policy'}
                 </Button>
+                {editingFeeId && <Button variant="outline" onClick={() => setEditingFeeId(null)}>Cancel edit</Button>}
               </CardContent>
             </Card>
             <Card>
@@ -290,11 +316,12 @@ export default function PoliciesPage() {
                         <TableHead>Late Fee Penalty</TableHead>
                         <TableHead>Leave Allowance</TableHead>
                         <TableHead>Leave Penalty</TableHead>
+                        <TableHead>Absence Rule</TableHead>
                         <TableHead />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {feePolicies!.map((p: any) => (
+                      {feePolicies!.map((p: FeePolicy) => (
                         <TableRow key={p.id}>
                           <TableCell className="text-sm">
                             {p.campus?.name ?? 'Global'}
@@ -307,7 +334,12 @@ export default function PoliciesPage() {
                           </TableCell>
                           <TableCell className="text-indigo-700 font-semibold">{p.allowedLeavesPerMonth ?? 1}/mo</TableCell>
                           <TableCell className="text-red-600 font-semibold">Rs {Number(p.leavePenaltyAmount ?? 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-indigo-700 font-semibold">{p.allowedAbsencesPerMonth ?? 3}/mo · Rs {Number(p.absencePenaltyAmount ?? 0).toLocaleString()}</TableCell>
                           <TableCell>
+                            <Button size="sm" variant="outline" className="mr-2" onClick={() => {
+                              setEditingFeeId(p.id)
+                              setFeeForm({ campusId: p.campusId ?? '', batchId: p.batchId ?? '', graceDays: p.graceDays, penaltyType: p.penaltyType as 'FIXED' | 'PERCENTAGE', penaltyValue: Number(p.penaltyValue), maxPenalty: p.maxPenalty == null ? '' : String(p.maxPenalty), allowedLeavesPerMonth: p.allowedLeavesPerMonth ?? 1, leavePenaltyAmount: Number(p.leavePenaltyAmount ?? 0), allowedAbsencesPerMonth: p.allowedAbsencesPerMonth ?? 3, absencePenaltyAmount: Number(p.absencePenaltyAmount ?? 0) })
+                            }}>Edit</Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -368,7 +400,11 @@ export default function PoliciesPage() {
                 <div><Label>Penalty value</Label><Input type="number" value={teacherForm.penaltyValue} onChange={(e) => setTeacherForm({ ...teacherForm, penaltyValue: Number(e.target.value) })} /></div>
                 <div><Label>Repeat multiplier (optional)</Label><Input value={teacherForm.repeatMultiplier} onChange={(e) => setTeacherForm({ ...teacherForm, repeatMultiplier: e.target.value })} placeholder="e.g. 2" /></div>
                 <div className="border-t border-emerald-100 pt-3 mt-1">
-                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">Leave Penalty Configuration</p>
+                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">Attendance and leave rule</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label className="text-emerald-700">Late grace (minutes)</Label><Input type="number" min={0} max={180} value={teacherForm.lateGraceMinutes} onChange={(e) => setTeacherForm({ ...teacherForm, lateGraceMinutes: Number(e.target.value) })} /></div>
+                    <div><Label className="text-emerald-700">Free late passes/Month</Label><Input type="number" min={0} value={teacherForm.freeLatePasses} onChange={(e) => setTeacherForm({ ...teacherForm, freeLatePasses: Number(e.target.value) })} /></div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-emerald-700">Allowed Leaves/Month</Label>
@@ -381,11 +417,12 @@ export default function PoliciesPage() {
                         onChange={(e) => setTeacherForm({ ...teacherForm, leavePenaltyAmount: Number(e.target.value) })} />
                     </div>
                   </div>
-                  <p className="text-xs text-emerald-600 mt-1.5">Salary deduction notice sent when approved leaves exceed limit. Emergency &amp; Sick leaves are always exempt.</p>
+                  <p className="text-xs text-emerald-600 mt-1.5">A late check-in after the configured grace and beyond free passes creates a pending salary assessment. One approved leave/month is allowed by default; excess approved leave creates a pending assessment. Emergency &amp; Sick leaves are exempt.</p>
                 </div>
                 <Button onClick={() => createTeacher.mutate()} disabled={createTeacher.isPending}>
-                  {createTeacher.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save teacher policy'}
+                  {createTeacher.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingTeacherId ? 'Update teacher policy' : 'Save teacher policy'}
                 </Button>
+                {editingTeacherId && <Button variant="outline" onClick={() => setEditingTeacherId(null)}>Cancel edit</Button>}
               </CardContent>
             </Card>
             <Card>
@@ -405,11 +442,12 @@ export default function PoliciesPage() {
                         <TableHead>Lateness Rule</TableHead>
                         <TableHead>Leave Allowance</TableHead>
                         <TableHead>Leave Deduction</TableHead>
+                        <TableHead>Grace / Free passes</TableHead>
                         <TableHead />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {teacherPolicies!.map((p: any) => (
+                      {teacherPolicies!.map((p: TeacherPolicy) => (
                         <TableRow key={p.id}>
                           <TableCell>{p.campus?.name ?? 'Global'}</TableCell>
                           <TableCell className="text-sm">
@@ -419,7 +457,12 @@ export default function PoliciesPage() {
                           </TableCell>
                           <TableCell className="text-emerald-700 font-semibold">{p.allowedLeavesPerMonth ?? 1}/mo</TableCell>
                           <TableCell className="text-red-600 font-semibold">Rs {Number(p.leavePenaltyAmount ?? 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-emerald-700 font-semibold">{p.lateGraceMinutes ?? 25}m / {p.freeLatePasses ?? 0}</TableCell>
                           <TableCell>
+                            <Button size="sm" variant="outline" className="mr-2" onClick={() => {
+                              setEditingTeacherId(p.id)
+                              setTeacherForm({ campusId: p.campusId ?? '', lateThreshold: p.lateThreshold, penaltyType: p.penaltyType as 'FIXED' | 'PERCENTAGE', penaltyValue: Number(p.penaltyValue), repeatMultiplier: p.repeatMultiplier == null ? '' : String(p.repeatMultiplier), allowedLeavesPerMonth: p.allowedLeavesPerMonth ?? 1, leavePenaltyAmount: Number(p.leavePenaltyAmount ?? 0), lateGraceMinutes: p.lateGraceMinutes ?? 25, freeLatePasses: p.freeLatePasses ?? 0 })
+                            }}>Edit</Button>
                             <Button
                               size="sm"
                               variant="outline"

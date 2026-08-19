@@ -201,6 +201,8 @@ export const createFeePolicySchema = z.object({
   maxPenalty: z.number().min(0).optional().nullable(),
   allowedLeavesPerMonth: z.number().int().min(0).default(1),
   leavePenaltyAmount: z.number().min(0).default(0),
+  allowedAbsencesPerMonth: z.number().int().min(0).default(3),
+  absencePenaltyAmount: z.number().min(0).default(0),
 })
 
 export const createTeacherPenaltyPolicySchema = z.object({
@@ -211,6 +213,8 @@ export const createTeacherPenaltyPolicySchema = z.object({
   repeatMultiplier: z.number().min(1).optional().nullable(),
   allowedLeavesPerMonth: z.number().int().min(0).default(1),
   leavePenaltyAmount: z.number().min(0).default(0),
+  lateGraceMinutes: z.number().int().min(0).max(180).default(25),
+  freeLatePasses: z.number().int().min(0).default(0),
 })
 
 export const promotionBatchSchema = z.object({

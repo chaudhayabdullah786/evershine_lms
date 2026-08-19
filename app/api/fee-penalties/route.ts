@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
         maxPenalty: parsed.data.maxPenalty,
         allowedLeavesPerMonth: parsed.data.allowedLeavesPerMonth,
         leavePenaltyAmount: parsed.data.leavePenaltyAmount,
+        allowedAbsencesPerMonth: parsed.data.allowedAbsencesPerMonth,
+        absencePenaltyAmount: parsed.data.absencePenaltyAmount,
       },
     })
     await tx.auditLog.create({

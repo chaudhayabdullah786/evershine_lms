@@ -6,6 +6,7 @@ import type { Role, AttendanceStatus } from '@prisma/client'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { resolveMarkedByTeacherId } from '@/lib/academic/attendance'
 import * as XLSX from 'xlsx'
+import { createStudentAbsenceAssessment } from '@/lib/penalties/assessments'
 
 // Helper to convert excel serial date or string date into JS Date
 function parseExcelDate(val: any): Date | null {
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
     // ACID transaction for student attendance upserts
     await prisma.$transaction(async (tx) => {
       for (const rec of parsedRecords) {
-        await tx.enrollmentAttendanceRecord.upsert({
+        const attendanceRecord = await tx.enrollmentAttendanceRecord.upsert({
           where: {
             studentEnrollmentId_attendanceDate: {
               studentEnrollmentId: rec.studentEnrollmentId,
@@ -195,6 +196,11 @@ export async function POST(req: NextRequest) {
             remarks: rec.remarks,
             markedByTeacherId: markedBy,
           }
+        })
+        await createStudentAbsenceAssessment(tx, {
+          attendanceRecordId: attendanceRecord.id,
+          attendanceDate: rec.attendanceDate,
+          markedByUserId: session.user.id,
         })
       }
 
