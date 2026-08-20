@@ -311,8 +311,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         )
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        const assignment = await tx.teacherSectionAssignment.upsert({
+      const result = await prisma.$transaction(async (tx: any) => {
+        const delegate = tx?.teacherSectionAssignment ?? prisma?.teacherSectionAssignment
+        if (!delegate || typeof delegate.upsert !== 'function') {
+          throw new Error('teacherSectionAssignment model delegate unavailable on Prisma client')
+        }
+        const assignment = await delegate.upsert({
           where: {
             teacherId_classSectionId_academicYearId: {
               teacherId: id,
