@@ -61,6 +61,14 @@ export function getDisplayedPosition(
 
 export function toNumericMark(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'object') {
+    const record = value as { value?: unknown; toNumber?: () => number }
+    if (typeof record.toNumber === 'function') {
+      const numeric = record.toNumber()
+      return Number.isFinite(numeric) ? numeric : null
+    }
+    if ('value' in record) return toNumericMark(record.value)
+  }
   const numeric = typeof value === 'number' ? value : Number(String(value))
   return Number.isFinite(numeric) ? numeric : null
 }
@@ -68,6 +76,14 @@ export function toNumericMark(value: unknown): number | null {
 export function formatExamSessionLabel(value: unknown): string {
   const raw = String(value ?? '').trim()
   if (!raw) return 'Official Result Card'
+
+  // Never expose database identifiers as document labels. Older result rows
+  // used the examSessionId as a fallback, which made opaque CUIDs appear on
+  // printed cards. A human-facing exam name should come from the API; when it
+  // is unavailable, use a neutral label instead of leaking an internal key.
+  const looksLikeOpaqueId = /^c[a-z0-9]{20,}$/i.test(raw) || /^[a-z0-9]{24,}$/i.test(raw)
+  if (looksLikeOpaqueId) return 'Official Result Card'
+
   return raw
     .replace(/[-_]/g, ' ')
     .replace(/\s+/g, ' ')

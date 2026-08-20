@@ -22,7 +22,7 @@ import { notify } from '@/lib/notify'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AcademyLogo } from '@/components/AcademyLogo'
 import { sessionShiftFormalLabel } from '@/lib/validation/shift'
-import { buildDocumentFileName, exportPreviewDocument, type DocumentType } from '@/lib/documents/export-preview'
+import { buildDocumentFileName, exportPreviewDocument, waitForDocumentPreviewReady, type DocumentType } from '@/lib/documents/export-preview'
 import { DOCUMENT_PALETTE, documentUsesAttendanceQr } from '@/lib/pdf/document-design'
 import { getCanonicalStudentClassSection, getCanonicalStudentRollNumber, getCanonicalStudentShift, type EnrollmentRecord } from '@/lib/academic/record-formatters'
 import { getDisplayedPosition, parseResultCardConfig, toNumericMark, formatExamSessionLabel } from '@/lib/academic/result-card-config'
@@ -358,7 +358,7 @@ export default function DocumentsPage() {
   }, [isStudent, preselectStudentId, preselectDoc])
 
   // Fetch Student Exam Results (For Result Card & Performance Card)
-  const { data: termResultsData } = useQuery<any[]>({
+  const { data: termResultsData, isLoading: isTermResultsLoading } = useQuery<any[]>({
     queryKey: ['student-term-results', selectedStudent?.id],
     queryFn: () => fetchApi<any[]>(`/api/academic-upgrades/results?studentId=${selectedStudent?.id}`),
     enabled: !!selectedStudent && (docType === 'result_card' || docType === 'performance_card'),
@@ -416,8 +416,16 @@ export default function DocumentsPage() {
     [activeResultCardConfig, activeTermResult],
   )
   const activeResultLabel = useMemo(
-    () => activeTermResult?.examSessionLabel || formatExamSessionLabel(activeTermResult?.examSessionId),
+    () => activeTermResult?.examSessionLabel || 'Official Result Card',
     [activeTermResult],
+  )
+
+  const resultCardExportReady = Boolean(
+    selectedStudent
+      && !isTermResultsLoading
+      && activeTermResult
+      && subjectsToRender.length > 0
+      && activeResultLabel.trim(),
   )
 
   const cumulativePercentage = useMemo(() => {
@@ -475,6 +483,18 @@ export default function DocumentsPage() {
         notify.error('Report data is still loading. Please wait and try again.')
         setIsGenerating(false)
         return
+      }
+
+      if (docType === 'result_card') {
+        if (isTermResultsLoading || !activeTermResult) {
+          notify.error('The selected exam result is still loading. Please wait and try again.')
+          return
+        }
+        if (subjectsToRender.length === 0) {
+          notify.error('This exam has no subject marks to export yet.')
+          return
+        }
+        await waitForDocumentPreviewReady(documentCaptureRef.current, { timeoutMs: 20_000 })
       }
 
       const getReportRows = (): ReportRow[] => {
@@ -602,7 +622,7 @@ export default function DocumentsPage() {
       }
     } catch (error) {
       console.error('PDF Engine error:', error)
-      notify.error('PDF Generation failed. Please try again.')
+      notify.error(error instanceof Error ? error.message : 'PDF Generation failed. Please try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -1757,6 +1777,11 @@ export default function DocumentsPage() {
                 {docType === 'result_card' && selectedStudent && (
                   <div
                     data-document-page
+                    data-document-kind="result-card"
+                    data-pdf-width="595"
+                    data-pdf-height="842"
+                    data-export-ready={resultCardExportReady ? 'true' : 'false'}
+                    data-result-subject-count={subjectsToRender.length}
                     className="w-[595px] bg-white flex flex-col items-start relative shrink-0"
                     style={{
                       fontFamily: 'Arial, sans-serif',
@@ -1816,11 +1841,11 @@ export default function DocumentsPage() {
                           </div>
                         </div>
                         <div className="w-20 shrink-0 border-l border-black p-1 flex items-center justify-center bg-gray-50">
-                          {profilePictureDataUrl ? (
-                            <img src={profilePictureDataUrl} alt="Student" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-[7px] text-gray-400 font-bold uppercase text-center leading-tight">Passport<br/>Photo</span>
-                          )}
+                          <img
+                            src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#1e3a8a')}
+                            alt="Student"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </div>}
                       {/* MARKS TABLE */}
