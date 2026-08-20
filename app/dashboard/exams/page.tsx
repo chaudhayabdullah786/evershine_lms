@@ -445,7 +445,6 @@ export default function ExamsPage() {
   const { data: classesRaw } = useQuery<ClassRecord[]>({
     queryKey: ['classes-all'],
     queryFn: () => fetchApi<ClassRecord[]>('/api/classes'),
-    enabled: createOpen || !!editExam,
     staleTime: 5 * 60 * 1000,
   })
   const allClasses = useMemo(() => classesRaw ?? [], [classesRaw])
@@ -453,9 +452,6 @@ export default function ExamsPage() {
   const { data: classSectionsRaw } = useQuery<ClassSectionRecord[]>({
     queryKey: ['class-sections-for-exams'],
     queryFn: () => fetchApi<ClassSectionRecord[]>('/api/class-sections'),
-    // WHY: fetch whenever the dialog is open (create or edit) so engine sections
-    // are pre-warmed and do not appear blank on first open.
-    enabled: createOpen || !!editExam,
     staleTime: 5 * 60 * 1000,
   })
   const allClassSections = useMemo(() => classSectionsRaw ?? [], [classSectionsRaw])
@@ -785,6 +781,14 @@ export default function ExamsPage() {
                         {exam._count.results} results
                       </span>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-[11px] font-semibold border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 rounded-lg transition-colors"
+                      onClick={() => router.push('/dashboard/teacher/grade-entry')}
+                    >
+                      Grade Exam
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
