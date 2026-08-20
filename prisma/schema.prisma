@@ -1944,6 +1944,8 @@ model TimetableSlot {
   @@index([academicYearId])
   @@index([classSectionId])
   @@index([teacherId])
+  @@index([teacherId, academicYearId, isPublished, dayOfWeek])
+  @@index([academicYearId, classSectionId, isPublished, dayOfWeek])
   @@index([dayOfWeek])
   @@index([templateId])
 }

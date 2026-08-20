@@ -38,6 +38,8 @@ teacher's published slots across all assigned sections. The form renders the
 day, time, section, and subject before submission. The server-side validator
 remains authoritative and now includes the conflicting slot summary in the
 validation details, so the client can explain exactly which slot conflicts.
+When editing an existing slot, the form may pass `excludeSlotId` so the slot
+does not conflict with itself.
 
 Publishing also validates every slot in the selected year/section transaction
 before setting `isPublished=true`; invalid schedules are not partially
@@ -111,6 +113,10 @@ row in the same workflow and revokes it on removal. Published timetable
 history is retained, while unpublished slots owned by a revoked assignment are
 cleared.
 
+Assigning a section never assigns an arbitrary subject offering. Subject
+ownership remains an explicit, separate operation, so a class teacher can
+manage a section without silently taking the first available subject.
+
 All teacher portal section lists now query only:
 
 ```text
@@ -138,7 +144,8 @@ The additive migration is:
 prisma/migrations/20260820090000_add_teacher_section_assignments/migration.sql
 ```
 
-It creates indexes for teacher/year/status and section/year/status, preserves
+It creates indexes for teacher/year/status and section/year/status, adds
+composite indexes for published teacher/section timetable reads, preserves
 legacy rows, and performs no deletes. On production, apply it only after a
 database backup and after regenerating Prisma Client from the deployed source.
 

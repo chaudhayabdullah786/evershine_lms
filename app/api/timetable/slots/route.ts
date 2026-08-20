@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   const academicYearId = searchParams.get('academicYearId')
   const classSectionId = searchParams.get('classSectionId')
   const teacherId = searchParams.get('teacherId')
+  const excludeSlotId = searchParams.get('excludeSlotId')
   const publishedOnly = searchParams.get('published') === 'true'
 
   if (teacherId && session.user.role === 'TEACHER') {
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
         ...(academicYearId && { academicYearId }),
         ...(classSectionId && { classSectionId }),
         ...(teacherId && { teacherId }),
+        ...(excludeSlotId && { id: { not: excludeSlotId } }),
         ...(publishedOnly && { isPublished: true }),
       },
       include: {

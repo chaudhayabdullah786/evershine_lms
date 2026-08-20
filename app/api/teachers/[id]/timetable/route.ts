@@ -47,6 +47,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const parsed = timetableQuerySchema.safeParse(Object.fromEntries(searchParams))
   if (!parsed.success) return errors.validation(parsed.error)
 
+  const activeYear = await getActiveAcademicYear()
   const requestedYear = parsed.data.academicYearId
     ? await prisma.academicYear.findUnique({
         where: { id: parsed.data.academicYearId },
@@ -57,9 +58,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           where: { name: parsed.data.academicYear },
           select: { id: true, name: true },
         })
-      : await getActiveAcademicYear()
+      : activeYear
 
   if (!requestedYear) return errors.notFound('Academic year')
+  if (session.user.role === 'TEACHER' && (!activeYear || requestedYear.id !== activeYear.id)) {
+    return errors.forbidden('Teachers can only view the active academic year timetable')
+  }
 
   const assignedSectionIds = await getTeacherAssignedSectionIds(id, requestedYear.id)
   if (assignedSectionIds.length === 0) return successResponse([])

@@ -289,107 +289,55 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return errors.notFound(`Academic year '${academicYear}' not found. Create it in the Academic Engine first.`)
     }
 
-    // Keep the legacy bridge for compatibility with old declaration workflows,
-    // but persist section scope in the canonical assignment table as well.
-    if (isClassTeacher) {
-      await ensureLegacyClassTeacherBridge({
-        teacherId: id,
-        classSection: section,
-        academicYear,
+    // Section scope and subject ownership are separate concerns. Persist only
+    // the canonical section assignment here; a subject offering must be
+    // assigned explicitly through the subject-offering workflow and must never
+    // be selected arbitrarily as a side effect of assigning a section.
+    const result = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.teacherSectionAssignment.upsert({
+        where: {
+          teacherId_classSectionId_academicYearId: {
+            teacherId: id,
+            classSectionId,
+            academicYearId: academicYearRecord.id,
+          },
+        },
+        update: { isClassTeacher, status: 'ACTIVE' },
+        create: {
+          teacherId: id,
+          classSectionId,
+          academicYearId: academicYearRecord.id,
+          isClassTeacher,
+          status: 'ACTIVE',
+        },
       })
-    }
 
-    // A section assignment is independent of subject ownership. If an
-    // unassigned offering exists, attach it as a convenience; never invent a
-    // subject by selecting the first global subject.
-    const unassignedOffering = await prisma.subjectOffering.findFirst({
-      where: {
-        classSectionId,
-        academicYearId: academicYearRecord.id,
-        teacherId: null,
-      },
-      select: { id: true },
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'UPDATE',
+          entityType: 'TeacherSectionAssignment',
+          entityId: assignment.id,
+          changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
+        },
+      })
+
+      return { assignment, offering: null }
     })
 
-    let result
-    if (unassignedOffering) {
-      result = await prisma.$transaction(async (tx) => {
-        const assignment = await tx.teacherSectionAssignment.upsert({
-          where: {
-            teacherId_classSectionId_academicYearId: {
-              teacherId: id,
-              classSectionId,
-              academicYearId: academicYearRecord.id,
-            },
-          },
-          update: { isClassTeacher, status: 'ACTIVE' },
-          create: {
-            teacherId: id,
-            classSectionId,
-            academicYearId: academicYearRecord.id,
-            isClassTeacher,
-            status: 'ACTIVE',
-          },
+    // Keep the legacy bridge available for old declaration workflows, but do
+    // it after the canonical write so a bridge failure can never leave a
+    // legacy assignment that grants access without a canonical assignment.
+    if (isClassTeacher) {
+      try {
+        await ensureLegacyClassTeacherBridge({
+          teacherId: id,
+          classSection: section,
+          academicYear,
         })
-        const updated = await tx.subjectOffering.update({
-          where: { id: unassignedOffering.id },
-          data: { teacherId: id },
-        })
-
-        await tx.auditLog.create({
-          data: {
-            userId: session.user.id,
-            action: 'UPDATE',
-            entityType: 'SubjectOffering',
-            entityId: updated.id,
-            changes: { teacherId: id, classSectionId, isClassTeacher, academicYear },
-          },
-        })
-
-        await tx.auditLog.create({
-          data: {
-            userId: session.user.id,
-            action: 'UPDATE',
-            entityType: 'TeacherSectionAssignment',
-            entityId: assignment.id,
-            changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
-          },
-        })
-
-        return { assignment, offering: updated }
-      })
-    } else {
-      result = await prisma.$transaction(async (tx) => {
-        const assignment = await tx.teacherSectionAssignment.upsert({
-          where: {
-            teacherId_classSectionId_academicYearId: {
-              teacherId: id,
-              classSectionId,
-              academicYearId: academicYearRecord.id,
-            },
-          },
-          update: { isClassTeacher, status: 'ACTIVE' },
-          create: {
-            teacherId: id,
-            classSectionId,
-            academicYearId: academicYearRecord.id,
-            isClassTeacher,
-            status: 'ACTIVE',
-          },
-        })
-
-        await tx.auditLog.create({
-          data: {
-            userId: session.user.id,
-            action: 'UPDATE',
-            entityType: 'TeacherSectionAssignment',
-            entityId: assignment.id,
-            changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
-          },
-        })
-
-        return { assignment, offering: null }
-      })
+      } catch (bridgeError) {
+        console.error('[TEACHER_ASSIGNMENT_LEGACY_BRIDGE]', bridgeError)
+      }
     }
 
     return createdResponse(result, `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name})`)

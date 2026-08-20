@@ -64,6 +64,17 @@ describe('teacher timetable visibility contracts', () => {
     }))
   })
 
+  it('supports excluding the slot currently being edited from the conflict list', async () => {
+    const response = await getAdminSlots(new Request(
+      'http://localhost/api/timetable/slots?academicYearId=year-active&teacherId=teacher-1&published=true&excludeSlotId=slot-current'
+    ) as unknown as NextRequest)
+
+    expect(response.status).toBe(200)
+    expect(slotFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: { not: 'slot-current' } }),
+    }))
+  })
+
   it('reads only published Academic Engine slots for the active year', async () => {
     slotFindManyMock.mockResolvedValue([
       {

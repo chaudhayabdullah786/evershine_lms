@@ -70,3 +70,12 @@ WHERE ct.isClassTeacher = 1
 ON DUPLICATE KEY UPDATE
   `isClassTeacher` = 1,
   `updatedAt` = CURRENT_TIMESTAMP(3);
+
+-- Composite indexes used by the teacher conflict preview and published portal
+-- queries. Existing single-column indexes are retained for compatibility with
+-- other access paths.
+CREATE INDEX `TimetableSlot_teacherId_academicYearId_isPublished_dayOfWeek_idx`
+  ON `TimetableSlot` (`teacherId`, `academicYearId`, `isPublished`, `dayOfWeek`);
+
+CREATE INDEX `TimetableSlot_academicYearId_classSectionId_isPublished_dayOfWeek_idx`
+  ON `TimetableSlot` (`academicYearId`, `classSectionId`, `isPublished`, `dayOfWeek`);
