@@ -93,16 +93,26 @@ export function StudentEnrollmentsPanel({
     ? enrollmentsRaw
     : (enrollmentsRaw as { data?: StudentEnrollmentRow[] })?.data ?? []
 
-  // WHY: We intentionally omit the `batchId` filter here.
-  // Student.batchId is a legacy admission field that does NOT map 1:1 to
-  // ClassSection.batchId in the Academic Engine. Filtering by it causes the
-  // dropdown to return zero results when the legacy batch has no engine sections.
-  // Admins should see ALL active sections for the student's campus.
+  // ── Campus filter toggle state ───────────────────────────────────────────
+  const [filterByCampus, setFilterByCampus] = useState(true)
+
+  // WHY: We query sections for the student's campus first. If zero sections exist
+  // for that specific campus (or if campusId is missing/unassigned), we fall back
+  // to querying ALL active sections across the institution so admins are never blocked
+  // by an empty dropdown.
   const { data: sectionsRaw, isLoading: sectionsLoading } = useQuery({
-    queryKey: ['class-sections-by-campus', campusId],
-    queryFn: () =>
-      fetchApi<ClassSectionOption[]>(`/api/class-sections?campusId=${encodeURIComponent(campusId)}`),
-    enabled: (showAdd || !!reEnrollingId) && !!campusId,
+    queryKey: ['class-sections-for-enrollment', campusId, filterByCampus],
+    queryFn: async () => {
+      if (filterByCampus && campusId) {
+        const campusRes = await fetchApi<ClassSectionOption[]>(`/api/class-sections?campusId=${encodeURIComponent(campusId)}`)
+        const campusItems = Array.isArray(campusRes) ? campusRes : (campusRes as any)?.data ?? []
+        if (campusItems.length > 0) return campusItems
+      }
+      // Fallback or explicit "All Campuses": fetch all active sections
+      const allRes = await fetchApi<ClassSectionOption[]>(`/api/class-sections`)
+      return Array.isArray(allRes) ? allRes : (allRes as any)?.data ?? []
+    },
+    enabled: showAdd || !!reEnrollingId,
   })
 
   const sections = Array.isArray(sectionsRaw)
@@ -234,7 +244,18 @@ export function StudentEnrollmentsPanel({
         {/* ── Add enrollment form ─────────────────────────────────────── */}
         {showAdd && canManage && (
           <div className="p-3 rounded-lg border border-indigo-200 bg-indigo-50/50 space-y-3">
-            <p className="text-xs font-semibold text-indigo-800">New section enrollment</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-indigo-800">New section enrollment</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2 text-indigo-600 hover:text-indigo-800"
+                onClick={() => setFilterByCampus((v) => !v)}
+              >
+                {filterByCampus ? 'Show all campus sections' : 'Filter by student campus'}
+              </Button>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Class section</Label>
               <Select value={classSectionId} onValueChange={setClassSectionId} disabled={sectionsLoading}>
@@ -246,13 +267,19 @@ export function StudentEnrollmentsPanel({
                 </SelectTrigger>
                 <SelectContent>
                   {sections.length === 0 && !sectionsLoading ? (
-                    <div className="py-4 px-3 text-center text-xs text-gray-400">
-                      No active sections found for this campus.
+                    <div className="py-4 px-3 text-center text-xs text-gray-500">
+                      <p>No active class sections available.</p>
+                      <Link href="/dashboard/academic-engine" className="text-indigo-600 underline font-medium mt-1 inline-block">
+                        Create sections in Academic Engine
+                      </Link>
                     </div>
                   ) : (
                     sections.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.className}-{s.sectionName} · {s.shift.name} · {s.campus.code}/{s.batch.code}
+                        <span className="font-semibold">{s.className}-{s.sectionName}</span>
+                        <span className="text-gray-500 ml-1.5">· {s.shift?.name || 'Standard'}</span>
+                        <span className="text-indigo-600 font-mono ml-1.5">[{s.campus?.code || 'Campus'}]</span>
+                        <span className="text-gray-400 ml-1.5">· Batch: {s.batch?.code || s.batch?.name || 'Main'}</span>
                       </SelectItem>
                     ))
                   )}

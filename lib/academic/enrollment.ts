@@ -46,7 +46,12 @@ export async function createYearEnrollmentForStudent(params: {
 }): Promise<{ enrollmentId: string; subjectsEnrolled: number }> {
   const section = await prisma.classSection.findUnique({
     where: { id: params.classSectionId },
-    select: { curriculumMode: true },
+    select: {
+      curriculumMode: true,
+      campusId: true,
+      batchId: true,
+      shift: { select: { code: true } },
+    },
   })
   if (!section) throw new Error('CLASS_SECTION_NOT_FOUND')
 
@@ -59,6 +64,18 @@ export async function createYearEnrollmentForStudent(params: {
       deliveryMode: params.deliveryMode ?? 'PHYSICAL',
       promotedFromId: params.promotedFromId,
       status: 'ACTIVE',
+    },
+  })
+
+  // Sync main student profile fields so legacy UI cards and portals update instantly
+  await prisma.student.update({
+    where: { id: params.studentId },
+    data: {
+      campusId: section.campusId,
+      batchId: section.batchId,
+      rollNumber: params.rollNumber,
+      deliveryMode: params.deliveryMode ?? 'PHYSICAL',
+      ...(section.shift?.code ? { shift: section.shift.code as any } : {}),
     },
   })
 
