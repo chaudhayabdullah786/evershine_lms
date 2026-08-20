@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "app/api/academic-upgrades/results/route.ts": {
-    "mtime": 1785463655.8833714,
-    "ast_hash": "62bc6b8349de0902917e47ae16f85000",
+    "mtime": 1787129830.1203334,
+    "ast_hash": "f66cf22a4d3ff336e68a4bc88fe1f0de",
     "semantic_hash": ""
   },
   "app/api/academic-upgrades/targets/route.ts": {
@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "app/api/academic-years/[id]/route.ts": {
-    "mtime": 1785713151.970469,
-    "ast_hash": "c62962c5f2e00177955116e2938f6828",
+    "mtime": 1786191692.8263888,
+    "ast_hash": "10fe6397fad8d47fab5668c5e328bc1e",
     "semantic_hash": ""
   },
   "app/api/academic-years/[id]/unlock/route.ts": {
@@ -110,13 +110,13 @@
     "semantic_hash": ""
   },
   "app/api/accountant/fees/export/defaulters/route.ts": {
-    "mtime": 1783195298.009856,
-    "ast_hash": "b0daeac7d577cef63982607db15d7546",
+    "mtime": 1787108684.1852145,
+    "ast_hash": "bf9fc5aa0e3fba40e2dfc8ea37abb8b5",
     "semantic_hash": ""
   },
   "app/api/accountant/fees/export/paid/route.ts": {
-    "mtime": 1783195298.009856,
-    "ast_hash": "c3fb3290e11d1b4243c69f379b0bc77a",
+    "mtime": 1787108684.1842144,
+    "ast_hash": "727223e9c10b7b4a1c9d46cb1772af7c",
     "semantic_hash": ""
   },
   "app/api/accountant/fees/invoices/[invoiceId]/payments/route.ts": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "app/api/accountant/fees/invoices/route.ts": {
-    "mtime": 1782497245.8741891,
-    "ast_hash": "a4bd0238df304bcf28abc5565720bc88",
+    "mtime": 1787045967.1453617,
+    "ast_hash": "b68b24b8afd9b01c0b13f413a3cdbceb",
     "semantic_hash": ""
   },
   "app/api/accountant/fees/pending-proofs/route.ts": {
@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "app/api/accountant/profit-loss/route.ts": {
-    "mtime": 1783195298.011856,
-    "ast_hash": "a66af9b1dc299b8b7761b90d3c1a95bc",
+    "mtime": 1787099437.5540657,
+    "ast_hash": "668e5caadf7afb2640dd4de01e6eb9c4",
     "semantic_hash": ""
   },
   "app/api/accountant/reports/expense-ledger/route.ts": {
@@ -280,8 +280,8 @@
     "semantic_hash": ""
   },
   "app/api/announcements/route.ts": {
-    "mtime": 1785463655.885382,
-    "ast_hash": "5c35c0753519e6c2e01de3f53a7cd65d",
+    "mtime": 1786191692.8266497,
+    "ast_hash": "e4b61744b80c0609e2d6f7bf4edd7ca9",
     "semantic_hash": ""
   },
   "app/api/assessments/route.ts": {
@@ -480,8 +480,8 @@
     "semantic_hash": ""
   },
   "app/api/enrollment-attendance/route.ts": {
-    "mtime": 1783195298.0207946,
-    "ast_hash": "4d754420dc428d81f4a0f06962631d06",
+    "mtime": 1787097672.1272802,
+    "ast_hash": "c50acdd2d75cbc637676a459237bea91",
     "semantic_hash": ""
   },
   "app/api/enrollment-attendance/scan/route.ts": {
@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   "app/api/exams/route.ts": {
-    "mtime": 1783195298.0208561,
-    "ast_hash": "b1d62afb3cd5bb5d71e152a0693e52e6",
+    "mtime": 1786936349.6556373,
+    "ast_hash": "c9b766f04fbe53e0ce2beff2d1a38601",
     "semantic_hash": ""
   },
   "app/api/expenses/route.ts": {
@@ -510,8 +510,8 @@
     "semantic_hash": ""
   },
   "app/api/exports/fees/route.ts": {
-    "mtime": 1782497245.8824973,
-    "ast_hash": "f71cae898b2ef11c4a0af3f3d525d13f",
+    "mtime": 1787109216.3860035,
+    "ast_hash": "0a73d6ba0ae1418851ad6279e0e9db4e",
     "semantic_hash": ""
   },
   "app/api/exports/staff/route.ts": {
@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "app/api/exports/students/route.ts": {
-    "mtime": 1782497245.8824973,
-    "ast_hash": "a05d3b05f65c70fa269d673f422d7c6a",
+    "mtime": 1787045967.1458004,
+    "ast_hash": "4da041f699579de03fa78c878748d090",
     "semantic_hash": ""
   },
   "app/api/exports/teachers/route.ts": {
@@ -530,13 +530,13 @@
     "semantic_hash": ""
   },
   "app/api/fee-penalties/[id]/route.ts": {
-    "mtime": 1783195298.0218563,
-    "ast_hash": "8a25f89b5288055745b8534350bf947c",
+    "mtime": 1787097637.4526815,
+    "ast_hash": "20d61879cacca39fc03d38525795eaa8",
     "semantic_hash": ""
   },
   "app/api/fee-penalties/route.ts": {
-    "mtime": 1783195298.0218563,
-    "ast_hash": "18acd2cc7e01e46f39de85334156640a",
+    "mtime": 1787097637.21372,
+    "ast_hash": "4e2ae82df0f20f697241aa6db930965b",
     "semantic_hash": ""
   },
   "app/api/feedback/admin/cycles/[id]/route.ts": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "app/api/fees/[id]/route.ts": {
-    "mtime": 1783195298.0238562,
-    "ast_hash": "529e64d8eb7e7eb3b14e2634ac028cc0",
+    "mtime": 1787107579.8511903,
+    "ast_hash": "6dfcb548a28af23a20756a1b6590a3e0",
     "semantic_hash": ""
   },
   "app/api/fees/[id]/verify/route.ts": {
@@ -595,8 +595,8 @@
     "semantic_hash": ""
   },
   "app/api/fees/route.ts": {
-    "mtime": 1783195298.0238562,
-    "ast_hash": "d554cb93b6723542b29540e5089c7772",
+    "mtime": 1787045967.1463938,
+    "ast_hash": "444875ea3307638faec154c8859881fd",
     "semantic_hash": ""
   },
   "app/api/grading-schemes/[id]/assessments/route.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": ""
   },
   "app/api/guardian-portal/children/[studentId]/academic/route.ts": {
-    "mtime": 1785463655.885382,
-    "ast_hash": "3ff5287f02cfcfb540c53ccf67fd96dc",
+    "mtime": 1787129760.9489708,
+    "ast_hash": "b3705a64734c6f5cc87997064324b6ab",
     "semantic_hash": ""
   },
   "app/api/guardian-portal/children/[studentId]/leaves/route.ts": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "app/api/leaves/[id]/route.ts": {
-    "mtime": 1783195298.0268564,
-    "ast_hash": "02f1d6636bf03ff0f598f0a21e6fa87e",
+    "mtime": 1787097800.4232867,
+    "ast_hash": "7a897b904110f19ef947432346994921",
     "semantic_hash": ""
   },
   "app/api/leaves/activity/route.ts": {
@@ -895,8 +895,8 @@
     "semantic_hash": ""
   },
   "app/api/student-portal/results/route.ts": {
-    "mtime": 1785463655.8872032,
-    "ast_hash": "c2b7bcf56b8306590e4e07f96762b040",
+    "mtime": 1787129760.9489708,
+    "ast_hash": "999d56902aa768ca2581ebbc2262acdf",
     "semantic_hash": ""
   },
   "app/api/student-portal/targets/route.ts": {
@@ -910,8 +910,8 @@
     "semantic_hash": ""
   },
   "app/api/student/fees/overdue/route.ts": {
-    "mtime": 1782497245.8901858,
-    "ast_hash": "f41e152688518e024f18efbf13d7292e",
+    "mtime": 1787112471.3206089,
+    "ast_hash": "d464fc5bba3149196c1b98d91426348b",
     "semantic_hash": ""
   },
   "app/api/student/rules-agreement/route.ts": {
@@ -990,13 +990,13 @@
     "semantic_hash": ""
   },
   "app/api/teacher-penalties/[id]/route.ts": {
-    "mtime": 1783195298.0328565,
-    "ast_hash": "f6a6f8727b73d271f498ea2a78127dab",
+    "mtime": 1787097637.8716137,
+    "ast_hash": "01eaca20ceb86ad58e6d53ad36a06461",
     "semantic_hash": ""
   },
   "app/api/teacher-penalties/route.ts": {
-    "mtime": 1783195298.0328565,
-    "ast_hash": "429ab54c24ca1112e2489afe81067735",
+    "mtime": 1787097637.7346358,
+    "ast_hash": "fc9fe63572f5626ea526c975deab0f5b",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/announcements/[id]/route.ts": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/announcements/route.ts": {
-    "mtime": 1783449568.0114884,
-    "ast_hash": "3f86442e526b24df26ee6222cc5eb308",
+    "mtime": 1787196479.667386,
+    "ast_hash": "9f90d4182b952d85e949bb594fae2636",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/applications/route.ts": {
@@ -1035,8 +1035,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/classes/route.ts": {
-    "mtime": 1785845076.277715,
-    "ast_hash": "c1209732b978a3847965b4cedb7372ec",
+    "mtime": 1787195425.7970207,
+    "ast_hash": "4c3f144fb6d9f748489ef911f5568ad7",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/feedback/export/route.ts": {
@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/my-students/route.ts": {
-    "mtime": 1785463655.889203,
-    "ast_hash": "fb1e96f4f52f9c6eb5070ea0e91ac34d",
+    "mtime": 1786223813.6752756,
+    "ast_hash": "8078bad08649dd2f39febb997c21efd1",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/custom-fields/route.ts": {
@@ -1110,8 +1110,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/[id]/route.ts": {
-    "mtime": 1785463655.889203,
-    "ast_hash": "1096ddade85d67d256ff724d544d09b3",
+    "mtime": 1787129522.1826415,
+    "ast_hash": "adc7ef951697be1d3ad026cc8e3cacb1",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/results/route.ts": {
@@ -1125,18 +1125,18 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/sections/[classSectionId]/offerings/route.ts": {
-    "mtime": 1785463655.8902032,
-    "ast_hash": "854427b09e262576cde555a4c4ea0c0b",
+    "mtime": 1787196025.9193938,
+    "ast_hash": "39e812e856c4179d8d481d3bbc6a6af8",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/sections/[classSectionId]/students/route.ts": {
-    "mtime": 1785884417.69573,
-    "ast_hash": "e3904550c1f7a26623eaec81df5eac61",
+    "mtime": 1787196025.920394,
+    "ast_hash": "76f372ca4a9cd0677a7a7c37fa82a555",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/sections/route.ts": {
-    "mtime": 1785463655.8902032,
-    "ast_hash": "6a407101ec74be980e05279ccb580c47",
+    "mtime": 1787195464.1500893,
+    "ast_hash": "1d772e866201067b62ddad7568470077",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/student-leaves/[id]/route.ts": {
@@ -1160,8 +1160,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/tasks/[id]/marks/route.ts": {
-    "mtime": 1785884427.3079536,
-    "ast_hash": "825e284aa4262c67714646e885b0b943",
+    "mtime": 1786937975.3194804,
+    "ast_hash": "c9408c0a41e29b6bde9a54a42628acfb",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/tasks/[id]/route.ts": {
@@ -1170,8 +1170,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/tasks/route.ts": {
-    "mtime": 1783858081.9067438,
-    "ast_hash": "623243f542c6d08a7dc596a1daf89c9b",
+    "mtime": 1787196439.4511456,
+    "ast_hash": "31b53a474da4e5457a1cf3c6ca0b12b4",
     "semantic_hash": ""
   },
   "app/api/teacher-portal/timetable-requests/route.ts": {
@@ -1180,13 +1180,13 @@
     "semantic_hash": ""
   },
   "app/api/teachers/[id]/attendance/route.ts": {
-    "mtime": 1783195298.0348566,
-    "ast_hash": "701188569bf1d450f90710e5e404f464",
+    "mtime": 1787098578.8134875,
+    "ast_hash": "b537cde28eba556a51e4a9d5c98d9cb4",
     "semantic_hash": ""
   },
   "app/api/teachers/[id]/classes/route.ts": {
-    "mtime": 1785845052.362561,
-    "ast_hash": "253a760156535fb6ea68a7a31db104c8",
+    "mtime": 1787197937.1967378,
+    "ast_hash": "ca3995e2664d1e2fa9dd5459386dd224",
     "semantic_hash": ""
   },
   "app/api/teachers/[id]/route.ts": {
@@ -1195,8 +1195,8 @@
     "semantic_hash": ""
   },
   "app/api/teachers/[id]/timetable/route.ts": {
-    "mtime": 1783858081.9067438,
-    "ast_hash": "289ac36f748c9e78cc6c728f87c2015e",
+    "mtime": 1787210215.7973518,
+    "ast_hash": "c27d4de7d640d8e55c75ce663f2402b6",
     "semantic_hash": ""
   },
   "app/api/teachers/for-selection/route.ts": {
@@ -1205,13 +1205,13 @@
     "semantic_hash": ""
   },
   "app/api/teachers/profile/route.ts": {
-    "mtime": 1785463655.8902032,
-    "ast_hash": "c113612494f9416d43a63d18bd163a86",
+    "mtime": 1787197128.932406,
+    "ast_hash": "5373a1d54a67d2c79bce32d580ef6c5d",
     "semantic_hash": ""
   },
   "app/api/teachers/route.ts": {
-    "mtime": 1783195298.0358565,
-    "ast_hash": "c98094927bdd49b146cdd9bc51d251bc",
+    "mtime": 1787045967.1467535,
+    "ast_hash": "5fec7649c470f8cee72fb2f48138145c",
     "semantic_hash": ""
   },
   "app/api/timetable/[id]/route.ts": {
@@ -1225,18 +1225,18 @@
     "semantic_hash": ""
   },
   "app/api/timetable/route.ts": {
-    "mtime": 1783195298.0358565,
-    "ast_hash": "e7675ee6438447a7617122e27a67a9e2",
+    "mtime": 1787210215.7963517,
+    "ast_hash": "bbf91e7f15b8fa27088ac0190cc7a44d",
     "semantic_hash": ""
   },
   "app/api/timetable/slots/[id]/route.ts": {
-    "mtime": 1783791141.763814,
-    "ast_hash": "f6f74b54c9e84081e7d79aa719fbf530",
+    "mtime": 1787196752.6987343,
+    "ast_hash": "b29fef0aa059cd8196b2a4bae33b0c4d",
     "semantic_hash": ""
   },
   "app/api/timetable/slots/route.ts": {
-    "mtime": 1783791141.763814,
-    "ast_hash": "313ef8dfc996bf4b6271172023c4bced",
+    "mtime": 1787210215.7923517,
+    "ast_hash": "2d543eb8f0480b2fbff84af9592301fa",
     "semantic_hash": ""
   },
   "app/api/upload/route.ts": {
@@ -1270,8 +1270,8 @@
     "semantic_hash": ""
   },
   "app/api/users/route.ts": {
-    "mtime": 1783195298.0368564,
-    "ast_hash": "f62bfc32a829a971e3077ef9cad6c9c4",
+    "mtime": 1787029681.4734857,
+    "ast_hash": "0e3e8a311fb6606b62e5dfd161766c55",
     "semantic_hash": ""
   },
   "app/api/verify/route.ts": {
@@ -1290,13 +1290,13 @@
     "semantic_hash": ""
   },
   "app/dashboard/academic/page.tsx": {
-    "mtime": 1785873398.0415921,
-    "ast_hash": "8751c50bd7637524c3522bd7dc1360ac",
+    "mtime": 1787210537.9438925,
+    "ast_hash": "8de47f0df35aa4077910b56825d37af3",
     "semantic_hash": ""
   },
   "app/dashboard/academics/page.tsx": {
-    "mtime": 1785463655.8912032,
-    "ast_hash": "55231dc0088450ee84d9fc36220d4770",
+    "mtime": 1787130068.00928,
+    "ast_hash": "5bcf33a4c36992b9e221758f790c6c65",
     "semantic_hash": ""
   },
   "app/dashboard/accountant/design-docs/page.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/accountant/fees/page.tsx": {
-    "mtime": 1783195298.0388565,
-    "ast_hash": "2abc998596c25975590d109e64897b5e",
+    "mtime": 1787107814.2951953,
+    "ast_hash": "576f26e9693a4d8222d1c4526682e89b",
     "semantic_hash": ""
   },
   "app/dashboard/accountant/page.tsx": {
@@ -1320,8 +1320,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/accountant/reports/page.tsx": {
-    "mtime": 1783195298.041329,
-    "ast_hash": "12312c8dc2a9101c94d24e04613a5d69",
+    "mtime": 1787099407.814935,
+    "ast_hash": "6a44d3b64fa9844b1f677ae8725446c5",
     "semantic_hash": ""
   },
   "app/dashboard/accountant/salary-slips/page.tsx": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/attendance/legacy/page.tsx": {
-    "mtime": 1782497245.9022963,
-    "ast_hash": "8ff590f7c93538c7541be4b161e052b1",
+    "mtime": 1787029978.7935126,
+    "ast_hash": "829e0c23c83dbf07fd461f0042976fe6",
     "semantic_hash": ""
   },
   "app/dashboard/attendance/page.tsx": {
@@ -1425,13 +1425,13 @@
     "semantic_hash": ""
   },
   "app/dashboard/documents/page.tsx": {
-    "mtime": 1783195298.0462716,
-    "ast_hash": "e5f0e7d5ac2c2f4d9cc0954157703e88",
+    "mtime": 1787134083.8603303,
+    "ast_hash": "b3f9af7965529ed20e047165172c759c",
     "semantic_hash": ""
   },
   "app/dashboard/enrollment/page.tsx": {
-    "mtime": 1785599959.2278152,
-    "ast_hash": "3729175e66e72eb9b6a51dc9da8c7737",
+    "mtime": 1787130015.8601665,
+    "ast_hash": "4fe772751e9b5b4ebafd75a44a0adb09",
     "semantic_hash": ""
   },
   "app/dashboard/exams/date-sheets/page.tsx": {
@@ -1440,8 +1440,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/exams/page.tsx": {
-    "mtime": 1783195298.0467277,
-    "ast_hash": "14f69b35758c3b82d40ead18edbe9fae",
+    "mtime": 1787047556.3232048,
+    "ast_hash": "468f88817f345aafb1ea31c5892fba6b",
     "semantic_hash": ""
   },
   "app/dashboard/fees/[id]/download/page.tsx": {
@@ -1450,18 +1450,18 @@
     "semantic_hash": ""
   },
   "app/dashboard/fees/[id]/page.tsx": {
-    "mtime": 1783195298.0475454,
-    "ast_hash": "f14c43747830fe7ed0bb882993f726f2",
+    "mtime": 1787107579.853578,
+    "ast_hash": "a1d4de322ad4a96c7e58d58ad1c9f669",
     "semantic_hash": ""
   },
   "app/dashboard/fees/generate/page.tsx": {
-    "mtime": 1783195298.048003,
-    "ast_hash": "e370e710ccd21382faabec17b073eff0",
+    "mtime": 1787107579.8539224,
+    "ast_hash": "7deb7b644b5bb6eb6f3747878d7ce549",
     "semantic_hash": ""
   },
   "app/dashboard/fees/page.tsx": {
-    "mtime": 1783195298.048003,
-    "ast_hash": "1d5ec969956d7b0828aebe19b0457fa5",
+    "mtime": 1787045967.1498926,
+    "ast_hash": "8b5aa8fcd6aa24d95fd63ce4a0159840",
     "semantic_hash": ""
   },
   "app/dashboard/layout.tsx": {
@@ -1485,18 +1485,18 @@
     "semantic_hash": ""
   },
   "app/dashboard/my-children/page.tsx": {
-    "mtime": 1785600021.903386,
-    "ast_hash": "ac3e7f8d0a632d23e1eca452a891de56",
+    "mtime": 1787130029.949466,
+    "ast_hash": "e8044bcc47577e09bca258a07f31740b",
     "semantic_hash": ""
   },
   "app/dashboard/page.tsx": {
-    "mtime": 1785463655.8942032,
-    "ast_hash": "0c06d96230a32804e3089aefe6ab52d6",
+    "mtime": 1787112119.893126,
+    "ast_hash": "fdf46947ecda36e949857ba9c214dc20",
     "semantic_hash": ""
   },
   "app/dashboard/policies/page.tsx": {
-    "mtime": 1782497245.9063694,
-    "ast_hash": "3c4fa59df3f828a0a2a1802648abb2b4",
+    "mtime": 1787099141.6844835,
+    "ast_hash": "814852b78ff1f630933a2e78f5237e98",
     "semantic_hash": ""
   },
   "app/dashboard/promotions/page.tsx": {
@@ -1515,8 +1515,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/results/page.tsx": {
-    "mtime": 1783195298.0514717,
-    "ast_hash": "82bd5ae91c3ef7347a5f999f49a5c355",
+    "mtime": 1786840331.6683676,
+    "ast_hash": "8035f4ea85853519fb7fc318fca1e439",
     "semantic_hash": ""
   },
   "app/dashboard/salaries/page.tsx": {
@@ -1560,13 +1560,13 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/announcements/page.tsx": {
-    "mtime": 1782497245.9100144,
-    "ast_hash": "1aa2977d4c00f1a5253761cd7d6bf6f9",
+    "mtime": 1786946573.017055,
+    "ast_hash": "f8d022834f9ac08534beb82dd1e70f25",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/attendance/page.tsx": {
-    "mtime": 1785884463.6407852,
-    "ast_hash": "ba78766ab13306f2d616ec29826af9d5",
+    "mtime": 1787031344.750114,
+    "ast_hash": "616a29801707c26b58e9c31fe7b36711",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/daily-scores/page.tsx": {
@@ -1575,8 +1575,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grade-entry/page.tsx": {
-    "mtime": 1785463655.8962033,
-    "ast_hash": "e40083a943065c712bf81ef7b3030b9b",
+    "mtime": 1786938765.7974331,
+    "ast_hash": "929ae1a2ef5ae5157001c96676353f24",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/grading/page.tsx": {
@@ -1605,8 +1605,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/results/page.tsx": {
-    "mtime": 1785463655.8972032,
-    "ast_hash": "e3285711ab52ec75fda9c1682e41ba96",
+    "mtime": 1786936362.2795243,
+    "ast_hash": "55c3c2662c46200298626bfd37b28e1b",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/salary/page.tsx": {
@@ -1625,8 +1625,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teacher/tasks/page.tsx": {
-    "mtime": 1785463655.8982031,
-    "ast_hash": "2e1e6243397d2924b08637f4482611a3",
+    "mtime": 1786946573.0190551,
+    "ast_hash": "f3eef21342b62fad100870096534ad44",
     "semantic_hash": ""
   },
   "app/dashboard/teachers/[id]/attendance/page.tsx": {
@@ -1645,8 +1645,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/teachers/page.tsx": {
-    "mtime": 1783195298.057242,
-    "ast_hash": "6dc2ae8c7bd1b73e9db38a2ca77dcb64",
+    "mtime": 1787030115.6670706,
+    "ast_hash": "4a81906a04e22012ed48632411058a4d",
     "semantic_hash": ""
   },
   "app/dashboard/timetable/page.tsx": {
@@ -1830,8 +1830,8 @@
     "semantic_hash": ""
   },
   "components/fees/FeeDownloadPreview.tsx": {
-    "mtime": 1782497245.9158916,
-    "ast_hash": "4af7891e6e6b788d65baf8d1692c9cdb",
+    "mtime": 1787107579.85422,
+    "ast_hash": "69696ab23ad39cb38d65e26e5655ba07",
     "semantic_hash": ""
   },
   "components/fees/PaymentProofUploadModal.tsx": {
@@ -2025,13 +2025,13 @@
     "semantic_hash": ""
   },
   "components/student/FeeOverdueModal.tsx": {
-    "mtime": 1782497245.918521,
-    "ast_hash": "3687c0f7f7afc2925ca6f9b32dacc75e",
+    "mtime": 1787115343.8646045,
+    "ast_hash": "6b433aa377e811c50b2afa838f8c7726",
     "semantic_hash": ""
   },
   "components/student/ResultCardExportTemplate.tsx": {
-    "mtime": 1782497245.918521,
-    "ast_hash": "dcefac69fcaa0064d5fce5bf736cf312",
+    "mtime": 1787029279.2718513,
+    "ast_hash": "156afc3bc1a5e26a554a3285a7276c92",
     "semantic_hash": ""
   },
   "components/student/RulesAgreementBlocker.tsx": {
@@ -2225,8 +2225,8 @@
     "semantic_hash": ""
   },
   "lib/academic/engine.ts": {
-    "mtime": 1785849974.961069,
-    "ast_hash": "cd7c70de49aa5545ced4da8c5c1ae902",
+    "mtime": 1787197996.91174,
+    "ast_hash": "610725dcc937dd76631c716c4964109f",
     "semantic_hash": ""
   },
   "lib/academic/enrollment.ts": {
@@ -2290,8 +2290,8 @@
     "semantic_hash": ""
   },
   "lib/academic/teacher-scope.ts": {
-    "mtime": 1785463655.930256,
-    "ast_hash": "643553a9a0c133e26645d2c781e7a3f1",
+    "mtime": 1787195242.03775,
+    "ast_hash": "55c4860d04e62f6c700f0ede92ca8425",
     "semantic_hash": ""
   },
   "lib/academic/types.ts": {
@@ -2320,8 +2320,8 @@
     "semantic_hash": ""
   },
   "lib/api-response.ts": {
-    "mtime": 1782497245.980475,
-    "ast_hash": "e0ba0c1a7b13fabf8306f3a0e01bec69",
+    "mtime": 1786222154.8481915,
+    "ast_hash": "bc876548fa9d05e5d5dc2fb699a7b323",
     "semantic_hash": ""
   },
   "lib/audit-logger.ts": {
@@ -2355,8 +2355,8 @@
     "semantic_hash": ""
   },
   "lib/documents/export-preview.ts": {
-    "mtime": 1783195298.0848575,
-    "ast_hash": "c75aaed1d8480aae9b3338fb2f1f7e6d",
+    "mtime": 1787133855.5609705,
+    "ast_hash": "7db48d9cde95a777f80245c1bde10354",
     "semantic_hash": ""
   },
   "lib/email.ts": {
@@ -2375,8 +2375,8 @@
     "semantic_hash": ""
   },
   "lib/excel.ts": {
-    "mtime": 1783195298.0864933,
-    "ast_hash": "611df2f79ca91d607ea31923f718e8eb",
+    "mtime": 1787045967.1506016,
+    "ast_hash": "348f587c62028e0578dc691a9a4935da",
     "semantic_hash": ""
   },
   "lib/excel/brand-logo.ts": {
@@ -2390,8 +2390,8 @@
     "semantic_hash": ""
   },
   "lib/excel/fee-lists.ts": {
-    "mtime": 1783195298.0864933,
-    "ast_hash": "3d3e61a15ee70b9ac0fcf03ca46d4709",
+    "mtime": 1787108114.925437,
+    "ast_hash": "34521ed79af67f6aafcbf9351e6ee1cb",
     "semantic_hash": ""
   },
   "lib/excel/ledger-report.ts": {
@@ -2460,23 +2460,23 @@
     "semantic_hash": ""
   },
   "lib/pdf-upgrades.ts": {
-    "mtime": 1783791141.7966807,
-    "ast_hash": "3b48d97edf77c96e4cb1ce02df6ec40e",
+    "mtime": 1787030728.2855594,
+    "ast_hash": "28e58f18a19744aa91cc406733d034dd",
     "semantic_hash": ""
   },
   "lib/pdf.ts": {
-    "mtime": 1783195298.0904202,
-    "ast_hash": "c5f65e4f28f17fa12934447b02b92f1c",
+    "mtime": 1787126808.8034935,
+    "ast_hash": "f0ff09ca03ec2b5b51fb0a79593e8242",
     "semantic_hash": ""
   },
   "lib/pdf/direct-generators.ts": {
-    "mtime": 1783195298.0908585,
-    "ast_hash": "370c7aa616965e38107304f7d794f302",
+    "mtime": 1787107579.855228,
+    "ast_hash": "31b2b9445a96721e33b06abccbf1a7cc",
     "semantic_hash": ""
   },
   "lib/pdf/document-registry.ts": {
-    "mtime": 1782497245.983651,
-    "ast_hash": "4d857157936523786b7501d1ed57c93b",
+    "mtime": 1787029689.7532098,
+    "ast_hash": "ae4ae1bee2e40d10072a4006c9b345c3",
     "semantic_hash": ""
   },
   "lib/pdf/document-templates.ts": {
@@ -2505,8 +2505,8 @@
     "semantic_hash": ""
   },
   "lib/services/academic-upgrades-service.ts": {
-    "mtime": 1785463655.9312031,
-    "ast_hash": "9de5e45f924699162a9b987b1e8d612d",
+    "mtime": 1787128910.1111689,
+    "ast_hash": "6ad210078f9e6de69a0efab4e149e426",
     "semantic_hash": ""
   },
   "lib/store.ts": {
@@ -2530,8 +2530,8 @@
     "semantic_hash": ""
   },
   "lib/teacher-access.ts": {
-    "mtime": 1783449568.0118885,
-    "ast_hash": "821708cce6c16ace91bc452a304a4d52",
+    "mtime": 1786220292.1453464,
+    "ast_hash": "d44a3e54d915a9e5c9dd24d104e793f5",
     "semantic_hash": ""
   },
   "lib/utils.ts": {
@@ -2545,8 +2545,8 @@
     "semantic_hash": ""
   },
   "lib/validation/academic.ts": {
-    "mtime": 1783791141.797568,
-    "ast_hash": "b3d863bda30fc8b2da27e308a16912ba",
+    "mtime": 1787097636.9449244,
+    "ast_hash": "805b27221449dc5a245a21c5b6a5465c",
     "semantic_hash": ""
   },
   "lib/validation/accountant-fee.ts": {
@@ -2570,8 +2570,8 @@
     "semantic_hash": ""
   },
   "lib/validation/fee.ts": {
-    "mtime": 1782497245.9849656,
-    "ast_hash": "b4312e43fd36da7c2133ae8c0771722c",
+    "mtime": 1787045967.151659,
+    "ast_hash": "77de59f88b580ce082291a0bf7d90987",
     "semantic_hash": ""
   },
   "lib/validation/feedback.ts": {
@@ -2585,8 +2585,8 @@
     "semantic_hash": ""
   },
   "lib/validation/shift.ts": {
-    "mtime": 1782497245.9849656,
-    "ast_hash": "f8209f14b27007e369f13f026e3871f1",
+    "mtime": 1787097638.0315886,
+    "ast_hash": "961cb75fc5d0ac14444cc08db7d00d83",
     "semantic_hash": ""
   },
   "lib/validation/staff-application.ts": {
@@ -2605,8 +2605,8 @@
     "semantic_hash": ""
   },
   "lib/validation/teacher.ts": {
-    "mtime": 1783195298.0908585,
-    "ast_hash": "9f4e3c2be71536e16a4e535728200a86",
+    "mtime": 1787195507.3451707,
+    "ast_hash": "f3e015413abfc4e34352cc67e8c3777a",
     "semantic_hash": ""
   },
   "lib/validation/timetable.ts": {
@@ -2635,8 +2635,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1785465832.2348728,
-    "ast_hash": "96a974b205e5de20b08fda877978435b",
+    "mtime": 1787047482.3860207,
+    "ast_hash": "c9c31e05f8c59c7f86902d1688fbd2b0",
     "semantic_hash": ""
   },
   "playwright.config.ts": {
@@ -2820,8 +2820,8 @@
     "semantic_hash": ""
   },
   "scripts/postbuild-sync.js": {
-    "mtime": 1785479656.3559122,
-    "ast_hash": "7125941bed35b0530a9ecd09a627b2a4",
+    "mtime": 1786939110.7607012,
+    "ast_hash": "c5eba44d4602b355a7045f1164ab4374",
     "semantic_hash": ""
   },
   "scripts/prod-start.sh": {
@@ -2855,8 +2855,8 @@
     "semantic_hash": ""
   },
   "server.js": {
-    "mtime": 1785480388.463946,
-    "ast_hash": "76c8f6811fae59e0f5ea7df8d7cdb6fa",
+    "mtime": 1786191692.8546493,
+    "ast_hash": "b1323d1036f16a9084e92020917beec9",
     "semantic_hash": ""
   },
   "tailwind.config.ts": {
@@ -2895,23 +2895,23 @@
     "semantic_hash": ""
   },
   "tests/academic/teacher-my-students.test.ts": {
-    "mtime": 1785463655.938203,
-    "ast_hash": "68dadcd898b1146e5b12b93432642b64",
+    "mtime": 1786223813.6752756,
+    "ast_hash": "ff165d1e9cee904befd9e449ca415af9",
     "semantic_hash": ""
   },
   "tests/academic/teacher-portal-classes.test.ts": {
-    "mtime": 1785463655.938203,
-    "ast_hash": "fd131a9194b26a120356272b15dd4e9e",
+    "mtime": 1787195779.853768,
+    "ast_hash": "4e5be32f899762786688c096ddf0798b",
     "semantic_hash": ""
   },
   "tests/academic/teacher-scope.test.ts": {
-    "mtime": 1785463655.938203,
-    "ast_hash": "e0a549c364c510f39c290afd9e9ec6b2",
+    "mtime": 1787195740.0796735,
+    "ast_hash": "e42c192c1457f759b866143c5a92217e",
     "semantic_hash": ""
   },
   "tests/academic/timetable-flow.test.ts": {
-    "mtime": 1783791141.799455,
-    "ast_hash": "3de5798b9ce6ece7b268b5e4da7909af",
+    "mtime": 1787047482.3867679,
+    "ast_hash": "df88bb3bf9ac3d9b27773bf0fbc1e12d",
     "semantic_hash": ""
   },
   "tests/academic/upgrades.test.ts": {
@@ -2945,8 +2945,8 @@
     "semantic_hash": ""
   },
   "tests/document-export-regression.test.tsx": {
-    "mtime": 1783195298.1009536,
-    "ast_hash": "28b1e54a407aae49546db678a4a92abd",
+    "mtime": 1787133214.8006105,
+    "ast_hash": "bc2d3827d2b44b1211b1d319c72418cd",
     "semantic_hash": ""
   },
   "tests/export-color-bw.spec.ts": {
@@ -3040,13 +3040,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/academic-ci.yml": {
-    "mtime": 1785463655.882203,
-    "ast_hash": "0e0569e7ca01a8fd4d7939ee44a0c234",
+    "mtime": 1786124998.367864,
+    "ast_hash": "1319406cd467c2a62e909285545be20b",
     "semantic_hash": ""
   },
   ".github/workflows/visual-regression.yml": {
-    "mtime": 1783195298.0044312,
-    "ast_hash": "65f12041165e834107381d7532305ee6",
+    "mtime": 1786124998.367864,
+    "ast_hash": "135f523c4a6dc9dd5867b6d4eb35be84",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -3115,13 +3115,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report-bw.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "4a265d41294c6f0e5257545328360bbd",
+    "mtime": 1787047556.3482425,
+    "ast_hash": "8904ea4ca503627d967c9352cad15a54",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report-color.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "bc8f4d847f4702cb7814ec45c6876e16",
+    "mtime": 1787047556.3483713,
+    "ast_hash": "937afa2a5ca65ce085aaba43b943dc28",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Fees_Outstanding_Deficit_Report-Report.pdf": {
@@ -3130,13 +3130,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate-bw.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "8a3a2e69527826028c518424125c454e",
+    "mtime": 1787047556.3485034,
+    "ast_hash": "616b504d9c9e353821f4c7226faa3aed",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate-color.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "1782c12c0d336ccbddeac13c4f1b01ea",
+    "mtime": 1787047556.3487241,
+    "ast_hash": "d00c6b93184552f87e152c7b232cd6d0",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Birthday-Certificate.pdf": {
@@ -3145,13 +3145,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate-bw.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "31a050fe9d412303327c5560894c2537",
+    "mtime": 1787047556.3489444,
+    "ast_hash": "4dd7904fe7460d4ebd1a6bd30a875280",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate-color.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "3a0021d0d401752ca15d5adcfa2a1d5b",
+    "mtime": 1787047556.3491163,
+    "ast_hash": "9fc6da7aa6b9f2eaf5cec6b6a39e9d7e",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Bonafide-Certificate.pdf": {
@@ -3160,13 +3160,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card-bw.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "58216aaef66618dd1499cbe28d95f8d2",
+    "mtime": 1787047556.349289,
+    "ast_hash": "a836b2ef0692b697dbfc17e92564cd36",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card-color.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "f22643b9dc45cf1457980279e5a26256",
+    "mtime": 1787047556.3494737,
+    "ast_hash": "9333c0beeaccb14dc606b3b048c532e6",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-ID-Card.pdf": {
@@ -3175,13 +3175,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card-bw.pdf": {
-    "mtime": 1783710817.1215088,
-    "ast_hash": "1881e9f428e2b2b2f2bd256ba7402c79",
+    "mtime": 1787047556.3496418,
+    "ast_hash": "4dbb60715f3ef89220569b49af1d6123",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card-color.pdf": {
-    "mtime": 1783710817.122509,
-    "ast_hash": "8cb66ced46bc6239f521fe47e5754d44",
+    "mtime": 1787047556.3498054,
+    "ast_hash": "48d0dd7782e949948a8a317ea1fdd330",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Performance-Card.pdf": {
@@ -3190,13 +3190,13 @@
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card-bw.pdf": {
-    "mtime": 1783710817.122509,
-    "ast_hash": "e3110783260f08899469bd92b0df819f",
+    "mtime": 1787047556.3500059,
+    "ast_hash": "da15eba4f3e8957bec53b4e538716c36",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card-color.pdf": {
-    "mtime": 1783710817.122509,
-    "ast_hash": "20506af5bd2a3124bad79eb4167f1673",
+    "mtime": 1787047556.3501604,
+    "ast_hash": "47bde51464cf247f8b70895d38dac0c7",
     "semantic_hash": ""
   },
   "scripts/document-test-output/Muhammad_Ahmad-Result-Card.pdf": {
@@ -3775,13 +3775,13 @@
     "semantic_hash": ""
   },
   "app/api/exam-sessions/route.ts": {
-    "mtime": 1783195298.0208561,
-    "ast_hash": "1d6b3bebb89fd32a39cdc916f73ad127",
+    "mtime": 1786846562.6582258,
+    "ast_hash": "2cba981bf447b7c75619e0c8c2901033",
     "semantic_hash": ""
   },
   "tests/exam-sessions-route.test.ts": {
-    "mtime": 1783195298.1016839,
-    "ast_hash": "d6612d9eeb9cae71ee44af536f7e1a27",
+    "mtime": 1786846264.9255707,
+    "ast_hash": "0061ecb4b31f905d02577c4002533ae2",
     "semantic_hash": ""
   },
   "tests/calendar-route.test.ts": {
@@ -3790,8 +3790,8 @@
     "semantic_hash": ""
   },
   "tests/fees-post.test.ts": {
-    "mtime": 1783195298.1031802,
-    "ast_hash": "a335904c3a4fdb3d6450ff984b20245a",
+    "mtime": 1787045967.1519692,
+    "ast_hash": "b096cf8c792c94bff35cd4eb788e9bdf",
     "semantic_hash": ""
   },
   "tests/promotions-bulk-route.test.ts": {
@@ -3900,8 +3900,8 @@
     "semantic_hash": ""
   },
   "app/api/teachers/attendance/route.ts": {
-    "mtime": 1783195298.0348566,
-    "ast_hash": "9db6d6fa9005b910b9d85932d76d9f12",
+    "mtime": 1787098578.9395027,
+    "ast_hash": "cc54d27f3ef568d23e3642e0b4db4bdc",
     "semantic_hash": ""
   },
   "app/dashboard/teachers/attendance/page.tsx": {
@@ -3910,8 +3910,8 @@
     "semantic_hash": ""
   },
   "lib/teacher-attendance.ts": {
-    "mtime": 1783195298.0908585,
-    "ast_hash": "62214c5b35e92d332f52c03f35dcb4f7",
+    "mtime": 1787097652.5978756,
+    "ast_hash": "e1be10ff09e03c89f365cf1724bc0fc1",
     "semantic_hash": ""
   },
   "tests/admin-cloudinary-diagnostics-route.test.ts": {
@@ -3920,8 +3920,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-results-workflow.test.ts": {
-    "mtime": 1785463655.9402032,
-    "ast_hash": "657b7bff377654abcb0dcb030f033e96",
+    "mtime": 1787196996.4707904,
+    "ast_hash": "19e7bc0acd371b1db06b25a5d2630145",
     "semantic_hash": ""
   },
   "app/api/notifications/counts/route.ts": {
@@ -3930,8 +3930,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-tasks-route.test.ts": {
-    "mtime": 1783858081.934746,
-    "ast_hash": "89a22bed770ba164cdd58564500eb33f",
+    "mtime": 1787196602.1434784,
+    "ast_hash": "59c5408f8f0e6f0a313a9b869d652e7e",
     "semantic_hash": ""
   },
   "app/api/student-portal/roll-number-slip/route.ts": {
@@ -3940,13 +3940,13 @@
     "semantic_hash": ""
   },
   "app/dashboard/exams/roll-number-slip/page.tsx": {
-    "mtime": 1783791141.766814,
-    "ast_hash": "92a8de7623f93c40faad6b47a477b9f2",
+    "mtime": 1787031093.6408212,
+    "ast_hash": "45191aa772348f5a7b77059aebe71597",
     "semantic_hash": ""
   },
   "lib/academic/timetable-errors.ts": {
-    "mtime": 1783791141.795096,
-    "ast_hash": "df7dc0c7718319fd01a68f974e162397",
+    "mtime": 1787195930.2531433,
+    "ast_hash": "a851f5eaafa91d142f91969f64861673",
     "semantic_hash": ""
   },
   "tests/dashboard-route.test.ts": {
@@ -3985,8 +3985,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-monitoring-route.test.ts": {
-    "mtime": 1785884588.9885037,
-    "ast_hash": "1a672aa6838b0e8abafefc42414435d4",
+    "mtime": 1787196944.7882524,
+    "ast_hash": "9d65c57b2cb3fdc919b5e91b64421091",
     "semantic_hash": ""
   },
   "lib/notifications/module-map.ts": {
@@ -4035,8 +4035,8 @@
     "semantic_hash": ""
   },
   "tests/teacher-task-marks-route.test.ts": {
-    "mtime": 1785884570.0651069,
-    "ast_hash": "40e35398bd96bbdfea66d0b2b24a2719",
+    "mtime": 1786938066.049163,
+    "ast_hash": "f137cedd28783bf3eb287533dc28c748",
     "semantic_hash": ""
   },
   "app/api/activity-log/route.ts": {
@@ -4085,13 +4085,13 @@
     "semantic_hash": ""
   },
   "app/api/admin/attendance/import/staff/route.ts": {
-    "mtime": 1785463655.8843615,
-    "ast_hash": "b917fecd48fb057034b7bf2a202bf566",
+    "mtime": 1787098579.0655177,
+    "ast_hash": "7e68340818c2806adcaa399f2d53556d",
     "semantic_hash": ""
   },
   "app/api/admin/attendance/import/student/route.ts": {
-    "mtime": 1785463655.8843615,
-    "ast_hash": "799136be3f595b6f7c69673856ca98c8",
+    "mtime": 1787097716.8524897,
+    "ast_hash": "9b9c6cb6e2d7751d8fa1e790d70e5f35",
     "semantic_hash": ""
   },
   "app/api/admin/attendance/templates/staff/route.ts": {
@@ -4105,8 +4105,8 @@
     "semantic_hash": ""
   },
   "app/api/teacher-portal/attendance/import/student/route.ts": {
-    "mtime": 1785463655.8884327,
-    "ast_hash": "f85e09665fb37184ebc7ce79254ced64",
+    "mtime": 1787097716.7054422,
+    "ast_hash": "3f2fddf35779df840b18421c99574838",
     "semantic_hash": ""
   },
   "app/dashboard/admin/attendance-import/page.tsx": {
@@ -4115,8 +4115,8 @@
     "semantic_hash": ""
   },
   "app/dashboard/layout-client.tsx": {
-    "mtime": 1785463762.1880486,
-    "ast_hash": "5972f9bde5f91c481991ca2aebe910ae",
+    "mtime": 1787098648.2047036,
+    "ast_hash": "9e83dd970b5e2892595b36f96fe9612a",
     "semantic_hash": ""
   },
   "app/dashboard/teacher/attendance-import/page.tsx": {
@@ -4195,13 +4195,13 @@
     "semantic_hash": ""
   },
   "app/api/timetable/periods/route.ts": {
-    "mtime": 1785849888.8931537,
-    "ast_hash": "0e3ac4ef2d0ecc7159d3ee9f081805f6",
+    "mtime": 1787047482.3821652,
+    "ast_hash": "13d05b690f0c1845215dee0390a8ea69",
     "semantic_hash": ""
   },
   "app/api/timetable/slots/bulk/route.ts": {
-    "mtime": 1785850045.168261,
-    "ast_hash": "684fdac8ac61e9821e44ffda2a9db56f",
+    "mtime": 1787047482.3825595,
+    "ast_hash": "ac06f0661a37567bc2d31f637940da6f",
     "semantic_hash": ""
   },
   "components/academic/MonthlyMonitoringGrid.tsx": {
@@ -4210,8 +4210,8 @@
     "semantic_hash": ""
   },
   "components/academic/ResultReportCard.tsx": {
-    "mtime": 1785609397.007548,
-    "ast_hash": "7c79c02f5c99ff1d487390c2ab170cff",
+    "mtime": 1787129544.3630142,
+    "ast_hash": "0698e2279b75d5005e7664c8d415faf8",
     "semantic_hash": ""
   },
   "components/academic/TaskMarksPanel.tsx": {
@@ -4230,8 +4230,8 @@
     "semantic_hash": ""
   },
   "lib/academic/roster-helper.ts": {
-    "mtime": 1785884409.1825306,
-    "ast_hash": "9ed2ee619564ea31ae7898d90f1f1822",
+    "mtime": 1786191692.85387,
+    "ast_hash": "0878c3adb959135a4d6101c92abc96f8",
     "semantic_hash": ""
   },
   "scratch/check-enrollment.js": {
@@ -4255,12 +4255,12 @@
     "semantic_hash": ""
   },
   "scripts/hostinger-redeploy.sh": {
-    "mtime": 1785609396.9945478,
-    "ast_hash": "7f0430ed58c827f00a00110fe47c0f3b",
+    "mtime": 1787047482.3863223,
+    "ast_hash": "de12c5b54f91f0ac15d45f40a63cd951",
     "semantic_hash": ""
   },
   "scripts/pack.sh": {
-    "mtime": 1785883560.5777736,
+    "mtime": 1786191692.85387,
     "ast_hash": "90f04003150aa5578698f315b970abe5",
     "semantic_hash": ""
   },
@@ -4270,13 +4270,13 @@
     "semantic_hash": ""
   },
   "tests/academic/teacher-grade-entry-page.test.tsx": {
-    "mtime": 1785463655.938203,
-    "ast_hash": "b11ae9ae3ff6a820f43be8e2c2733a8f",
+    "mtime": 1786846292.4881778,
+    "ast_hash": "6dbc346e8539ed2e9a29c9fa14e3e258",
     "semantic_hash": ""
   },
   "tests/academic/teacher-sections-route.test.ts": {
-    "mtime": 1785463655.939203,
-    "ast_hash": "efe29cef017b3cb1c3f99245de9c9191",
+    "mtime": 1787195837.6009092,
+    "ast_hash": "6a5d0401a3ede404bca7b479425e3e7e",
     "semantic_hash": ""
   },
   "tests/academic/teacher-students-page-helpers.test.ts": {
@@ -4290,23 +4290,13 @@
     "semantic_hash": ""
   },
   "tests/portal-declared-result-visibility.test.ts": {
-    "mtime": 1785463655.9402032,
-    "ast_hash": "da6f8eb1f37bcafa729ab07a20a17fe4",
+    "mtime": 1786938436.5891616,
+    "ast_hash": "c92bfa962c67a64ce48fd60e8af28e16",
     "semantic_hash": ""
   },
   "tests/ui-alert-dialog.test.tsx": {
     "mtime": 1785463655.9402032,
     "ast_hash": "5ab53397424e9fe4996478658d90532c",
-    "semantic_hash": ""
-  },
-  ".playwright-cli/page-2026-08-04T22-56-59-019Z.yml": {
-    "mtime": 1785884219.0197055,
-    "ast_hash": "1b4ea22ba723bc4e94396cd921ab518e",
-    "semantic_hash": ""
-  },
-  ".playwright-cli/page-2026-08-04T22-57-42-529Z.yml": {
-    "mtime": 1785884262.5302114,
-    "ast_hash": "dbaa083261a9422a7589bd0699830b02",
     "semantic_hash": ""
   },
   "graphify-out/memory/query_20260730_215306_continue_professionally_and_resume_our_previouse_t.md": {
@@ -4377,6 +4367,241 @@
   "output/playwright/live-teacher-tasks-mobile.png": {
     "mtime": 1785462123.2371833,
     "ast_hash": "25705e04d0e1f97be77edb7a44fd1680",
+    "semantic_hash": ""
+  },
+  "lib/db-errors.ts": {
+    "mtime": 1786222154.8481915,
+    "ast_hash": "6589f905bcca3b2e20ba8c459b68e30a",
+    "semantic_hash": ""
+  },
+  "app/api/timetable/templates/[id]/generate/route.ts": {
+    "mtime": 1787197996.9127402,
+    "ast_hash": "4d50e60a8a16c3b6ae163bbcb91e54b6",
+    "semantic_hash": ""
+  },
+  "app/api/timetable/templates/route.ts": {
+    "mtime": 1787047482.3831255,
+    "ast_hash": "33ab946dc086ec0408e85a2a9102f728",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260816080000_add_timetable_templates/migration.sql": {
+    "mtime": 1786849668.705515,
+    "ast_hash": "2fdf1e56d0d1e98b9111f468891f7d6f",
+    "semantic_hash": ""
+  },
+  "app/api/teacher-portal/result-sessions/route.ts": {
+    "mtime": 1786936040.086428,
+    "ast_hash": "85fbac39685f73aff13ec1807dfba99b",
+    "semantic_hash": ""
+  },
+  "app/api/teacher-portal/results/class-sheet/declare/route.ts": {
+    "mtime": 1786940422.9966671,
+    "ast_hash": "be3ca6d387ca6eda311d75633d95bc64",
+    "semantic_hash": ""
+  },
+  "app/api/teacher-portal/results/class-sheet/route.ts": {
+    "mtime": 1787130527.3915462,
+    "ast_hash": "29941e94a2509371ca6f608301ee451e",
+    "semantic_hash": ""
+  },
+  "app/dashboard/teacher/results/class-sheet/page.tsx": {
+    "mtime": 1787130250.2312684,
+    "ast_hash": "8cc7929b1dcf72f99d76799b79b74012",
+    "semantic_hash": ""
+  },
+  "tests/exams-teacher-scope.test.ts": {
+    "mtime": 1786941086.330766,
+    "ast_hash": "575cfd0b69cdebd09129ef254303e4e0",
+    "semantic_hash": ""
+  },
+  "tests/teacher-class-result-declare-route.test.ts": {
+    "mtime": 1786940433.218562,
+    "ast_hash": "18d22508cdbee6f3e92451db8a052576",
+    "semantic_hash": ""
+  },
+  "tests/teacher-class-result-sheet-route.test.ts": {
+    "mtime": 1786938038.5434449,
+    "ast_hash": "1fd890d707aa68937ed33eacc049f60d",
+    "semantic_hash": ""
+  },
+  "tests/teacher-result-cycle-route.test.ts": {
+    "mtime": 1786941086.331766,
+    "ast_hash": "2fea5e5f52db7fb71e6198ad6a943bf5",
+    "semantic_hash": ""
+  },
+  "tests/teacher-result-detail-scope.test.ts": {
+    "mtime": 1786940234.6226962,
+    "ast_hash": "1ce4f5f5bbcf1ae954e3ab1a2d5e1a8a",
+    "semantic_hash": ""
+  },
+  "tests/teacher-class-assignment-bridge.test.ts": {
+    "mtime": 1787195790.6577942,
+    "ast_hash": "10a8c68257b35643f505a657233fcdcc",
+    "semantic_hash": ""
+  },
+  "lib/pdf/document-design.ts": {
+    "mtime": 1787028890.0616746,
+    "ast_hash": "41a02001dbea68bfbb2aee444b27d0e2",
+    "semantic_hash": ""
+  },
+  "tests/document-template-policy.test.ts": {
+    "mtime": 1787029465.6756423,
+    "ast_hash": "71368e288f3939e8cd62215f7fa677b5",
+    "semantic_hash": ""
+  },
+  "app/api/enrollment-attendance/student-card-scan/route.ts": {
+    "mtime": 1787031718.4159474,
+    "ast_hash": "fb195b58792e2339271eaccbdb1e76b7",
+    "semantic_hash": ""
+  },
+  "lib/academic/timetable-keys.ts": {
+    "mtime": 1787038676.4850733,
+    "ast_hash": "5fb0c489798222b3447a4eab52421952",
+    "semantic_hash": ""
+  },
+  "lib/academic/record-formatters.ts": {
+    "mtime": 1787045967.1503055,
+    "ast_hash": "19490eb1e1c55eff4532abb84c3a09ab",
+    "semantic_hash": ""
+  },
+  "lib/fees/payment-details.ts": {
+    "mtime": 1787107579.8544228,
+    "ast_hash": "27c80b47b759e23501e7df6df45588d7",
+    "semantic_hash": ""
+  },
+  "tests/document-output-accuracy.test.ts": {
+    "mtime": 1787107579.8554296,
+    "ast_hash": "f93b2e7b9fd2b967306895e0884a2373",
+    "semantic_hash": ""
+  },
+  "lib/academic/timetable-schema.ts": {
+    "mtime": 1787047482.38454,
+    "ast_hash": "61165f646c66f923afe3b7570f9f2599",
+    "semantic_hash": ""
+  },
+  "scripts/reconcile-timetable-schema.js": {
+    "mtime": 1787047482.3865306,
+    "ast_hash": "7203ca5b08405c0fdbce7db9f86d9318",
+    "semantic_hash": ""
+  },
+  "docs/timetable-production-reconciliation.md": {
+    "mtime": 1787047482.3843346,
+    "ast_hash": "4ed683d60148256618c208d8487fed95",
+    "semantic_hash": ""
+  },
+  "app/api/penalty-assessments/[id]/route.ts": {
+    "mtime": 1787099087.0182233,
+    "ast_hash": "abb4459c7f1e8610adebb72265c27475",
+    "semantic_hash": ""
+  },
+  "app/api/penalty-assessments/route.ts": {
+    "mtime": 1787099086.8832152,
+    "ast_hash": "5eb23335e9ff223b38054305cbdae29f",
+    "semantic_hash": ""
+  },
+  "app/dashboard/penalty-assessments/page.tsx": {
+    "mtime": 1787098770.0854657,
+    "ast_hash": "067d5115723f49da575af7f8c88915eb",
+    "semantic_hash": ""
+  },
+  "lib/penalties/assessments.ts": {
+    "mtime": 1787098547.5803876,
+    "ast_hash": "50b5ce05ce27a4796cf2401fb8b9b664",
+    "semantic_hash": ""
+  },
+  "lib/validation/penalty.ts": {
+    "mtime": 1787097928.9260068,
+    "ast_hash": "6764d75eaa998cef006398d114ef5dcc",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260819090000_add_penalty_assessments_and_attendance_rules/migration.sql": {
+    "mtime": 1787098382.4201713,
+    "ast_hash": "877cfb688d47b75873ddc6c85a19e36b",
+    "semantic_hash": ""
+  },
+  "tests/penalty-assessment-rules.test.ts": {
+    "mtime": 1787098468.3054852,
+    "ast_hash": "c69210dc544a26131a0344d83582f45b",
+    "semantic_hash": ""
+  },
+  "lib/fees/reporting.ts": {
+    "mtime": 1787108684.1832144,
+    "ast_hash": "4b63fd3f5d58a83f2950ba8a1bb4bcdd",
+    "semantic_hash": ""
+  },
+  "tests/fee-export-reports.test.ts": {
+    "mtime": 1787108684.1852145,
+    "ast_hash": "99ac251d6c3b13a6405dc9a4d1f87fb4",
+    "semantic_hash": ""
+  },
+  "tests/fee-export-routes.test.ts": {
+    "mtime": 1787109483.948148,
+    "ast_hash": "4bac24a8c3e68f0c05660acc3db2e8c9",
+    "semantic_hash": ""
+  },
+  "tests/fee-master-export-route.test.ts": {
+    "mtime": 1787109216.3870034,
+    "ast_hash": "201467f9d97432277d7819c2b733d191",
+    "semantic_hash": ""
+  },
+  "tests/fee-overdue-modal.test.tsx": {
+    "mtime": 1787115328.3909752,
+    "ast_hash": "80ad7b5eecfb3984f6c9dacbbf46e43c",
+    "semantic_hash": ""
+  },
+  "tests/fee-overdue-route.test.ts": {
+    "mtime": 1787112177.8715172,
+    "ast_hash": "c70ad583bd4b6db8e06248a34c942128",
+    "semantic_hash": ""
+  },
+  "app/api/teacher-portal/result-card-config/route.ts": {
+    "mtime": 1787129830.1193335,
+    "ast_hash": "5807b35b9d4b3fd68263be95a559ad6c",
+    "semantic_hash": ""
+  },
+  "lib/academic/result-card-config.ts": {
+    "mtime": 1787133939.2196527,
+    "ast_hash": "5bc021734d34fa96c8cb98fc67709a80",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260819120000_add_result_card_configuration/migration.sql": {
+    "mtime": 1787128836.0468755,
+    "ast_hash": "15d5ae45d72c0f4df45e79dd0b38c7b3",
+    "semantic_hash": ""
+  },
+  "tests/result-card-config.test.ts": {
+    "mtime": 1787133939.2206526,
+    "ast_hash": "1a15fc5d80322c8a99d762619b8ec7b5",
+    "semantic_hash": ""
+  },
+  "tests/visual/result-card-export.spec.ts": {
+    "mtime": 1787133647.6982284,
+    "ast_hash": "d732157054a87298ddcfb91668f1fb80",
+    "semantic_hash": ""
+  },
+  "lib/academic/teacher-assignments.ts": {
+    "mtime": 1787195441.397048,
+    "ast_hash": "6d2ee8626b3d365b853d89c9ae1fbdc0",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260820090000_add_teacher_section_assignments/migration.sql": {
+    "mtime": 1787197889.1909204,
+    "ast_hash": "885928d6a5367d81d127a19349070bed",
+    "semantic_hash": ""
+  },
+  "tests/academic/timetable-teacher-scope.test.ts": {
+    "mtime": 1787197889.1919205,
+    "ast_hash": "81ec8b31ef7b7c11b00c0cba31b599ab",
+    "semantic_hash": ""
+  },
+  "docs/academic-engine-timetable-teacher-assignment-integrity.md": {
+    "mtime": 1787198037.359411,
+    "ast_hash": "002cb34f2d11746ecfdcd7b6d2b65670",
+    "semantic_hash": ""
+  },
+  "tests/academic/timetable-bulk-delete.test.ts": {
+    "mtime": 1787210262.988778,
+    "ast_hash": "d7c004d7b8f5d30cc0e49793bd7a4a22",
     "semantic_hash": ""
   }
 }

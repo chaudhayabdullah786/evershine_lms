@@ -230,157 +230,202 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const { id } = await params
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { id },
-    select: { id: true, campusId: true, isActive: true },
-  })
-  if (!teacher) return errors.notFound('Teacher')
-  if (!teacher.isActive) return errors.forbidden('Cannot assign classes to an inactive teacher')
-
-  if (session.user.role === 'ADMIN' && teacher.campusId !== session.user.campusId) {
-    return errors.forbidden()
-  }
-
-  let body: unknown
   try {
-    body = await req.json()
-  } catch {
-    return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never)
-  }
-
-  const parsed = addClassAssignmentSchema.safeParse(body)
-  if (!parsed.success) return errors.validation(parsed.error)
-
-  const { classId, classSectionId, isClassTeacher, academicYear } = parsed.data
-
-  // ── Academic Engine path (preferred) ──────────────────────────────────────
-  if (classSectionId) {
-    const section = await prisma.classSection.findUnique({
-      where: { id: classSectionId },
-      select: {
-        id: true,
-        campusId: true,
-        className: true,
-        sectionName: true,
-        grade: true,
-        batchId: true,
-        shift: { select: { code: true, name: true } },
-      },
+    const teacher = await prisma.teacher.findUnique({
+      where: { id },
+      select: { id: true, campusId: true, isActive: true },
     })
-    if (!section) return errors.notFound('Class Section')
-    if (section.campusId !== teacher.campusId) {
-      if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-        // Auto-align teacher's primary campus when Superadmin/Admin assigns section from another campus
-        await prisma.teacher.update({
-          where: { id },
-          data: { campusId: section.campusId },
-        })
-      } else {
-        return errors.forbidden('Class section does not belong to the teacher\'s campus')
+    if (!teacher) return errors.notFound('Teacher')
+    if (!teacher.isActive) return errors.forbidden('Cannot assign classes to an inactive teacher')
+
+    if (session.user.role === 'ADMIN' && teacher.campusId !== session.user.campusId) {
+      return errors.forbidden()
+    }
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return errors.validation({ errors: [{ path: [], message: 'Invalid JSON body' }] } as never)
+    }
+
+    const parsed = addClassAssignmentSchema.safeParse(body)
+    if (!parsed.success) return errors.validation(parsed.error)
+
+    const { classId, classSectionId, isClassTeacher, academicYear } = parsed.data
+
+    // ── Academic Engine path (preferred) ──────────────────────────────────────
+    if (classSectionId) {
+      const section = await prisma.classSection.findUnique({
+        where: { id: classSectionId },
+        select: {
+          id: true,
+          campusId: true,
+          className: true,
+          sectionName: true,
+          grade: true,
+          batchId: true,
+          shift: { select: { code: true, name: true } },
+        },
+      })
+      if (!section) return errors.notFound('Class Section')
+      if (section.campusId !== teacher.campusId) {
+        if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+          // Auto-align teacher's primary campus when Superadmin/Admin assigns section from another campus
+          await prisma.teacher.update({
+            where: { id },
+            data: { campusId: section.campusId },
+          })
+        } else {
+          return errors.forbidden('Class section does not belong to the teacher\'s campus')
+        }
       }
-    }
 
-    // Find the active academic year matching the year string
-    const academicYearRecord = await prisma.academicYear.findFirst({
-      where: { name: academicYear },
-      select: { id: true },
-    })
-    if (!academicYearRecord) {
-      return errors.notFound(`Academic year '${academicYear}' not found. Create it in the Academic Engine first.`)
-    }
+      // WHY: Resolve the academic year from the supplied string. If the client
+      // sends a year that doesn't exist in DB (e.g., default 2026-2027 while
+      // the active year is 2025-2026), fall back to the currently-active year
+      // rather than hard-failing. This prevents 500s from frontend year defaults
+      // that lag behind the actual active academic year in the system.
+      let academicYearRecord = await prisma.academicYear.findFirst({
+        where: { name: academicYear },
+        select: { id: true, name: true },
+      })
+      if (!academicYearRecord) {
+        // Fallback: use the active academic year
+        academicYearRecord = await prisma.academicYear.findFirst({
+          where: { isActive: true },
+          select: { id: true, name: true },
+        })
+      }
+      if (!academicYearRecord) {
+        return errors.badRequest(
+          `Academic year '${academicYear}' was not found and no active academic year exists. ` +
+          'Please create and activate an academic year in the Academic Engine first.'
+        )
+      }
 
-    // Section scope and subject ownership are separate concerns. Persist only
-    // the canonical section assignment here; a subject offering must be
-    // assigned explicitly through the subject-offering workflow and must never
-    // be selected arbitrarily as a side effect of assigning a section.
-    const result = await prisma.$transaction(async (tx) => {
-      const assignment = await tx.teacherSectionAssignment.upsert({
-        where: {
-          teacherId_classSectionId_academicYearId: {
+      // Section scope and subject ownership are separate concerns. Persist only
+      // the canonical section assignment here; a subject offering must be
+      // assigned explicitly through the subject-offering workflow and must never
+      // be selected arbitrarily as a side effect of assigning a section.
+      const result = await prisma.$transaction(async (tx) => {
+        const assignment = await tx.teacherSectionAssignment.upsert({
+          where: {
+            teacherId_classSectionId_academicYearId: {
+              teacherId: id,
+              classSectionId,
+              academicYearId: academicYearRecord!.id,
+            },
+          },
+          update: { isClassTeacher, status: 'ACTIVE' },
+          create: {
             teacherId: id,
             classSectionId,
-            academicYearId: academicYearRecord.id,
+            academicYearId: academicYearRecord!.id,
+            isClassTeacher,
+            status: 'ACTIVE',
           },
-        },
-        update: { isClassTeacher, status: 'ACTIVE' },
-        create: {
-          teacherId: id,
-          classSectionId,
-          academicYearId: academicYearRecord.id,
-          isClassTeacher,
-          status: 'ACTIVE',
-        },
-      })
-
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: 'UPDATE',
-          entityType: 'TeacherSectionAssignment',
-          entityId: assignment.id,
-          changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
-        },
-      })
-
-      return { assignment, offering: null }
-    })
-
-    // Keep the legacy bridge available for old declaration workflows, but do
-    // it after the canonical write so a bridge failure can never leave a
-    // legacy assignment that grants access without a canonical assignment.
-    if (isClassTeacher) {
-      try {
-        await ensureLegacyClassTeacherBridge({
-          teacherId: id,
-          classSection: section,
-          academicYear,
         })
-      } catch (bridgeError) {
-        console.error('[TEACHER_ASSIGNMENT_LEGACY_BRIDGE]', bridgeError)
+
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'UPDATE',
+            entityType: 'TeacherSectionAssignment',
+            entityId: assignment.id,
+            changes: {
+              teacherId: id,
+              classSectionId,
+              academicYear: academicYearRecord!.name,
+              isClassTeacher,
+            },
+          },
+        })
+
+        return { assignment, offering: null }
+      })
+
+      // Keep the legacy bridge available for old declaration workflows, but do
+      // it after the canonical write so a bridge failure can never leave a
+      // legacy assignment that grants access without a canonical assignment.
+      if (isClassTeacher) {
+        try {
+          await ensureLegacyClassTeacherBridge({
+            teacherId: id,
+            classSection: section,
+            academicYear: academicYearRecord.name,
+          })
+        } catch (bridgeError) {
+          console.error('[TEACHER_ASSIGNMENT_LEGACY_BRIDGE]', bridgeError)
+        }
+      }
+
+      return createdResponse(
+        result,
+        `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name}) for ${academicYearRecord.name}`
+      )
+    }
+
+    // ── Legacy path (classId) ───────────────────────────────────────────────
+    if (!classId) {
+      return errors.validation({ errors: [{ path: ['classId'], message: 'classId or classSectionId is required' }] } as never)
+    }
+
+    const cls = await prisma.class.findUnique({
+      where: { id: classId },
+      select: { id: true, campusId: true, name: true },
+    })
+    if (!cls) return errors.notFound('Class')
+    if (cls.campusId !== teacher.campusId) {
+      if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+        await prisma.teacher.update({
+          where: { id },
+          data: { campusId: cls.campusId },
+        })
+      } else {
+        return errors.forbidden('Class does not belong to the teacher\'s campus')
       }
     }
 
-    return createdResponse(result, `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name})`)
-  }
+    // Check for existing assignment — prevent duplicate
+    const existing = await prisma.classTeacher.findUnique({
+      where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
+      select: { id: true },
+    })
+    if (existing) {
+      // If already exists, do an update (promote/demote class teacher status)
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.classTeacher.update({
+          where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
+          data: { isClassTeacher },
+        })
 
-  // ── Legacy path (classId) ─────────────────────────────────────────────────
-  if (!classId) {
-    return errors.validation({ errors: [{ path: ['classId'], message: 'classId or classSectionId is required' }] } as never)
-  }
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'UPDATE',
+            entityType: 'ClassTeacher',
+            entityId: result.id,
+            changes: { teacherId: id, classId, isClassTeacher, academicYear },
+          },
+        })
 
-  const cls = await prisma.class.findUnique({
-    where: { id: classId },
-    select: { id: true, campusId: true, name: true },
-  })
-  if (!cls) return errors.notFound('Class')
-  if (cls.campusId !== teacher.campusId) {
-    if (['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-      await prisma.teacher.update({
-        where: { id },
-        data: { campusId: cls.campusId },
+        return result
       })
-    } else {
-      return errors.forbidden('Class does not belong to the teacher\'s campus')
-    }
-  }
 
-  // Check for existing assignment — prevent duplicate
-  const existing = await prisma.classTeacher.findUnique({
-    where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
-    select: { id: true },
-  })
-  if (existing) {
-    // If already exists, do an update (promote/demote class teacher status)
-    const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.classTeacher.update({
-        where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
-        data: { isClassTeacher },
+      return successResponse(updated, `Class assignment updated for ${cls.name}`)
+    }
+
+    // Create new legacy assignment
+    const assignment = await prisma.$transaction(async (tx) => {
+      const result = await tx.classTeacher.create({
+        data: { classId, teacherId: id, isClassTeacher, academicYear },
       })
 
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
-          action: 'UPDATE',
+          action: 'CREATE',
           entityType: 'ClassTeacher',
           entityId: result.id,
           changes: { teacherId: id, classId, isClassTeacher, academicYear },
@@ -390,34 +435,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return result
     })
 
-    return successResponse(updated, `Class assignment updated for ${cls.name}`)
+    return createdResponse(assignment, `Teacher assigned to ${cls.name}`)
+  } catch (err) {
+    console.error('[TEACHER_CLASS_ASSIGN_POST]', err)
+    return errors.internal()
   }
-
-  // Create new legacy assignment
-  const assignment = await prisma.$transaction(async (tx) => {
-    const result = await tx.classTeacher.create({
-      data: { classId, teacherId: id, isClassTeacher, academicYear },
-    })
-
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'CREATE',
-        entityType: 'ClassTeacher',
-        entityId: result.id,
-        changes: { teacherId: id, classId, isClassTeacher, academicYear },
-      },
-    })
-
-    return result
-  })
-
-  return createdResponse(assignment, `Teacher assigned to ${cls.name}`)
 }
 
 // ── DELETE /api/teachers/[id]/classes ────────────────────────────────────────
 // Body: { classId?: string, classSectionId?: string, academicYear: string }
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  // WHY outer try/catch: Prisma transaction errors must never escape as
+  // unhandled exceptions — Next.js returns a structureless 500 in that case.
+  try {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   if (!checkPermission(session.user.role as Role, 'classes', 'update')) return errors.forbidden()
@@ -607,5 +637,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     })
   })
 
-  return successResponse({ classId, teacherId: id }, 'Class assignment removed')
+    return successResponse({ classId, teacherId: id }, 'Class assignment removed')
+  } catch (err) {
+    console.error('[TEACHER_CLASS_ASSIGN_DELETE]', err)
+    return errors.internal()
+  }
 }
