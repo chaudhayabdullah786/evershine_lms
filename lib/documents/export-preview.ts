@@ -38,6 +38,12 @@ type PreviewReadyOptions = {
  * with a header but no marks/photo. Pages that need a data gate set
  * `data-export-ready="true"`; other document types still receive the asset and
  * layout checks below for backwards compatibility.
+ *
+ * WHY 3-frame + 400ms post-gate settle: React batches state updates, meaning
+ * data-export-ready="true" lands in the DOM during a commit, but the browser
+ * paint (rasterisation) can lag behind by one or more frames. The explicit
+ * post-gate settle guarantees the full subject table is painted before
+ * html2canvas begins capture.
  */
 export async function waitForDocumentPreviewReady(
   element: HTMLElement,
@@ -62,8 +68,13 @@ export async function waitForDocumentPreviewReady(
     const layoutReady = !target.hasAttribute('data-export-ready') || (rect.width > 0 && rect.height > 0)
 
     if (readyState !== 'false' && assetsReady && layoutReady) {
+      // Post-gate settle: wait 3 animation frames + 400ms so the browser has
+      // fully painted all dynamically-rendered rows (e.g. subject marks table)
+      // before html2canvas initiates capture.
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      await new Promise<void>((resolve) => setTimeout(resolve, 400))
       return
     }
 
@@ -73,15 +84,28 @@ export async function waitForDocumentPreviewReady(
   throw new Error('Document preview is still loading. Please wait for the result data and try again.')
 }
 
+/**
+ * Resolve the inner page element that should be the capture target.
+ *
+ * WHY: documentCaptureRef is attached to an outer scroll/flex wrapper. Passing
+ * that wrapper to html2canvas causes getBoundingClientRect to return the
+ * clipped viewport height rather than the full A4 page height (842px). By
+ * finding the inner [data-document-page] or [data-pdf-page] element — which
+ * carries explicit data-pdf-width/data-pdf-height attributes — the capture
+ * engine reads the correct physical canvas dimensions.
+ */
+function resolvePageElement(element: HTMLElement): HTMLElement {
+  const inner = element.querySelector('[data-document-page], [data-pdf-page]') as HTMLElement | null
+  return inner ?? element
+}
+
 export async function exportPreviewDocument(
   element: HTMLElement,
   fileName: string,
   colorMode: 'color' | 'bw' = 'color'
 ) {
-  // Support both the Documents centre marker and the shared academic
-  // ResultReportCard/roll-slip marker used by other portals.
-  const pageEl = element.querySelector('[data-document-page], [data-pdf-page]') as HTMLElement | null
-  const captureTarget = pageEl ?? element
+  // Resolve the inner page element — not the outer scroll wrapper.
+  const captureTarget = resolvePageElement(element)
 
   await waitForDocumentPreviewReady(captureTarget)
 
@@ -90,6 +114,9 @@ export async function exportPreviewDocument(
   // canvas the user sees, even when the preview is inside a scroll container.
   const computed = window.getComputedStyle(captureTarget)
   const rendered = captureTarget.getBoundingClientRect()
+
+  // Prefer explicit data-pdf-* attributes (set by the document template) over
+  // computed dimensions — these are the authoritative physical page dimensions.
   const targetWidth = captureTarget.getAttribute('data-pdf-width')
     ? `${captureTarget.getAttribute('data-pdf-width')}px`
     : captureTarget.style.width || (rendered.width ? `${Math.round(rendered.width)}px` : computed.width || '595px')
@@ -107,14 +134,20 @@ export async function exportPreviewDocument(
   const savedHeight = captureTarget.style.height
   const savedMinHeight = captureTarget.style.minHeight
   const savedMaxHeight = captureTarget.style.maxHeight
+  const savedOverflow = captureTarget.style.overflow
   const savedPosition = captureTarget.style.position
+
+  // Unclip the canvas so html2canvas captures the full page, not just the
+  // portion visible inside a scroll container.
   captureTarget.style.width = targetWidth
   captureTarget.style.minWidth = targetWidth
   captureTarget.style.maxWidth = targetWidth
   captureTarget.style.height = targetHeight
   captureTarget.style.minHeight = targetHeight
   captureTarget.style.maxHeight = targetHeight
+  captureTarget.style.overflow = 'visible'
 
+  // Final settle after dimension mutation so the browser reflows before capture.
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   await new Promise<void>((resolve) => setTimeout(resolve, 80))
 
@@ -137,6 +170,7 @@ export async function exportPreviewDocument(
     captureTarget.style.height = savedHeight
     captureTarget.style.minHeight = savedMinHeight
     captureTarget.style.maxHeight = savedMaxHeight
+    captureTarget.style.overflow = savedOverflow
     captureTarget.style.position = savedPosition
   }
 }

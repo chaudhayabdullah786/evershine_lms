@@ -1788,7 +1788,8 @@ export default function DocumentsPage() {
                       color: '#111827',
                       boxSizing: 'border-box',
                       height: '842px',
-                      overflow: 'hidden',
+                      // overflow is NOT set here intentionally — export-preview.ts sets
+                      // overflow:'visible' during PDF capture to unclip the 842px canvas.
                       border: '4px solid #1e3a8a',
                       outline: '1px solid #1e3a8a',
                       outlineOffset: '-10px',
