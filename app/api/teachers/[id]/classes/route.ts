@@ -68,6 +68,16 @@ function isStrictAdmin(role?: string): boolean {
   return r === 'ADMIN' || r === 'ADMINISTRATOR'
 }
 
+function isTableMissingError(err: any): boolean {
+  if (!err) return false
+  if (err.code === 'P2021') return true
+  const msg = String(err.message || '').toLowerCase()
+  return (
+    msg.includes('does not exist in the current database') ||
+    (msg.includes('table') && msg.includes('does not exist'))
+  )
+}
+
 async function ensureLegacyClassTeacherBridge(params: {
   teacherId: string
   classSection: {
@@ -184,32 +194,56 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     : await getActiveAcademicYear()
   if (!activeYear) return successResponse([])
 
-  const assignments = await prisma.teacherSectionAssignment.findMany({
-    where: {
-      teacherId: id,
-      academicYearId: activeYear.id,
-      status: 'ACTIVE',
-      classSection: { isActive: true },
-    },
-    include: {
-      classSection: {
-        select: {
-          id: true,
-          className: true,
-          sectionName: true,
-          grade: true,
-          campusId: true,
-          batchId: true,
-          deliveryMode: true,
-          campus: { select: { id: true, name: true, code: true } },
-          batch: { select: { id: true, name: true } },
-          shift: { select: { code: true, name: true } },
-          _count: { select: { enrollments: true } },
+  let assignments: any[] = []
+  try {
+    assignments = await prisma.teacherSectionAssignment.findMany({
+      where: {
+        teacherId: id,
+        academicYearId: activeYear.id,
+        status: 'ACTIVE',
+        classSection: { isActive: true },
+      },
+      include: {
+        classSection: {
+          select: {
+            id: true,
+            className: true,
+            sectionName: true,
+            grade: true,
+            campusId: true,
+            batchId: true,
+            deliveryMode: true,
+            campus: { select: { id: true, name: true, code: true } },
+            batch: { select: { id: true, name: true } },
+            shift: { select: { code: true, name: true } },
+            _count: { select: { enrollments: true } },
+          },
         },
       },
-    },
-    orderBy: [{ classSection: { grade: 'asc' } }, { classSection: { className: 'asc' } }],
-  })
+      orderBy: [{ classSection: { grade: 'asc' } }, { classSection: { className: 'asc' } }],
+    })
+  } catch (err: any) {
+    if (isTableMissingError(err)) {
+      console.warn('[TEACHER_ASSIGNMENTS_GET_FALLBACK]', err.message)
+      const legacyCTs = await prisma.classTeacher.findMany({
+        where: { teacherId: id, academicYear: activeYear.name },
+        include: { class: true },
+      })
+      const legacyNormalized: NormalizedAssignment[] = legacyCTs.map((ct) => ({
+        id: ct.id,
+        source: 'legacy',
+        classId: ct.classId,
+        className: ct.class.name,
+        sectionName: ct.class.section,
+        shift: ct.class.shift,
+        grade: ct.class.grade,
+        academicYear: ct.academicYear,
+        isClassTeacher: ct.isClassTeacher,
+      }))
+      return successResponse(legacyNormalized)
+    }
+    throw err
+  }
 
   const normalized: NormalizedAssignment[] = assignments.map((assignment) => {
     const section = assignment.classSection
@@ -311,32 +345,59 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         )
       }
 
-      const result = await prisma.$transaction(async (tx: any) => {
-        const delegate = tx?.teacherSectionAssignment ?? prisma?.teacherSectionAssignment
-        if (!delegate || typeof delegate.upsert !== 'function') {
-          throw new Error('teacherSectionAssignment model delegate unavailable on Prisma client')
-        }
-        const assignment = await delegate.upsert({
-          where: {
-            teacherId_classSectionId_academicYearId: {
+      let assignment: any = null
+      let engineTableAvailable = true
+
+      try {
+        const result = await prisma.$transaction(async (tx: any) => {
+          const delegate = tx?.teacherSectionAssignment ?? prisma?.teacherSectionAssignment
+          if (!delegate || typeof delegate.upsert !== 'function') {
+            throw new Error('teacherSectionAssignment model delegate unavailable on Prisma client')
+          }
+          const res = await delegate.upsert({
+            where: {
+              teacherId_classSectionId_academicYearId: {
+                teacherId: id,
+                classSectionId,
+                academicYearId: academicYearRecord.id,
+              },
+            },
+            update: { isClassTeacher, status: 'ACTIVE' },
+            create: {
               teacherId: id,
               classSectionId,
               academicYearId: academicYearRecord.id,
+              isClassTeacher,
+              status: 'ACTIVE',
             },
-          },
-          update: { isClassTeacher, status: 'ACTIVE' },
-          create: {
-            teacherId: id,
-            classSectionId,
-            academicYearId: academicYearRecord.id,
-            isClassTeacher,
-            status: 'ACTIVE',
-          },
+          })
+          return { assignment: res, offering: null }
         })
-        return { assignment, offering: null }
-      })
+        assignment = result.assignment
+      } catch (err: any) {
+        if (isTableMissingError(err)) {
+          console.warn('[TEACHER_ASSIGNMENT_TABLE_MISSING_FALLBACK]', err.message)
+          engineTableAvailable = false
+        } else {
+          throw err
+        }
+      }
 
-      const assignment = result.assignment
+      // Sync to legacy Class/ClassTeacher bridge (serves as operational store when engine table hasn't been pushed)
+      let legacyAssignment: any = null
+      try {
+        legacyAssignment = await ensureLegacyClassTeacherBridge({
+          teacherId: id,
+          classSection: section,
+          academicYear: academicYearRecord?.name || academicYear,
+          isClassTeacher,
+        })
+      } catch (bridgeError) {
+        console.error('[TEACHER_ASSIGNMENT_LEGACY_BRIDGE]', bridgeError)
+        if (!engineTableAvailable) {
+          throw bridgeError
+        }
+      }
 
       // Non-blocking audit log
       try {
@@ -345,8 +406,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             data: {
               userId: session.user.id,
               action: 'UPDATE',
-              entityType: 'TeacherSectionAssignment',
-              entityId: assignment.id,
+              entityType: engineTableAvailable ? 'TeacherSectionAssignment' : 'ClassTeacher',
+              entityId: assignment?.id || legacyAssignment?.id || `${id}:${classSectionId}`,
               changes: {
                 teacherId: id,
                 classSectionId,
@@ -360,20 +421,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         console.warn('[TEACHER_ASSIGNMENT_AUDIT_LOG_WARNING]', auditErr)
       }
 
-      // Non-blocking legacy bridge sync
-      try {
-        await ensureLegacyClassTeacherBridge({
-          teacherId: id,
-          classSection: section,
-          academicYear: academicYearRecord?.name || academicYear,
-          isClassTeacher,
-        })
-      } catch (bridgeError) {
-        console.error('[TEACHER_ASSIGNMENT_LEGACY_BRIDGE]', bridgeError)
-      }
-
       return createdResponse(
-        result,
+        assignment || legacyAssignment,
         `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name || 'Default'}) for ${academicYearRecord?.name || academicYear}`
       )
     }
@@ -530,15 +579,25 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
           })
         : null
 
-      const assignment = await prisma.teacherSectionAssignment.updateMany({
-        where: {
-          teacherId: id,
-          classSectionId,
-          academicYearId: academicYearRecord.id,
-          status: 'ACTIVE',
-        },
-        data: { status: 'REVOKED' },
-      })
+      let assignmentCount = 0
+      try {
+        const assignment = await prisma.teacherSectionAssignment.updateMany({
+          where: {
+            teacherId: id,
+            classSectionId,
+            academicYearId: academicYearRecord.id,
+            status: 'ACTIVE',
+          },
+          data: { status: 'REVOKED' },
+        })
+        assignmentCount = assignment.count
+      } catch (err: any) {
+        if (isTableMissingError(err)) {
+          console.warn('[TEACHER_ASSIGNMENT_DELETE_TABLE_MISSING]', err.message)
+        } else {
+          throw err
+        }
+      }
 
       const offerings = await prisma.subjectOffering.findMany({
         where: {
@@ -598,7 +657,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         classTeacherRemoved = removed.count
       }
 
-      if (assignment.count > 0) {
+      if (assignmentCount > 0) {
         try {
           if (session.user.id) {
             await prisma.auditLog.create({
@@ -618,7 +677,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
       return successResponse(
         { classSectionId, teacherId: id },
-        `Removed teacher from this section (${assignment.count} assignment revoked, ${offerings.length} subject assignment(s) cleared)`
+        `Removed teacher from this section (${assignmentCount} assignment revoked, ${offerings.length} subject assignment(s) cleared)`
       )
     }
 
