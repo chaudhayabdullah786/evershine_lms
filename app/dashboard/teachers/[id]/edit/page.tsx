@@ -97,7 +97,7 @@ export default function EditTeacherPage() {
   const [isResetting, setIsResetting] = useState(false)
   const [assignShift, setAssignShift] = useState<SessionShift>('MORNING')
   const [assignClassId, setAssignClassId] = useState('')
-  const [assignYear, setAssignYear] = useState(`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`)
+  const [assignYear, setAssignYear] = useState('')
   const [assignAsIncharge, setAssignAsIncharge] = useState(false)
   const [isAssigning, setIsAssigning] = useState(false)
 
@@ -203,6 +203,30 @@ export default function EditTeacherPage() {
   const availableClasses = (availableClassesRaw ?? []).filter(
     (sec: { id: string }) => !classAssignments.some((a: { classSectionId?: string }) => a.classSectionId === sec.id)
   )
+
+  // WHY: Fetch the active academic year from DB instead of computing from
+  // calendar year. Calendar-computed defaults (e.g. 2026-2027) will mismatch
+  // the DB-active year (2025-2026) and cause the POST to fail with a 400.
+  // WHY all years: /api/academic-years does not filter by isActive param;
+  // we receive all years and find the active one on the client.
+  const { data: academicYearsData } = useQuery({
+    queryKey: ['academic-years'],
+    queryFn: () => fetchApi<any>('/api/academic-years'),
+  })
+  // Populate assignYear once we know the active year — this overrides the empty string default.
+  // WHY useEffect: The query is async; we can't block render on it.
+  useEffect(() => {
+    if (assignYear) return // User may have manually changed the year — don't override
+    const years: { name: string; isActive?: boolean }[] = Array.isArray(academicYearsData)
+      ? academicYearsData
+      : Array.isArray(academicYearsData?.data)
+        ? academicYearsData.data
+        : []
+    const active = years.find((y) => y.isActive) ?? years[0]
+    if (active?.name) {
+      setAssignYear(active.name)
+    }
+  }, [academicYearsData])
 
   const assignedShifts = Array.from(
     new Set(
@@ -324,6 +348,10 @@ export default function EditTeacherPage() {
     }
     if (!assignClassId) {
       notify.error('Select a class to assign')
+      return
+    }
+    if (!assignYear) {
+      notify.error('Academic year is still loading — please wait a moment and try again')
       return
     }
     setIsAssigning(true)
