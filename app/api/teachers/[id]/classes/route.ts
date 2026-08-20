@@ -350,7 +350,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               changes: {
                 teacherId: id,
                 classSectionId,
-                academicYear: academicYearRecord.name,
+                academicYear: academicYearRecord?.name || academicYear,
                 isClassTeacher,
               },
             },
@@ -365,7 +365,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         await ensureLegacyClassTeacherBridge({
           teacherId: id,
           classSection: section,
-          academicYear: academicYearRecord.name,
+          academicYear: academicYearRecord?.name || academicYear,
           isClassTeacher,
         })
       } catch (bridgeError) {
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
       return createdResponse(
         result,
-        `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name || 'Default'}) for ${academicYearRecord.name}`
+        `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name || 'Default'}) for ${academicYearRecord?.name || academicYear}`
       )
     }
 
