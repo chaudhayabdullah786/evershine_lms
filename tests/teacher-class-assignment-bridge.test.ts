@@ -62,6 +62,7 @@ describe('Academic Engine class assignment bridge', () => {
     mockPrisma.academicSubject.findFirst.mockResolvedValue({ id: 'subject-1' })
     mockPrisma.subjectOffering.findUnique.mockResolvedValue(null)
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      teacherSectionAssignment: { upsert: vi.fn().mockResolvedValue({ id: 'assignment-1' }) },
       subjectOffering: { create: vi.fn().mockResolvedValue({ id: 'offering-1' }) },
       auditLog: { create: vi.fn().mockResolvedValue({}) },
     }))

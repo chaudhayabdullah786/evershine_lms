@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockAuth, mockPrisma, mockDispatchBulkNotification } = vi.hoisted(() => {
+const { mockAuth, mockPrisma, mockDispatchBulkNotification, mockActiveYear } = vi.hoisted(() => {
   const mockAuth = vi.fn()
+  const mockActiveYear = vi.fn()
   const mockPrisma = {
     teacher: { findUnique: vi.fn() },
+    academicYear: { findFirst: mockActiveYear, findUnique: vi.fn() },
+    teacherSectionAssignment: { findMany: vi.fn() },
     studentEnrollment: { findFirst: vi.fn() },
     student: { findUnique: vi.fn() },
     subjectOffering: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -13,7 +16,7 @@ const { mockAuth, mockPrisma, mockDispatchBulkNotification } = vi.hoisted(() => 
   }
   const mockDispatchBulkNotification = vi.fn()
 
-  return { mockAuth, mockPrisma, mockDispatchBulkNotification }
+  return { mockAuth, mockPrisma, mockDispatchBulkNotification, mockActiveYear }
 })
 
 vi.mock('@/lib/auth', () => ({ auth: mockAuth }))
@@ -34,6 +37,8 @@ describe('teacher result workflow', () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: 'user-teacher-1', role: 'TEACHER' } })
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-1' })
+    mockActiveYear.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
+    mockPrisma.teacherSectionAssignment.findMany.mockResolvedValue([{ classSectionId: 'section-1' }])
     mockPrisma.subjectOffering.findMany.mockResolvedValue([{ id: 'offering-1', classSectionId: 'section-1' }])
   })
 
@@ -227,7 +232,6 @@ describe('teacher result workflow', () => {
   it('lists teacher results when an older production schema lacks optional declaredAt metadata', async () => {
     mockPrisma.subjectOffering.findMany.mockResolvedValue([])
     mockPrisma.termResult.findMany
-      .mockResolvedValueOnce([{ classSectionId: 'section-1' }])
       .mockRejectedValueOnce({ code: 'P2022', meta: { column: 'declaredAt' } })
       .mockResolvedValueOnce([{
         id: 'result-1',

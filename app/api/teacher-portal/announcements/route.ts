@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, createdResponse, paginatedResponse } from '@/lib/api-response'
 import { findLegacyClassForSection } from '@/lib/teacher-access'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -128,39 +129,23 @@ export async function POST(request: NextRequest) {
 
   const resolvedLegacyClassId = legacyClassRecord?.id ?? null
 
-  const isAssigned =
-    // Legacy: ClassTeacher
-    (resolvedLegacyClassId
-      ? await prisma.classTeacher.findFirst({
-          where: { classId: resolvedLegacyClassId, teacherId: teacher.id },
-        })
-      : null) ||
-    // Legacy: SubjectTeacher
-    (resolvedLegacyClassId
-      ? await prisma.subjectTeacher.findFirst({
-          where: { subject: { classId: resolvedLegacyClassId }, teacherId: teacher.id },
-        })
-      : null) ||
-    // New engine: SubjectOffering → ClassSection
-    (candidateClassSectionId
-      ? await prisma.subjectOffering.findFirst({
-          where: { teacherId: teacher.id, classSectionId: candidateClassSectionId },
-          select: { id: true },
-        })
-      : null) ||
-    // New engine: TimetableSlot → ClassSection
-    (candidateClassSectionId
-      ? await prisma.timetableSlot.findFirst({
-          where: {
+  const activeYear = await getActiveAcademicYear()
+  if (!activeYear || !candidateClassSectionId) {
+    return errors.forbidden('No active academic-year assignment was found for this class')
+  }
+
+  const assignment = await prisma.teacherSectionAssignment.findUnique({
+        where: {
+          teacherId_classSectionId_academicYearId: {
             teacherId: teacher.id,
             classSectionId: candidateClassSectionId,
-            isPublished: true,
+            academicYearId: activeYear.id,
           },
-          select: { id: true },
-        })
-      : null)
+        },
+        select: { status: true },
+      })
 
-  if (!isAssigned) {
+  if (!assignment || assignment.status !== 'ACTIVE') {
     return errors.forbidden('You are not assigned to this class')
   }
 
@@ -202,27 +187,15 @@ export async function POST(request: NextRequest) {
     const enrolledStudents = await prisma.studentEnrollment.findMany({
       where: {
         classSectionId: candidateClassSectionId,
+        academicYearId: activeYear.id,
         status: 'ACTIVE',
+        classSection: { isActive: true },
       },
       select: { student: { select: { userId: true, isActive: true, enrollmentStatus: true } } },
     })
     studentUserIds = enrolledStudents
       .filter((e) => e.student.isActive && e.student.enrollmentStatus === 'ACTIVE')
       .map((e) => e.student.userId)
-  }
-
-  // Fallback/supplement: batch-level + legacy classId query
-  if (studentUserIds.length === 0 && (resolvedLegacyClassId || resolvedBatchId)) {
-    const batchStudents = await prisma.student.findMany({
-      where: {
-        ...(resolvedLegacyClassId ? { classId: resolvedLegacyClassId } : {}),
-        ...(resolvedBatchId ? { batchId: resolvedBatchId } : {}),
-        isActive: true,
-        enrollmentStatus: 'ACTIVE',
-      },
-      select: { userId: true },
-    })
-    studentUserIds = batchStudents.map((s) => s.userId)
   }
 
   if (studentUserIds.length > 0) {

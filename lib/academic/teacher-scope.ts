@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getTeacherAssignedSectionIds } from '@/lib/academic/teacher-assignments'
 
 export async function getTeacherByUserId(userId: string) {
   return prisma.teacher.findUnique({
@@ -8,334 +9,30 @@ export async function getTeacherByUserId(userId: string) {
   })
 }
 
-function normalizeScopeText(value: string | null | undefined): string {
-  return (value ?? '')
-    .toLowerCase()
-    .replace(/\s+morning|\s+evening|\s+night/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-function normalizeShiftKey(value: string | null | undefined): string {
-  return (value ?? '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '')
-    .replace(/SHIFT$/, '')
-}
-
-function legacyClassMatchesSection(
-  legacy: {
-    name: string
-    grade: number
-    section: string | null
-    campusId: string
-    batchId: string | null
-    shift: string
-  },
-  section: {
-    className: string
-    sectionName: string
-    grade: number | null
-    campusId: string
-    batchId: string
-    shift: { code: string } | null
-  },
-  strictness: 'strict' | 'ignore-batch' | 'ignore-batch-shift' = 'strict'
-): boolean {
-  if (legacy.campusId !== section.campusId) return false
-  if (legacy.grade && section.grade && legacy.grade !== section.grade) return false
-
-  if (
-    strictness === 'strict' &&
-    legacy.batchId &&
-    section.batchId &&
-    legacy.batchId !== section.batchId
-  ) {
-    return false
-  }
-
-  const legacyShift = normalizeShiftKey(legacy.shift)
-  const sectionShift = normalizeShiftKey(section.shift?.code)
-  if (
-    strictness !== 'ignore-batch-shift' &&
-    legacyShift &&
-    sectionShift &&
-    legacyShift !== sectionShift
-  ) {
-    return false
-  }
-
-  const legacySection = normalizeScopeText(legacy.section)
-  const sectionName = normalizeScopeText(section.sectionName)
-  const legacyName = normalizeScopeText(legacy.name)
-
-  // `Class.name` is a legacy display label and is not a stable foreign key.
-  // In production it can be "Class 11 - A", "XI A", or a batch-specific
-  // label while ClassSection.className has a different naming convention.
-  // The stable cross-engine identity is campus + grade + section, with batch
-  // and shift used above to narrow the match whenever they are available.
-  const sectionMatches =
-    !legacySection ||
-    legacySection === sectionName ||
-    legacyName.split(' ').includes(sectionName)
-
-  return sectionMatches
-}
-
-function selectUnambiguousLegacySectionMatches(
-  legacy: {
-    name: string
-    section: string | null
-  },
-  candidates: Array<{
-    id: string
-    className: string
-    sectionName: string
-  }>
-): string[] {
-  if (candidates.length === 1) return [candidates[0].id]
-  if (candidates.length === 0) return []
-
-  // Multiple sections can share the same grade/section when the legacy
-  // database drifted. Use the old display name only as a tie-breaker; never
-  // widen a teacher's scope when the association remains ambiguous.
-  const legacyName = normalizeScopeText(legacy.name)
-  const nameMatches = candidates.filter((section) => {
-    const className = normalizeScopeText(section.className)
-    const fullSectionName = normalizeScopeText(`${section.className} ${section.sectionName}`)
-    return (
-      legacyName === className ||
-      legacyName === fullSectionName ||
-      legacyName.startsWith(className) ||
-      className.startsWith(legacyName)
-    )
-  })
-
-  return nameMatches.length === 1 ? [nameMatches[0].id] : []
-}
-
-function mapLegacyClassesToSections(
-  legacyClasses: Array<{
-    name: string
-    grade: number
-    section: string | null
-    campusId: string
-    batchId: string | null
-    shift: string
-  }>,
-  classSections: Array<{
-    id: string
-    className: string
-    sectionName: string
-    grade: number | null
-    campusId: string
-    batchId: string
-    shift: { code: string } | null
-  }>
-): string[] {
-  const mapped = new Set<string>()
-
-  for (const legacy of legacyClasses) {
-    // Prefer the most precise identifiers first. Each lower tier exists for
-    // documented migration drift between legacy Class and ClassSection rows.
-    // `selectUnambiguousLegacySectionMatches` keeps the fallback least-privilege.
-    const strictMatches = classSections.filter((section) =>
-      legacyClassMatchesSection(legacy, section, 'strict')
-    )
-    const shiftMatches = classSections.filter((section) =>
-      legacyClassMatchesSection(legacy, section, 'ignore-batch')
-    )
-    const fallbackMatches = classSections.filter((section) =>
-      legacyClassMatchesSection(legacy, section, 'ignore-batch-shift')
-    )
-
-    const mappedIds = [strictMatches, shiftMatches, fallbackMatches]
-      .map((candidates) => selectUnambiguousLegacySectionMatches(legacy, candidates))
-      .find((sectionIds) => sectionIds.length > 0) ?? []
-
-    mappedIds.forEach((sectionId) => mapped.add(sectionId))
-  }
-
-  return Array.from(mapped)
-}
-
-/** Class sections the teacher is assigned to through new engine or legacy mappings. */
+/**
+ * Resolve the teacher's current section scope from the canonical assignment
+ * table only. Historical tasks, results, legacy classes, and old timetable
+ * rows are intentionally not authorization sources.
+ */
 export async function getTeacherClassSectionIds(
   teacherId: string,
-  academicYearId?: string
+  academicYearId?: string,
 ): Promise<string[]> {
-  let activeYear: { id: string; name: string } | null = null
-  try {
-    activeYear = academicYearId
-      ? await prisma.academicYear?.findUnique?.({
-          where: { id: academicYearId },
-          select: { id: true, name: true },
-        }) ?? null
-      : await getActiveAcademicYear()
-  } catch {
-    activeYear = null
-  }
+  const year = academicYearId
+    ? await prisma.academicYear.findUnique({
+        where: { id: academicYearId },
+        select: { id: true },
+      })
+    : await getActiveAcademicYear()
 
-  const yearId = academicYearId ?? activeYear?.id
-  const yearLabel = activeYear?.name ?? academicYearId
-
-  const [
-    activeYearSubjectOfferings,
-    activeYearTimetableSlots,
-    activeClassTeacherRows,
-    allClassTeacherRows,
-    subjectTeacherRows,
-    classTasks,
-    teacherOwnedResults,
-  ] = await Promise.all([
-    prisma.subjectOffering?.findMany?.({
-      where: { teacherId, ...(yearId ? { academicYearId: yearId } : {}) },
-      select: { classSectionId: true },
-      distinct: ['classSectionId'],
-    }) ?? [],
-    prisma.timetableSlot?.findMany?.({
-      where: { teacherId, ...(yearId ? { academicYearId: yearId } : {}) },
-      select: { classSectionId: true },
-      distinct: ['classSectionId'],
-    }) ?? [],
-    prisma.classTeacher?.findMany?.({
-      where: {
-        teacherId,
-        ...(yearLabel ? { OR: [{ academicYear: yearLabel }, ...(yearId ? [{ academicYear: yearId }] : [])] } : {}),
-      },
-      select: { classId: true },
-    }) ?? [],
-    prisma.classTeacher?.findMany?.({
-      where: { teacherId },
-      select: { classId: true },
-    }) ?? [],
-    prisma.subjectTeacher?.findMany?.({
-      where: { teacherId },
-      select: { subject: { select: { classId: true } } },
-    }) ?? [],
-    prisma.classTask?.findMany?.({
-      where: { teacherId },
-      select: { classId: true, classSectionId: true },
-    }) ?? [],
-    prisma.termResult?.findMany?.({
-      where: { teacherId },
-      select: { classSectionId: true },
-      distinct: ['classSectionId'],
-    }) ?? [],
-  ])
-
-  // WHY year-agnostic fallback for SubjectOffering and TimetableSlot:
-  // These records are created per academic year. When the active year is
-  // switched (e.g. 2025-2026 → 2026-2027) but teacher assignments have not
-  // yet been re-created for the new year, the year-specific query returns 0
-  // rows — causing the sections dropdown, attendance, grade entry, and my-students
-  // to all appear empty. The fallback activates ONLY when the active year has
-  // no assignments, matching the existing allClassTeacherRows pattern below.
-  // TRADEOFF: Widens scope across years — acceptable because section visibility
-  // is still constrained by ClassSection.isActive and enrollment checks downstream.
-  const subjectOfferings = (activeYearSubjectOfferings.length > 0 || !yearId)
-    ? activeYearSubjectOfferings
-    : (await prisma.subjectOffering?.findMany?.({
-        where: { teacherId },
-        select: { classSectionId: true },
-        distinct: ['classSectionId'],
-      }) ?? [])
-
-  const timetableSlots = (activeYearTimetableSlots.length > 0 || !yearId)
-    ? activeYearTimetableSlots
-    : (await prisma.timetableSlot?.findMany?.({
-        where: { teacherId },
-        select: { classSectionId: true },
-        distinct: ['classSectionId'],
-      }) ?? [])
-
-  const classTeacherRows = activeClassTeacherRows.length > 0
-    ? activeClassTeacherRows
-    : allClassTeacherRows
-
-  // Attendance deliberately continues to show a teacher's current
-  // ClassTeacher assignments even when the legacy Class record was marked
-  // inactive during migration to ClassSection. Keep those explicit current
-  // assignments in scope as well; otherwise attendance and every
-  // ClassSection-based teacher workflow disagree about the same teacher.
-  const currentClassTeacherIds = Array.from(new Set(
-    activeClassTeacherRows.map((row) => row.classId)
-  ))
-
-  const legacyClassIds = Array.from(new Set([
-    ...classTeacherRows.map((row) => row.classId),
-    ...subjectTeacherRows.map((row) => row.subject.classId),
-    ...classTasks.map((row) => row.classId),
-  ]))
-
-  const legacyClasses = legacyClassIds.length
-    ? await prisma.class?.findMany?.({
-        where: {
-          id: { in: legacyClassIds },
-          // Do not revive arbitrary historical classes. An inactive legacy
-          // row is considered only when it has a current ClassTeacher
-          // assignment; it still must map to an active ClassSection below.
-          OR: [
-            { isActive: true },
-            ...(currentClassTeacherIds.length
-              ? [{ id: { in: currentClassTeacherIds } }]
-              : []),
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          grade: true,
-          section: true,
-          campusId: true,
-          batchId: true,
-          shift: true,
-        },
-      }) ?? []
-    : []
-
-  const [classSections, enrollmentMappedSections] = await Promise.all([
-    prisma.classSection?.findMany?.({
-      where: { isActive: true },
-      select: {
-        id: true,
-        className: true,
-        sectionName: true,
-        grade: true,
-        campusId: true,
-        batchId: true,
-        shift: { select: { code: true } },
-      },
-    }) ?? [],
-    legacyClassIds.length && yearId
-      ? prisma.studentEnrollment?.findMany?.({
-          where: {
-            academicYearId: yearId,
-            status: 'ACTIVE',
-            student: { classId: { in: legacyClassIds } },
-          },
-          select: { classSectionId: true },
-          distinct: ['classSectionId'],
-        }) ?? []
-      : Promise.resolve([]),
-  ])
-
-  const legacyMappedSectionIds = mapLegacyClassesToSections(legacyClasses, classSections)
-
-  return Array.from(new Set([
-    ...subjectOfferings.map((row) => row.classSectionId),
-    ...timetableSlots.map((row) => row.classSectionId),
-    ...classTasks.flatMap((row) => row.classSectionId ? [row.classSectionId] : []),
-    ...teacherOwnedResults.map((row) => row.classSectionId),
-    ...legacyMappedSectionIds,
-    ...enrollmentMappedSections.map((row) => row.classSectionId),
-  ]))
+  if (!year) return []
+  return getTeacherAssignedSectionIds(teacherId, year.id)
 }
 
 export async function teacherCanAccessClassSection(
   teacherId: string,
   classSectionId: string,
-  academicYearId?: string
+  academicYearId?: string,
 ): Promise<boolean> {
   const allowed = await getTeacherClassSectionIds(teacherId, academicYearId)
   return allowed.includes(classSectionId)

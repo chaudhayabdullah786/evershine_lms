@@ -47,14 +47,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return errors.forbidden('Academic year is locked')
   }
   
-  // Validate conflicts if changing time/day/teacher/room
-  if (
-    parsed.data.dayOfWeek || 
-    parsed.data.startTime || 
-    parsed.data.endTime || 
-    parsed.data.teacherId || 
-    parsed.data.roomId
-  ) {
+  // Validate conflicts whenever a scheduling field is present, including an
+  // explicit null used to unassign a teacher or room. Truthiness checks here
+  // previously skipped conflict validation for those updates.
+  const schedulingFields = ['dayOfWeek', 'startTime', 'endTime', 'teacherId', 'roomId'] as const
+  const scheduleChanged = schedulingFields.some((field) =>
+    Object.prototype.hasOwnProperty.call(parsed.data, field)
+  )
+  if (scheduleChanged) {
     try {
       const conflicts = await validateTimetableSlot({
         academicYearId: mergedData.academicYearId,

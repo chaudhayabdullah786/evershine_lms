@@ -9,6 +9,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { errors, successResponse } from '@/lib/api-response'
 import { teacherCanAccessClassSection } from '@/lib/academic/teacher-scope'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 
 export async function GET(
   _req: NextRequest,
@@ -30,6 +31,22 @@ export async function GET(
     const canAccessSection = await teacherCanAccessClassSection(teacher.id, classSectionId)
     if (!canAccessSection) return errors.forbidden('You are not assigned to this class section')
 
+    const activeYear = await getActiveAcademicYear()
+    if (!activeYear) return successResponse([])
+    const assignment = await prisma.teacherSectionAssignment.findUnique({
+      where: {
+        teacherId_classSectionId_academicYearId: {
+          teacherId: teacher.id,
+          classSectionId,
+          academicYearId: activeYear.id,
+        },
+      },
+      select: { isClassTeacher: true, status: true },
+    })
+    if (!assignment || assignment.status !== 'ACTIVE') {
+      return errors.forbidden('You are not assigned to this class section')
+    }
+
     const include = {
       subject: {
         select: {
@@ -43,21 +60,14 @@ export async function GET(
     const assignedOfferings = await prisma.subjectOffering.findMany({
       where: {
         classSectionId,
-        teacherId: teacher.id,
+        academicYearId: activeYear.id,
+        ...(assignment.isClassTeacher ? {} : { teacherId: teacher.id }),
       },
       include,
       orderBy: { subject: { name: 'asc' } },
     })
 
-    const offerings = assignedOfferings.length > 0
-      ? assignedOfferings
-      : await prisma.subjectOffering.findMany({
-          where: { classSectionId },
-          include,
-          orderBy: { subject: { name: 'asc' } },
-        })
-
-    return successResponse(offerings)
+    return successResponse(assignedOfferings)
   } catch (err) {
     console.error('[TEACHER_SECTION_OFFERINGS_GET]', err)
     return errors.internal()

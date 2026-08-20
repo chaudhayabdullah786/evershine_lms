@@ -22,6 +22,7 @@ export function timetableConflictDetails(conflicts: TimetableConflict[]) {
   return conflicts.map((conflict) => ({
     field: CONFLICT_FIELD[conflict.type] ?? 'timetable',
     message: `${CONFLICT_PREFIX[conflict.type] ?? 'Timetable conflict'}: ${conflict.message}`,
+    ...(conflict.slot ? { conflictSlot: JSON.stringify(conflict.slot) } : {}),
   }))
 }
 

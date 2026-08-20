@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const { mockAuth, mockPrisma } = vi.hoisted(() => {
+const { mockAuth, mockPrisma, mockAcademicYearFindUnique, mockAssignmentFindMany } = vi.hoisted(() => {
   const mockAuth = vi.fn()
+  const mockAcademicYearFindUnique = vi.fn()
+  const mockAssignmentFindMany = vi.fn()
   const mockPrisma = {
     teacher: { findUnique: vi.fn() },
+    academicYear: { findUnique: mockAcademicYearFindUnique },
+    teacherSectionAssignment: { findMany: mockAssignmentFindMany },
     studentEnrollment: { findMany: vi.fn() },
     subjectOffering: { findMany: vi.fn(), findFirst: vi.fn() },
     dailyPerformanceScore: { findMany: vi.fn() },
     monthlyMonitoringReport: { upsert: vi.fn(), findUnique: vi.fn() },
   }
-  return { mockAuth, mockPrisma }
+  return { mockAuth, mockPrisma, mockAcademicYearFindUnique, mockAssignmentFindMany }
 })
 
 const getOrSyncSectionEnrollmentsMock = vi.hoisted(() => vi.fn())
@@ -26,6 +30,8 @@ describe('GET /api/teacher-portal/monthly-monitoring', () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: 'teacher-user-1', role: 'TEACHER' } })
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-1' })
+    mockAcademicYearFindUnique.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
+    mockAssignmentFindMany.mockResolvedValue([{ classSectionId: 'section-1' }])
     mockPrisma.studentEnrollment.findMany.mockResolvedValue([
       {
         studentId: 'student-1',

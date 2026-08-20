@@ -3,13 +3,10 @@
  * POST   /api/teachers/[id]/classes  — add a class assignment
  * DELETE /api/teachers/[id]/classes  — remove a class assignment
  *
- * WHY dual-path: The system maintains two class assignment models:
- * 1. Legacy: Class → ClassTeacher (no shift/delivery-mode awareness)
- * 2. Academic Engine: ClassSection → SubjectOffering (shift + delivery aware)
- *
- * GET returns a unified list from both sources.
- * POST accepts either classId (legacy) or classSectionId (new).
- * DELETE accepts either classId or classSectionId.
+ * WHY dual-path writes: legacy Class → ClassTeacher remains available for
+ * older integrations, while current portal reads use the Academic Engine's
+ * canonical TeacherSectionAssignment table. POST/DELETE accept either a
+ * legacy classId or an engine classSectionId for compatibility.
  *
  * RBAC: SUPER_ADMIN and ADMIN only for writes; read is open to TEACHER (own).
  */
@@ -22,6 +19,7 @@ import { errors, successResponse, createdResponse } from '@/lib/api-response'
 import { addClassAssignmentSchema } from '@/lib/validation/teacher'
 import { sessionShiftSchema, type SessionShift } from '@/lib/validation/shift'
 import { findLegacyClassForSection } from '@/lib/teacher-access'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
 import type { Role } from '@prisma/client'
 
 interface RouteParams {
@@ -29,8 +27,7 @@ interface RouteParams {
 }
 
 // ── Normalized assignment shape for the frontend ─────────────────────────────
-// WHY: The frontend must render assignments from both legacy and new models
-// in a single unified list. This shape abstracts the underlying storage model.
+// WHY: The frontend needs one stable shape for canonical engine assignments.
 interface NormalizedAssignment {
   id: string
   source: 'legacy' | 'academic_engine'
@@ -144,7 +141,7 @@ async function ensureLegacyClassTeacherBridge(params: {
 }
 
 // ── GET /api/teachers/[id]/classes ───────────────────────────────────────────
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, { params }: RouteParams) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
   if (!checkPermission(session.user.role as Role, 'classes', 'read')) return errors.forbidden()
@@ -167,147 +164,62 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     return errors.forbidden()
   }
 
-  // ── Fetch from both sources in parallel ─────────────────────────────────
-  const [legacyAssignments, subjectOfferings] = await Promise.all([
-    // Legacy ClassTeacher records
-    prisma.classTeacher.findMany({
-      where: { teacherId: id },
-      include: {
-        class: {
-          select: {
-            id: true,
-            name: true,
-            grade: true,
-            section: true,
-            shift: true,
-            academicYear: true,
-            batch: { select: { id: true, name: true } },
-            campus: { select: { id: true, name: true, code: true } },
-            _count: { select: { students: true } },
-          },
-        },
-      },
-      orderBy: [{ academicYear: 'desc' }, { class: { grade: 'asc' } }],
-    }),
-    // Academic Engine SubjectOffering records
-    prisma.subjectOffering.findMany({
-      where: { teacherId: id },
-      select: {
-        id: true,
-        classSectionId: true,
-        academicYear: { select: { id: true, name: true } },
-        classSection: {
-          select: {
-            id: true,
-            className: true,
-            sectionName: true,
-            grade: true,
-            campusId: true,
-            batchId: true,
-            deliveryMode: true,
-            campus: { select: { id: true, name: true, code: true } },
-            batch: { select: { id: true, name: true } },
-            shift: { select: { code: true, name: true } },
-            _count: { select: { enrollments: true } },
-          },
-        },
-        subject: { select: { name: true, code: true } },
-      },
-      orderBy: [{ classSection: { grade: 'asc' } }, { classSection: { className: 'asc' } }],
-    }),
-  ])
+  const { searchParams } = new URL(req.url)
+  const requestedYear = searchParams.get('academicYear')
+  const activeYear = requestedYear
+    ? await prisma.academicYear.findFirst({ where: { name: requestedYear }, select: { id: true, name: true } })
+    : await getActiveAcademicYear()
+  if (!activeYear) return successResponse([])
 
-  // ── Normalize legacy assignments ────────────────────────────────────────
-  const legacyNormalized: NormalizedAssignment[] = legacyAssignments.map((a) => {
-    const cls = a.class
+  const assignments = await prisma.teacherSectionAssignment.findMany({
+    where: {
+      teacherId: id,
+      academicYearId: activeYear.id,
+      status: 'ACTIVE',
+      classSection: { isActive: true },
+    },
+    include: {
+      classSection: {
+        select: {
+          id: true,
+          className: true,
+          sectionName: true,
+          grade: true,
+          campusId: true,
+          batchId: true,
+          deliveryMode: true,
+          campus: { select: { id: true, name: true, code: true } },
+          batch: { select: { id: true, name: true } },
+          shift: { select: { code: true, name: true } },
+          _count: { select: { enrollments: true } },
+        },
+      },
+    },
+    orderBy: [{ classSection: { grade: 'asc' } }, { classSection: { className: 'asc' } }],
+  })
+
+  const normalized: NormalizedAssignment[] = assignments.map((assignment) => {
+    const section = assignment.classSection
     return {
-      id: a.id,
-      source: 'legacy' as const,
-      classId: a.classId,
-      className: cls?.name ?? 'Unknown',
-      sectionName: cls?.section ?? undefined,
-      shift: cls?.shift ?? undefined,
-      shiftLabel: cls?.shift ?? undefined,
-      grade: cls?.grade ?? null,
-      academicYear: a.academicYear,
-      isClassTeacher: a.isClassTeacher,
-      campusName: cls?.campus?.name,
-      campusCode: cls?.campus?.code,
-      batchName: cls?.batch?.name,
-      studentCount: cls?._count?.students ?? 0,
+      id: assignment.id,
+      source: 'academic_engine',
+      classSectionId: section.id,
+      className: section.className,
+      sectionName: section.sectionName,
+      shift: section.shift?.code,
+      shiftLabel: section.shift?.name,
+      grade: section.grade,
+      academicYear: activeYear.name,
+      isClassTeacher: assignment.isClassTeacher,
+      campusName: section.campus?.name,
+      campusCode: section.campus?.code,
+      batchName: section.batch?.name,
+      studentCount: section._count.enrollments,
+      deliveryMode: section.deliveryMode,
     }
   })
 
-  // ── Normalize Academic Engine assignments ───────────────────────────────
-  // WHY deduplicate by classSectionId: A teacher may have multiple SubjectOfferings
-  // for the same section (e.g., Physics + Chemistry). We group by section and show
-  // the section once with all subjects listed.
-  const sectionMap = new Map<string, NormalizedAssignment>()
-  for (const so of subjectOfferings) {
-    const sec = so.classSection
-    const key = `${so.classSectionId}::${so.academicYear.name}`
-    if (!sectionMap.has(key)) {
-      sectionMap.set(key, {
-        id: so.id,
-        source: 'academic_engine',
-        classSectionId: so.classSectionId,
-        className: sec.className,
-        sectionName: sec.sectionName,
-        shift: sec.shift?.code,
-        shiftLabel: sec.shift?.name,
-        grade: sec.grade,
-        academicYear: so.academicYear.name,
-        isClassTeacher: false,
-        campusName: sec.campus?.name,
-        campusCode: sec.campus?.code,
-        batchName: sec.batch?.name,
-        studentCount: sec._count?.enrollments ?? 0,
-        deliveryMode: sec.deliveryMode,
-      })
-    }
-  }
-
-  // ── Deduplicate mapped legacy/engine assignments ─────────────────────────
-  // A class-incharge assignment is persisted on the compatibility
-  // ClassTeacher row so result declaration has an explicit authority source.
-  // Do not expose that bridge as a second class in the admin UI when the same
-  // section already has an Academic Engine assignment.
-  const engineAssignmentMeta = await Promise.all(
-    Array.from(sectionMap.values()).map(async (assignment) => {
-      const source = subjectOfferings.find((offering) =>
-        offering.classSectionId === assignment.classSectionId && offering.academicYear.name === assignment.academicYear
-      )
-      if (!source) return { assignment, legacyClass: null }
-
-      const legacyClass = await findLegacyClassForSection({
-        grade: source.classSection.grade,
-        sectionName: source.classSection.sectionName,
-        campusId: source.classSection.campusId,
-        batchId: source.classSection.batchId,
-        shiftCode: source.classSection.shift?.code ?? source.classSection.shift?.name ?? 'MORNING',
-        academicYear: assignment.academicYear,
-      })
-      const bridge = legacyClass
-        ? legacyNormalized.find((legacy) => legacy.classId === legacyClass.id && legacy.academicYear === assignment.academicYear)
-        : undefined
-
-      return {
-        assignment: { ...assignment, isClassTeacher: bridge?.isClassTeacher ?? false },
-        legacyClass,
-      }
-    })
-  )
-  const engineAssignments = engineAssignmentMeta.map(({ assignment }) => assignment)
-  const mappedLegacyKeys = new Set(
-    engineAssignmentMeta
-      .filter(({ legacyClass }) => Boolean(legacyClass))
-      .map(({ assignment, legacyClass }) => `${legacyClass!.id}::${assignment.academicYear}`)
-  )
-  const filteredLegacy = legacyNormalized.filter((legacy) => !mappedLegacyKeys.has(`${legacy.classId}::${legacy.academicYear}`))
-
-  const unified = [...filteredLegacy, ...engineAssignments]
-
-  return successResponse(unified)
+  return successResponse(normalized)
 }
 
 // ── POST /api/teachers/[id]/classes ──────────────────────────────────────────
@@ -377,10 +289,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return errors.notFound(`Academic year '${academicYear}' not found. Create it in the Academic Engine first.`)
     }
 
-    // The Academic Engine stores subject assignments on SubjectOffering, while
-    // class-incharge status still lives on the compatibility ClassTeacher join.
-    // Persist the flag so the teacher-result declaration guard has one explicit,
-    // auditable class-teacher source of truth.
+    // Keep the legacy bridge for compatibility with old declaration workflows,
+    // but persist section scope in the canonical assignment table as well.
     if (isClassTeacher) {
       await ensureLegacyClassTeacherBridge({
         teacherId: id,
@@ -389,23 +299,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       })
     }
 
-    // Check if teacher already has ANY subject offering for this section+year
-    const existingOffering = await prisma.subjectOffering.findFirst({
-      where: {
-        teacherId: id,
-        classSectionId,
-        academicYearId: academicYearRecord.id,
-      },
-      select: { id: true },
-    })
-    if (existingOffering) {
-      return successResponse(
-        { id: existingOffering.id, classSectionId, teacherId: id },
-        `Teacher is already assigned to ${section.className}-${section.sectionName} (${section.shift?.name})`
-      )
-    }
-
-    // Find the first unassigned subject offering for this section, or create a general one
+    // A section assignment is independent of subject ownership. If an
+    // unassigned offering exists, attach it as a convenience; never invent a
+    // subject by selecting the first global subject.
     const unassignedOffering = await prisma.subjectOffering.findFirst({
       where: {
         classSectionId,
@@ -417,8 +313,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     let result
     if (unassignedOffering) {
-      // Assign teacher to an existing unassigned subject offering
       result = await prisma.$transaction(async (tx) => {
+        const assignment = await tx.teacherSectionAssignment.upsert({
+          where: {
+            teacherId_classSectionId_academicYearId: {
+              teacherId: id,
+              classSectionId,
+              academicYearId: academicYearRecord.id,
+            },
+          },
+          update: { isClassTeacher, status: 'ACTIVE' },
+          create: {
+            teacherId: id,
+            classSectionId,
+            academicYearId: academicYearRecord.id,
+            isClassTeacher,
+            status: 'ACTIVE',
+          },
+        })
         const updated = await tx.subjectOffering.update({
           where: { id: unassignedOffering.id },
           data: { teacherId: id },
@@ -434,87 +346,50 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           },
         })
 
-        return updated
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'UPDATE',
+            entityType: 'TeacherSectionAssignment',
+            entityId: assignment.id,
+            changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
+          },
+        })
+
+        return { assignment, offering: updated }
       })
     } else {
-      // No unassigned offerings — find a subject to create a new offering for
-      // WHY: If there are no subject offerings at all for this section, we still
-      // need to link the teacher. We'll find the first academic subject or create
-      // a generic "General" subject.
-      let subjectId: string
-
-      const existingSubject = await prisma.academicSubject.findFirst({
-        where: { isActive: true },
-        select: { id: true },
-        orderBy: { name: 'asc' },
-      })
-
-      if (existingSubject) {
-        subjectId = existingSubject.id
-      } else {
-        // Create a fallback "General" subject
-        const general = await prisma.academicSubject.create({
-          data: { name: 'General', code: 'GEN', description: 'General class assignment' },
-        })
-        subjectId = general.id
-      }
-
-      // Check for unique constraint — same year+section+subject
-      const existingExact = await prisma.subjectOffering.findUnique({
-        where: {
-          academicYearId_classSectionId_subjectId: {
-            academicYearId: academicYearRecord.id,
-            classSectionId,
-            subjectId,
-          },
-        },
-        select: { id: true, teacherId: true },
-      })
-
-      if (existingExact) {
-        // Update existing offering's teacher
-        result = await prisma.$transaction(async (tx) => {
-          const updated = await tx.subjectOffering.update({
-            where: { id: existingExact.id },
-            data: { teacherId: id },
-          })
-
-          await tx.auditLog.create({
-            data: {
-              userId: session.user.id,
-              action: 'UPDATE',
-              entityType: 'SubjectOffering',
-              entityId: updated.id,
-              changes: { teacherId: id, classSectionId, isClassTeacher, academicYear },
-            },
-          })
-
-          return updated
-        })
-      } else {
-        result = await prisma.$transaction(async (tx) => {
-          const created = await tx.subjectOffering.create({
-            data: {
-              academicYearId: academicYearRecord.id,
-              classSectionId,
-              subjectId,
+      result = await prisma.$transaction(async (tx) => {
+        const assignment = await tx.teacherSectionAssignment.upsert({
+          where: {
+            teacherId_classSectionId_academicYearId: {
               teacherId: id,
+              classSectionId,
+              academicYearId: academicYearRecord.id,
             },
-          })
-
-          await tx.auditLog.create({
-            data: {
-              userId: session.user.id,
-              action: 'CREATE',
-              entityType: 'SubjectOffering',
-              entityId: created.id,
-              changes: { teacherId: id, classSectionId, isClassTeacher, academicYear },
-            },
-          })
-
-          return created
+          },
+          update: { isClassTeacher, status: 'ACTIVE' },
+          create: {
+            teacherId: id,
+            classSectionId,
+            academicYearId: academicYearRecord.id,
+            isClassTeacher,
+            status: 'ACTIVE',
+          },
         })
-      }
+
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'UPDATE',
+            entityType: 'TeacherSectionAssignment',
+            entityId: assignment.id,
+            changes: { teacherId: id, classSectionId, academicYear, isClassTeacher },
+          },
+        })
+
+        return { assignment, offering: null }
+      })
     }
 
     return createdResponse(result, `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name})`)
@@ -662,8 +537,19 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         })
       : null
 
-    // Remove all SubjectOfferings for this teacher+section+year
+    // Revoke the canonical section assignment. Historical records remain for
+    // audit, but they must no longer grant current portal access.
     const deleted = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.teacherSectionAssignment.updateMany({
+        where: {
+          teacherId: id,
+          classSectionId,
+          academicYearId: academicYearRecord.id,
+          status: 'ACTIVE',
+        },
+        data: { status: 'REVOKED' },
+      })
+
       const offerings = await tx.subjectOffering.findMany({
         where: {
           teacherId: id,
@@ -697,6 +583,19 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         })
       }
 
+      // Do not rewrite published historical slots. Unpublish/remove the
+      // teacher reference only on drafts; published records remain immutable
+      // audit history and are excluded by current assignment scope.
+      await tx.timetableSlot.updateMany({
+        where: {
+          teacherId: id,
+          classSectionId,
+          academicYearId: academicYearRecord.id,
+          isPublished: false,
+        },
+        data: { teacherId: null },
+      })
+
       let classTeacherRemoved = 0
       if (legacyClass) {
         const removed = await tx.classTeacher.deleteMany({
@@ -710,12 +609,24 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         classTeacherRemoved = removed.count
       }
 
-      return { count: offerings.length, classTeacherRemoved }
+      if (assignment.count > 0) {
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'UPDATE',
+            entityType: 'TeacherSectionAssignment',
+            entityId: `${id}:${classSectionId}:${academicYearRecord.id}`,
+            changes: { teacherId: id, classSectionId, academicYear, status: 'REVOKED' },
+          },
+        })
+      }
+
+      return { count: offerings.length, classTeacherRemoved, assignmentRevoked: assignment.count }
     })
 
     return successResponse(
       { classSectionId, teacherId: id },
-      `Removed ${deleted.count} subject assignment(s) from this section`
+      `Removed teacher from this section (${deleted.assignmentRevoked} assignment revoked, ${deleted.count} subject assignment(s) cleared)`
     )
   }
 

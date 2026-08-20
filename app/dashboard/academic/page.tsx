@@ -88,6 +88,7 @@ type PendingElectiveRow = {
 }
 type TimetableSlotRow = {
   id: string
+  classSection?: { className: string; sectionName: string; shift?: { name: string; code: string } | null }
   dayOfWeek: number
   startTime: string
   endTime: string
@@ -479,6 +480,19 @@ export default function AcademicEnginePage() {
         `/api/timetable/slots?academicYearId=${activeYear?.id}&classSectionId=${slotFilterSection}`
       ),
     enabled: !!activeYear?.id && !!slotFilterSection,
+  })
+
+  // Show a teacher's existing published schedule before a new slot is saved.
+  // This is advisory only; the API still performs authoritative conflict
+  // validation on create/update.
+  const { data: teacherPublishedSlots = [] } = useQuery({
+    queryKey: ['teacher-published-slots', activeYear?.id, slotForm.teacherId],
+    queryFn: () =>
+      fetchApi<TimetableSlotRow[]>(
+        `/api/timetable/slots?academicYearId=${encodeURIComponent(activeYear!.id)}` +
+        `&teacherId=${encodeURIComponent(slotForm.teacherId)}&published=true`
+      ),
+    enabled: Boolean(activeYear?.id && slotForm.teacherId),
   })
 
   const [newSubject, setNewSubject] = useState({ name: '', code: '' })
@@ -1866,6 +1880,29 @@ export default function AcademicEnginePage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {slotForm.teacherId && (
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900">Published slots for this teacher</p>
+                          <span className="text-[10px] font-semibold text-amber-700">{teacherPublishedSlots.length}</span>
+                        </div>
+                        {teacherPublishedSlots.length === 0 ? (
+                          <p className="mt-1 text-xs text-amber-800">No published slots in the active academic year.</p>
+                        ) : (
+                          <div className="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-xs text-amber-900">
+                            {teacherPublishedSlots.map((slot) => (
+                              <div key={slot.id} className="flex items-start justify-between gap-2 rounded-md bg-white/70 px-2 py-1.5">
+                                <span className="font-mono">{DAY_NAMES[slot.dayOfWeek] || `D${slot.dayOfWeek}`} {slot.startTime}–{slot.endTime}</span>
+                                <span className="text-right font-medium">
+                                  {slot.classSection ? `${slot.classSection.className}-${slot.classSection.sectionName}` : 'Assigned section'}
+                                  <br />{slot.subjectOffering.subject.name}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div><Label>3. Day (1–7)</Label><Input type="number" min={1} max={7} value={slotForm.dayOfWeek} onChange={(e) => setSlotForm({ ...slotForm, dayOfWeek: Number(e.target.value) })} /></div>

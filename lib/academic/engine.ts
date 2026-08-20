@@ -40,6 +40,15 @@ export type TimetableConflict = {
   type: 'TEACHER' | 'ROOM' | 'SECTION' | 'SHIFT' | 'CAMPUS' | 'SUBJECT'
   message: string
   slotId?: string
+  slot?: {
+    id: string
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+    isPublished: boolean
+    classSection: string
+    subject: string
+  }
 }
 
 export async function validateTimetableSlot(params: {
@@ -112,17 +121,29 @@ export async function validateTimetableSlot(params: {
     include: {
       classSection: { include: { campus: true, shift: true } },
       teacher: true,
+      subjectOffering: { include: { subject: true } },
     },
   })
 
   for (const slot of existing) {
     if (!timesOverlap(params.startTime, params.endTime, slot.startTime, slot.endTime)) continue
 
+    const slotContext = {
+      id: slot.id,
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      isPublished: slot.isPublished,
+      classSection: `${slot.classSection.className}-${slot.classSection.sectionName}`,
+      subject: slot.subjectOffering.subject.name,
+    }
+
     if (params.teacherId && slot.teacherId === params.teacherId) {
       conflicts.push({
         type: 'TEACHER',
         message: `Teacher is already scheduled from ${slot.startTime}-${slot.endTime}. Choose a different teacher or time.`,
         slotId: slot.id,
+        slot: slotContext,
       })
     }
 
@@ -131,6 +152,7 @@ export async function validateTimetableSlot(params: {
         type: 'ROOM',
         message: `Room is already booked from ${slot.startTime}-${slot.endTime}. Choose another room or time.`,
         slotId: slot.id,
+        slot: slotContext,
       })
     }
 
@@ -139,6 +161,7 @@ export async function validateTimetableSlot(params: {
         type: 'SECTION',
         message: `This section already has a class from ${slot.startTime}-${slot.endTime}. Choose another period.`,
         slotId: slot.id,
+        slot: slotContext,
       })
     }
 
@@ -150,6 +173,7 @@ export async function validateTimetableSlot(params: {
         type: 'CAMPUS',
         message: 'Teacher cannot be scheduled at two campuses during the same time window.',
         slotId: slot.id,
+        slot: slotContext,
       })
     }
   }
