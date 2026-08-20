@@ -154,9 +154,9 @@ export const teacherAttendanceQuerySchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 export const addClassAssignmentSchema = z.object({
   // Legacy path — assigns via ClassTeacher join table
-  classId: z.string().cuid('Invalid class ID').optional(),
+  classId: z.string().min(1, 'Invalid class ID').optional(),
   // Academic Engine path — assigns via SubjectOffering or class-incharge flag
-  classSectionId: z.string().cuid('Invalid class section ID').optional(),
+  classSectionId: z.string().min(1, 'Invalid class section ID').optional(),
   isClassTeacher: z.boolean().default(false),
   academicYear: z
     .string()
