@@ -311,23 +311,28 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         )
       }
 
-      const assignment = await prisma.teacherSectionAssignment.upsert({
-        where: {
-          teacherId_classSectionId_academicYearId: {
+      const result = await prisma.$transaction(async (tx) => {
+        const assignment = await tx.teacherSectionAssignment.upsert({
+          where: {
+            teacherId_classSectionId_academicYearId: {
+              teacherId: id,
+              classSectionId,
+              academicYearId: academicYearRecord.id,
+            },
+          },
+          update: { isClassTeacher, status: 'ACTIVE' },
+          create: {
             teacherId: id,
             classSectionId,
             academicYearId: academicYearRecord.id,
+            isClassTeacher,
+            status: 'ACTIVE',
           },
-        },
-        update: { isClassTeacher, status: 'ACTIVE' },
-        create: {
-          teacherId: id,
-          classSectionId,
-          academicYearId: academicYearRecord.id,
-          isClassTeacher,
-          status: 'ACTIVE',
-        },
+        })
+        return { assignment, offering: null }
       })
+
+      const assignment = result.assignment
 
       // Non-blocking audit log
       try {
@@ -364,7 +369,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
 
       return createdResponse(
-        { assignment, offering: null },
+        result,
         `Teacher assigned to ${section.className}-${section.sectionName} (${section.shift?.name || 'Default'}) for ${academicYearRecord.name}`
       )
     }
@@ -396,9 +401,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     })
 
     if (existing) {
-      const updated = await prisma.classTeacher.update({
-        where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
-        data: { isClassTeacher },
+      const updated = await prisma.$transaction(async (tx) => {
+        return tx.classTeacher.update({
+          where: { classId_teacherId_academicYear: { classId, teacherId: id, academicYear } },
+          data: { isClassTeacher },
+        })
       })
 
       try {
@@ -420,8 +427,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return successResponse(updated, `Class assignment updated for ${cls.name}`)
     }
 
-    const assignment = await prisma.classTeacher.create({
-      data: { classId, teacherId: id, isClassTeacher, academicYear },
+    const assignment = await prisma.$transaction(async (tx) => {
+      return tx.classTeacher.create({
+        data: { classId, teacherId: id, isClassTeacher, academicYear },
+      })
     })
 
     try {
