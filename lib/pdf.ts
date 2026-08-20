@@ -311,27 +311,6 @@ function sanitizeForPdfCapture(root: HTMLElement): void {
   })
 }
 
-/** Inline computed styles for all elements in the cloned tree to preserve exact layout. */
-function inlineAllComputedStyles(root: HTMLElement): void {
-  const nodes: Element[] = [root, ...Array.from(root.querySelectorAll('*'))]
-  nodes.forEach((node) => {
-    try {
-      const computed = window.getComputedStyle(node as Element)
-      let cssText = ''
-      for (let i = 0; i < computed.length; i++) {
-        const prop = computed[i]
-        const val = computed.getPropertyValue(prop)
-        const safeVal = translateOklchColors(val, prop)
-        cssText += `${prop}:${safeVal};`
-      }
-      if (node instanceof HTMLElement) {
-        node.style.cssText = `${node.style.cssText || ''} ${cssText}`
-      }
-    } catch (e) {
-      // ignore computed style errors for some pseudo-elements or SVGs
-    }
-  })
-}
 
 export interface GeneratePdfOptions {
   /** The DOM element to capture */
@@ -465,12 +444,7 @@ export async function generatePdfBlob({
 
   clonedElement.classList.add('pdf-export-clean')
 
-  // Inline computed styles so the clone renders identically even when detached from site CSS rules
-  try {
-    inlineAllComputedStyles(clonedElement)
-  } catch (e) {
-    // non-fatal
-  }
+
 
   sanitizeForPdfCapture(clonedElement)
 
