@@ -192,6 +192,103 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+/**
+ * DELETE — remove every published slot for one teacher in one academic year.
+ *
+ * This is intentionally a Superadmin-only bulk operation. A teacher's
+ * published timetable is the source displayed in the teacher and student
+ * portals, so the operation requires an explicit `published=true` query
+ * parameter and records one audit event for the complete replacement action.
+ * Draft slots are never removed by this endpoint; they remain available for
+ * review or can be deleted individually.
+ */
+export async function DELETE(request: NextRequest) {
+  const { session, error } = await requireSession()
+  if (error || !session) return error!
+  const denied = requirePermission(session.user.role as Role, 'timetable_engine', 'delete')
+  if (denied) return denied
+  if (session.user.role !== 'SUPER_ADMIN') {
+    return errors.forbidden('Only Superadmin can replace a teacher timetable in bulk')
+  }
+
+  const { searchParams } = new URL(request.url)
+  const teacherId = searchParams.get('teacherId')
+  const academicYearId = searchParams.get('academicYearId')
+  const classSectionId = searchParams.get('classSectionId')
+
+  if (!teacherId || !academicYearId) {
+    return errors.badRequest('teacherId and academicYearId are required')
+  }
+  if (searchParams.get('published') !== 'true') {
+    return errors.badRequest('Bulk deletion must explicitly target published slots')
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: { id: true },
+  })
+  if (!teacher) return errors.notFound('Teacher')
+
+  try {
+    await assertAcademicYearEditable(academicYearId)
+  } catch {
+    return errors.forbidden('Academic year is locked')
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const where = {
+        academicYearId,
+        teacherId,
+        isPublished: true,
+        ...(classSectionId ? { classSectionId } : {}),
+      }
+
+      const slots = await tx.timetableSlot.findMany({
+        where,
+        select: { id: true },
+      })
+      const slotIds = slots.map((slot) => slot.id)
+
+      if (slotIds.length === 0) {
+        return { count: 0, slotIds: [] as string[] }
+      }
+
+      const deleted = await tx.timetableSlot.deleteMany({
+        where: { id: { in: slotIds } },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'DELETE',
+          entityType: 'TimetableSlotBulkReplacement',
+          entityId: teacherId,
+          changes: {
+            teacherId,
+            academicYearId,
+            ...(classSectionId ? { classSectionId } : {}),
+            publishedOnly: true,
+            deletedSlotIds: slotIds,
+            deletedCount: deleted.count,
+          },
+        },
+      })
+
+      return { count: deleted.count, slotIds }
+    })
+
+    return successResponse(
+      { deletedCount: result.count },
+      result.count > 0
+        ? `${result.count} published timetable slot(s) removed`
+        : 'No published timetable slots found for this teacher'
+    )
+  } catch (err) {
+    return timetablePersistenceError(err, 'bulk delete teacher timetable')
+  }
+}
+
 function errorResponseConflicts(
   conflicts: Parameters<typeof timetableConflictDetails>[0]
 ) {

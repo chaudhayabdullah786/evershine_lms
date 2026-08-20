@@ -16,6 +16,10 @@ import { timetableQuerySchema } from '@/lib/validation/teacher'
 import { getTeacherAssignedSectionIds } from '@/lib/academic/teacher-assignments'
 import type { Role } from '@prisma/client'
 
+// Never serve a cached timetable after an admin deletes or republishes slots.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

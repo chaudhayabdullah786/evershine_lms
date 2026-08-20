@@ -10,6 +10,12 @@ import { guardLegacyClassMutation } from '@/lib/academic/legacy-guard'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getTeacherAssignedSectionIds } from '@/lib/academic/teacher-assignments'
 
+// Portal timetable reads must always reflect the latest published Academic
+// Engine slots after a Superadmin replacement. Authentication already makes
+// this route dynamic; these declarations make the no-cache contract explicit.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
