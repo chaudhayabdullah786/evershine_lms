@@ -3,13 +3,17 @@ import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
 import { getActiveAcademicYear } from '@/lib/academic/engine'
 import { getActiveEnrollmentsForStudent } from '@/lib/academic/student-enrollment'
-import { autoEnrollMandatorySubjects } from '@/lib/academic/enrollment'
+
 
 /** Student portal: enrollments (multi-shift), electives, and timetables per section. */
 export async function GET() {
   const session = await auth()
   if (!session?.user) return errors.unauthorized()
-  if (!['STUDENT', 'SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) return errors.forbidden()
+  // WHY STUDENT-only: This route resolves the student via session.user.id.
+  // SUPER_ADMIN/ADMIN users have no Student record linked to their userId,
+  // so their calls always fail with 404. The route is a student self-service
+  // endpoint and must not be conflated with admin data access.
+  if (session.user.role !== 'STUDENT') return errors.forbidden()
 
   const student = await prisma.student.findUnique({
     where: { userId: session.user.id },
@@ -21,10 +25,8 @@ export async function GET() {
     },
   })
 
-  if (!student && ['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-    return errors.notFound('Student profile')
-  }
   if (!student) return errors.notFound('Student profile')
+
 
   const activeYear = await getActiveAcademicYear()
   if (!activeYear) {
@@ -56,19 +58,12 @@ export async function GET() {
 
   const enrollments = await getActiveEnrollmentsForStudent(student.id, activeYear.id)
 
-  // ── Auto-backfill mandatory SubjectEnrollments for FIXED sections ──────────
-  // WHY: If a student is in a FIXED curriculum section, mandatory subjects are
-  // assigned automatically during admission. If the SubjectEnrollment records are
-  // missing (e.g. legacy data, manual admin creation), we auto-create them here
-  // at query time so the student always sees their subjects without admin intervention.
-  for (const enr of enrollments) {
-    if (enr.classSection.curriculumMode === 'FIXED' && enr.subjectEnrollments.length === 0) {
-      await autoEnrollMandatorySubjects(enr.id, enr.classSectionId, activeYear.id)
-    }
-  }
-
-  // Reload enrollments so any newly created SubjectEnrollments are reflected
-  const freshEnrollments = await getActiveEnrollmentsForStudent(student.id, activeYear.id)
+  // WHY: Auto-enrollment of mandatory subjects is intentionally NOT performed here.
+  // This is a read-only GET route; side-effecting it with SubjectEnrollment creation
+  // caused phantom subject assignments to appear for students who were placed in a
+  // FIXED section without a formal admin enrollment action. Auto-enrollment must be
+  // triggered explicitly by an admin via a dedicated mutation endpoint.
+  const freshEnrollments = enrollments
   const enrollment = freshEnrollments[0] ?? null
 
   const timetablesByEnrollment = await Promise.all(
