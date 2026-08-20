@@ -219,30 +219,77 @@ function cleanupZeroSizeCanvases(root: HTMLElement): void {
   })
 }
 
+function translateOklchColors(val: string, propName: string = 'color'): string {
+  if (!val || typeof val !== 'string') return val
+  const lowerProp = propName.toLowerCase().replace(/-/g, '')
+
+  if (val.includes('oklch') || val.includes('oklab') || val.includes('lab') || val.includes('color(')) {
+    if (val.includes('gradient') || val.includes('url(') || lowerProp.includes('backgroundimage')) {
+      const colorRegex = /(oklch|oklab|lab|color)\([^)]+\)/g
+      return val.replace(colorRegex, (match) => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = 1
+          canvas.height = 1
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })
+          if (ctx) {
+            ctx.fillStyle = match
+            ctx.fillRect(0, 0, 1, 1)
+            const data = ctx.getImageData(0, 0, 1, 1).data
+            if (data[3] === 0 && !match.includes('transparent')) {
+              return 'rgba(255, 255, 255, 1)'
+            }
+            return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${(data[3] / 255).toFixed(3)})`
+          }
+        } catch (e) {
+          // ignore
+        }
+        return match
+      })
+    }
+
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1
+      canvas.height = 1
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (ctx) {
+        ctx.fillStyle = val
+        ctx.fillRect(0, 0, 1, 1)
+        const data = ctx.getImageData(0, 0, 1, 1).data
+        if (data[3] === 0 && !val.includes('transparent')) {
+          if (lowerProp.includes('background')) return 'rgb(255, 255, 255)'
+          if (lowerProp.includes('color') && !lowerProp.includes('border')) return 'rgb(17, 24, 39)'
+          if (lowerProp.includes('border')) return 'rgb(229, 231, 235)'
+          return 'transparent'
+        }
+        return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${(data[3] / 255).toFixed(3)})`
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    if (lowerProp.includes('background')) return 'rgb(255, 255, 255)'
+    if (lowerProp.includes('color') && !lowerProp.includes('border')) return 'rgb(17, 24, 39)'
+    if (lowerProp.includes('border')) return 'rgb(229, 231, 235)'
+    return 'transparent'
+  }
+  return val
+}
+
 function cleanupProblematicImages(root: HTMLElement): void {
   const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[]
   images.forEach((img) => {
-    const rect = img.getBoundingClientRect()
-    const hasZeroBounds = rect.width === 0 || rect.height === 0
-    const hasZeroNatural = img.naturalWidth === 0 || img.naturalHeight === 0
+    const src = img.getAttribute('src') || img.src || ''
+    if (/^data:image\//i.test(src)) {
+      // Never destroy data URIs (base64 SVG, PNG, JPEG, WEBP) or avatars
+      return
+    }
     const isHidden = img.style.display === 'none' || img.style.visibility === 'hidden'
-    const hasNoSrc = !img.src || img.src === window.location.href || img.src.endsWith('/')
+    const hasNoSrc = !src || src === window.location.href || src.endsWith('/')
     
-    if (hasZeroBounds || hasZeroNatural || isHidden || hasNoSrc) {
-      console.debug('[PDF] Normalizing/cleaning up problematic image:', {
-        src: img.src ? img.src.substring(0, 100) : 'none',
-        bounds: `${Math.round(rect.width)}x${Math.round(rect.height)}`,
-        natural: `${img.naturalWidth}x${img.naturalHeight}`,
-        hidden: isHidden,
-        noSrc: hasNoSrc
-      })
-      // Replace src with a 1x1 transparent GIF to prevent 0-size canvas pattern crash in html2canvas
+    if (isHidden || hasNoSrc) {
       img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-      
-      if (hasZeroBounds) {
-        img.style.width = '1px'
-        img.style.height = '1px'
-      }
     }
   })
 }
@@ -258,6 +305,9 @@ function sanitizeForPdfCapture(root: HTMLElement): void {
     if (element.style.transform) {
       element.style.transform = 'none'
     }
+    if (element.style && element.style.cssText) {
+      element.style.cssText = translateOklchColors(element.style.cssText)
+    }
   })
 }
 
@@ -271,7 +321,8 @@ function inlineAllComputedStyles(root: HTMLElement): void {
       for (let i = 0; i < computed.length; i++) {
         const prop = computed[i]
         const val = computed.getPropertyValue(prop)
-        cssText += `${prop}:${val};`
+        const safeVal = translateOklchColors(val, prop)
+        cssText += `${prop}:${safeVal};`
       }
       if (node instanceof HTMLElement) {
         node.style.cssText = `${node.style.cssText || ''} ${cssText}`
@@ -311,6 +362,75 @@ export async function generatePdfBlob({
   const docFormat = format || [320, 510]
   const pdfWidth = docFormat === 'a4' ? 595 : docFormat[0]
   const pdfHeight = docFormat === 'a4' ? 842 : docFormat[1]
+
+  const originalGetComputedStyle = window.getComputedStyle
+  const originalCreatePattern = CanvasRenderingContext2D.prototype.createPattern
+  const originalDrawImage = CanvasRenderingContext2D.prototype.drawImage
+  const originalAddColorStop = CanvasGradient.prototype.addColorStop
+
+  CanvasRenderingContext2D.prototype.createPattern = function (
+    this: CanvasRenderingContext2D,
+    image: CanvasImageSource,
+    repetition: string | null
+  ): CanvasPattern | null {
+    if (image instanceof HTMLCanvasElement && (image.width === 0 || image.height === 0)) {
+      console.warn('[PDF Patch] Intercepted 0-size canvas in createPattern, forcing 1x1 size to prevent crash.')
+      image.width = 1
+      image.height = 1
+    }
+    return originalCreatePattern.call(this, image, repetition)
+  }
+
+  CanvasRenderingContext2D.prototype.drawImage = function (
+    this: CanvasRenderingContext2D,
+    image: CanvasImageSource,
+    ...args: any[]
+  ): void {
+    if (image instanceof HTMLCanvasElement && (image.width === 0 || image.height === 0)) {
+      console.warn('[PDF Patch] Intercepted 0-size canvas in drawImage, forcing 1x1 size to prevent crash.')
+      image.width = 1
+      image.height = 1
+    }
+    return (originalDrawImage as any).apply(this, [image, ...args])
+  }
+
+  CanvasGradient.prototype.addColorStop = function (
+    this: CanvasGradient,
+    offset: number,
+    color: string
+  ): void {
+    if (!Number.isFinite(offset) || isNaN(offset)) {
+      console.warn(`[PDF Patch] Intercepted non-finite offset (${offset}) in addColorStop for color ${color}. Defaulting to 0.`)
+      offset = 0
+    } else if (offset < 0) {
+      offset = 0
+    } else if (offset > 1) {
+      offset = 1
+    }
+    return originalAddColorStop.call(this, offset, color)
+  }
+
+  window.getComputedStyle = function (elt, pseudoElt) {
+    const style = originalGetComputedStyle(elt, pseudoElt)
+    return new Proxy(style, {
+      get(target, prop) {
+        if (prop === 'getPropertyValue') {
+          return (propertyName: string) => {
+            const val = target.getPropertyValue(propertyName)
+            return translateOklchColors(val, propertyName)
+          }
+        }
+        const val = (target as any)[prop]
+        if (typeof val === 'string') {
+          return translateOklchColors(val, String(prop))
+        }
+        if (typeof val === 'function') {
+          return val.bind(target)
+        }
+        return val
+      },
+    })
+  }
 
   const clonedElement = element.cloneNode(true) as HTMLElement
   const captureTargetsPreview = Array.from(element.querySelectorAll('[data-card]')) as HTMLElement[]
@@ -358,136 +478,6 @@ export async function generatePdfBlob({
   const pageTargets = Array.from(clonedElement.querySelectorAll('[data-document-page]')) as HTMLElement[]
   const targets =
     captureTargets.length > 0 ? captureTargets : pageTargets.length > 0 ? pageTargets : [clonedElement]
-
-  const originalGetComputedStyle = window.getComputedStyle
-  const originalCreatePattern = CanvasRenderingContext2D.prototype.createPattern
-  const originalDrawImage = CanvasRenderingContext2D.prototype.drawImage
-
-  CanvasRenderingContext2D.prototype.createPattern = function (
-    this: CanvasRenderingContext2D,
-    image: CanvasImageSource,
-    repetition: string | null
-  ): CanvasPattern | null {
-    if (image instanceof HTMLCanvasElement && (image.width === 0 || image.height === 0)) {
-      console.warn('[PDF Patch] Intercepted 0-size canvas in createPattern, forcing 1x1 size to prevent crash.')
-      image.width = 1
-      image.height = 1
-    }
-    return originalCreatePattern.call(this, image, repetition)
-  }
-
-  CanvasRenderingContext2D.prototype.drawImage = function (
-    this: CanvasRenderingContext2D,
-    image: CanvasImageSource,
-    ...args: any[]
-  ): void {
-    if (image instanceof HTMLCanvasElement && (image.width === 0 || image.height === 0)) {
-      console.warn('[PDF Patch] Intercepted 0-size canvas in drawImage, forcing 1x1 size to prevent crash.')
-      image.width = 1
-      image.height = 1
-    }
-    return (originalDrawImage as any).apply(this, [image, ...args])
-  }
-
-  const originalAddColorStop = CanvasGradient.prototype.addColorStop
-  CanvasGradient.prototype.addColorStop = function (
-    this: CanvasGradient,
-    offset: number,
-    color: string
-  ): void {
-    if (!Number.isFinite(offset) || isNaN(offset)) {
-      console.warn(`[PDF Patch] Intercepted non-finite offset (${offset}) in addColorStop for color ${color}. Defaulting to 0.`)
-      offset = 0
-    } else if (offset < 0) {
-      offset = 0
-    } else if (offset > 1) {
-      offset = 1
-    }
-    return originalAddColorStop.call(this, offset, color)
-  }
-
-  window.getComputedStyle = function (elt, pseudoElt) {
-    const style = originalGetComputedStyle(elt, pseudoElt)
-
-    const safeColor = (val: string, propName: string): string => {
-      if (!val) return val
-      const lowerProp = propName.toLowerCase().replace(/-/g, '')
-      
-      if (val.includes('oklch') || val.includes('oklab') || val.includes('lab') || val.includes('color(')) {
-        // If it is a background image, gradient, or contains oklch inside a gradient string
-        if (val.includes('gradient') || val.includes('url(') || lowerProp.includes('backgroundimage')) {
-          // Regex to parse oklch(...), oklab(...), lab(...), color(...) including decimal fractions
-          const colorRegex = /(oklch|oklab|lab|color)\([^)]+\)/g
-          return val.replace(colorRegex, (match) => {
-            try {
-              const canvas = document.createElement("canvas")
-              canvas.width = 1
-              canvas.height = 1
-              const ctx = canvas.getContext("2d", { willReadFrequently: true })
-              if (ctx) {
-                ctx.fillStyle = match
-                ctx.fillRect(0, 0, 1, 1)
-                const data = ctx.getImageData(0, 0, 1, 1).data
-                if (data[3] === 0 && !match.includes('transparent')) {
-                  return 'rgba(255, 255, 255, 1)'
-                }
-                return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${(data[3] / 255).toFixed(3)})`
-              }
-            } catch (e) {
-              console.warn('safeColor gradient translation failed for match:', match, e)
-            }
-            return match
-          })
-        }
-
-        try {
-          const canvas = document.createElement("canvas")
-          canvas.width = 1
-          canvas.height = 1
-          const ctx = canvas.getContext("2d", { willReadFrequently: true })
-          if (ctx) {
-            ctx.fillStyle = val
-            ctx.fillRect(0, 0, 1, 1)
-            const data = ctx.getImageData(0, 0, 1, 1).data
-            if (data[3] === 0 && !val.includes('transparent')) {
-              if (lowerProp.includes('background')) return 'rgb(255, 255, 255)'
-              if (lowerProp.includes('color') && !lowerProp.includes('border')) return 'rgb(17, 24, 39)'
-              if (lowerProp.includes('border')) return 'rgb(229, 231, 235)'
-              return 'transparent'
-            }
-            return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${(data[3] / 255).toFixed(3)})`
-          }
-        } catch (e) {
-          console.warn('safeColor canvas conversion failed for value:', val, e)
-        }
-        
-        if (lowerProp.includes('background')) return 'rgb(255, 255, 255)'
-        if (lowerProp.includes('color') && !lowerProp.includes('border')) return 'rgb(17, 24, 39)'
-        if (lowerProp.includes('border')) return 'rgb(229, 231, 235)'
-        return 'transparent'
-      }
-      return val
-    }
-
-    return new Proxy(style, {
-      get(target, prop) {
-        if (prop === 'getPropertyValue') {
-          return (propertyName: string) => {
-            const val = target.getPropertyValue(propertyName)
-            return safeColor(val, propertyName)
-          }
-        }
-        const val = (target as any)[prop]
-        if (typeof val === 'string') {
-          return safeColor(val, String(prop))
-        }
-        if (typeof val === 'function') {
-          return val.bind(target)
-        }
-        return val
-      },
-    })
-  }
 
   let pdf: jsPDF | null = null
 
