@@ -55,6 +55,41 @@ describe('document export regression', () => {
     expect(page.style.overflow).toBe('hidden')
   })
 
+  it('waits for a data-gated result card before capturing', async () => {
+    const wrapper = document.createElement('div')
+    const page = document.createElement('div')
+    page.setAttribute('data-document-page', '')
+    page.setAttribute('data-export-ready', 'false')
+    page.style.width = '595px'
+    page.style.height = '842px'
+    page.getBoundingClientRect = () => ({ width: 595, height: 842 } as DOMRect)
+    wrapper.appendChild(page)
+
+    const timer = setTimeout(() => page.setAttribute('data-export-ready', 'true'), 10)
+    await exportPreviewDocument(wrapper, 'STU-1234-result-card')
+    clearTimeout(timer)
+
+    expect(downloadPdfMock).toHaveBeenCalledWith(expect.objectContaining({
+      element: page,
+      filename: 'STU-1234-result-card',
+    }))
+  })
+
+  it('honors explicit PDF dimensions on a result-card page', async () => {
+    const wrapper = document.createElement('div')
+    const page = document.createElement('div')
+    page.setAttribute('data-document-page', '')
+    page.setAttribute('data-pdf-width', '595')
+    page.setAttribute('data-pdf-height', '842')
+    page.style.width = '420px'
+    page.style.height = '600px'
+    wrapper.appendChild(page)
+
+    await exportPreviewDocument(wrapper, 'STU-1234-result-card')
+
+    expect(downloadPdfMock).toHaveBeenCalledWith(expect.objectContaining({ element: page }))
+  })
+
   it('captures shared academic PDF pages as the export target', async () => {
     const wrapper = document.createElement('div')
     const page = document.createElement('div')

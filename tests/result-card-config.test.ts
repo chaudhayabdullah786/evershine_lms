@@ -23,12 +23,15 @@ describe('result card display configuration', () => {
   it('normalizes decimal marks without string concatenation', () => {
     expect(toNumericMark('87.5')).toBe(87.5)
     expect(toNumericMark(100)).toBe(100)
+    expect(toNumericMark({ value: '91.25' })).toBe(91.25)
+    expect(toNumericMark({ toNumber: () => 88.5 })).toBe(88.5)
     expect(toNumericMark(null)).toBeNull()
     expect([toNumericMark('87'), toNumericMark('76')].reduce((sum, mark) => sum + (mark ?? 0), 0)).toBe(163)
   })
 
-  it('formats opaque legacy session IDs only as a fallback label', () => {
+  it('keeps human labels but never prints opaque legacy session IDs', () => {
     expect(formatExamSessionLabel('second-step_exam')).toBe('Second Step Exam')
+    expect(formatExamSessionLabel('cmSKLM7QW0ETQA9QWB1098S6')).toBe('Official Result Card')
     expect(formatExamSessionLabel('')).toBe('Official Result Card')
   })
 })
