@@ -72,11 +72,15 @@ export async function POST(
     select: { campusId: true },
   })
   if (!section) return errors.notFound('Class section')
-  if (section.campusId !== student.campusId) {
+  // WHY: SUPER_ADMIN may deliberately assign students across campuses (transfer).
+  // Regular ADMIN is restricted to sections within the student's campus.
+  const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+  if (!isSuperAdmin && section.campusId !== student.campusId) {
     return errors.validation({
       errors: [{ path: ['classSectionId'], message: 'Section must belong to the student campus' }],
     } as never)
   }
+
 
   const duplicate = await prisma.studentEnrollment.findUnique({
     where: {

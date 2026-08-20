@@ -93,13 +93,15 @@ export function StudentEnrollmentsPanel({
     ? enrollmentsRaw
     : (enrollmentsRaw as { data?: StudentEnrollmentRow[] })?.data ?? []
 
-  const { data: sectionsRaw } = useQuery({
-    queryKey: ['class-sections', campusId, batchId],
-    queryFn: () => {
-      const params = new URLSearchParams({ campusId })
-      if (batchId) params.set('batchId', batchId)
-      return fetchApi<ClassSectionOption[]>(`/api/class-sections?${params}`)
-    },
+  // WHY: We intentionally omit the `batchId` filter here.
+  // Student.batchId is a legacy admission field that does NOT map 1:1 to
+  // ClassSection.batchId in the Academic Engine. Filtering by it causes the
+  // dropdown to return zero results when the legacy batch has no engine sections.
+  // Admins should see ALL active sections for the student's campus.
+  const { data: sectionsRaw, isLoading: sectionsLoading } = useQuery({
+    queryKey: ['class-sections-by-campus', campusId],
+    queryFn: () =>
+      fetchApi<ClassSectionOption[]>(`/api/class-sections?campusId=${encodeURIComponent(campusId)}`),
     enabled: (showAdd || !!reEnrollingId) && !!campusId,
   })
 
@@ -175,6 +177,19 @@ export function StudentEnrollmentsPanel({
     onError: (err: Error) => notify.error(err.message || 'Failed to re-enroll'),
   })
 
+  // WHY explicit mutation: auto-enrollment of mandatory subjects is a write operation
+  // that was previously triggered implicitly on every GET request, creating phantom
+  // subject assignments. It is now admin-only and manually triggered.
+  const autoEnrollMutation = useMutation({
+    mutationFn: (enrollmentId: string) =>
+      fetchApi(`/api/student-enrollments/${enrollmentId}/auto-enroll-subjects`, { method: 'POST' }),
+    onSuccess: () => {
+      notify.success('Mandatory subjects enrolled successfully')
+      qc.invalidateQueries({ queryKey: ['student-enrollments', studentId] })
+    },
+    onError: (err: Error) => notify.error(err.message || 'Failed to auto-enroll subjects'),
+  })
+
   // ── Handler helpers ──────────────────────────────────────────────────────
 
   function startEdit(e: StudentEnrollmentRow) {
@@ -222,16 +237,25 @@ export function StudentEnrollmentsPanel({
             <p className="text-xs font-semibold text-indigo-800">New section enrollment</p>
             <div className="space-y-1">
               <Label className="text-xs">Class section</Label>
-              <Select value={classSectionId} onValueChange={setClassSectionId}>
+              <Select value={classSectionId} onValueChange={setClassSectionId} disabled={sectionsLoading}>
                 <SelectTrigger className="h-9 text-sm bg-white">
-                  <SelectValue placeholder="Select section" />
+                  {sectionsLoading
+                    ? <span className="flex items-center gap-1.5 text-gray-400"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading sections…</span>
+                    : <SelectValue placeholder="Select section" />
+                  }
                 </SelectTrigger>
                 <SelectContent>
-                  {sections.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.className}-{s.sectionName} · {s.shift.name} · {s.campus.code}/{s.batch.code}
-                    </SelectItem>
-                  ))}
+                  {sections.length === 0 && !sectionsLoading ? (
+                    <div className="py-4 px-3 text-center text-xs text-gray-400">
+                      No active sections found for this campus.
+                    </div>
+                  ) : (
+                    sections.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.className}-{s.sectionName} · {s.shift.name} · {s.campus.code}/{s.batch.code}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -304,6 +328,20 @@ export function StudentEnrollmentsPanel({
                       <Link href={`/dashboard/attendance/sections?sectionId=${e.classSection.id}`}>
                         <Button variant="ghost" size="sm" className="text-xs h-7">Attendance</Button>
                       </Link>
+                      {/* Auto-enroll button: shown when FIXED section has no subject assignments yet */}
+                      {canManage && !isLocked && (!e.subjectEnrollments || e.subjectEnrollments.length === 0) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          title="Auto-enroll mandatory subjects for this FIXED section"
+                          disabled={autoEnrollMutation.isPending}
+                          onClick={() => autoEnrollMutation.mutate(e.id)}
+                        >
+                          {autoEnrollMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '+'}
+                          Subjects
+                        </Button>
+                      )}
                       {canManage && !isLocked && (
                         <>
                           <Button
