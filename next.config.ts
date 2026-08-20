@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
     workerThreads: false,
     cpus: 1,
+    staticGenerationMaxConcurrency: 1,
   },
 
   // Image remote patterns — add domains your images are served from.
