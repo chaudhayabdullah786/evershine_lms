@@ -560,6 +560,7 @@ export default function AcademicEnginePage() {
       setSelectedOfferingIds([])
       notify.success(`${res.summary.created} slot(s) created, ${res.summary.failed} skipped`)
       qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      qc.invalidateQueries({ queryKey: ['teacher-published-slots'] })
     },
     onError: (e: Error) => {
       const message = formatApiFormError(e, 'Unable to create slots.')
@@ -629,6 +630,8 @@ export default function AcademicEnginePage() {
     onSuccess: () => {
       setSlotError(null)
       notify.success('Timetable published for section')
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      qc.invalidateQueries({ queryKey: ['teacher-published-slots'] })
     },
     onError: (e: Error) => {
       const message = formatApiFormError(e, 'Unable to publish timetable.')
@@ -801,8 +804,28 @@ export default function AcademicEnginePage() {
     onSuccess: () => {
       notify.success('Timetable slot removed')
       qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      qc.invalidateQueries({ queryKey: ['teacher-published-slots'] })
     },
     onError: (e: Error) => notify.error(e.message || 'Failed to delete slot'),
+  })
+
+  const deleteTeacherPublishedSlots = useMutation({
+    mutationFn: ({ teacherId, academicYearId }: { teacherId: string; academicYearId: string }) =>
+      fetchApi<{ deletedCount: number }>(
+        `/api/timetable/slots?teacherId=${encodeURIComponent(teacherId)}` +
+        `&academicYearId=${encodeURIComponent(academicYearId)}&published=true`,
+        { method: 'DELETE' }
+      ),
+    onSuccess: ({ deletedCount }) => {
+      notify.success(
+        deletedCount > 0
+          ? `${deletedCount} published slot(s) removed. You can now create the replacement timetable.`
+          : 'No published slots were found for this teacher.'
+      )
+      qc.invalidateQueries({ queryKey: ['teacher-published-slots'] })
+      qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+    },
+    onError: (e: Error) => notify.error(e.message || 'Failed to replace teacher timetable'),
   })
 
   const updateSlot = useMutation({
@@ -814,6 +837,7 @@ export default function AcademicEnginePage() {
     onSuccess: () => {
       notify.success('Slot updated')
       qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      qc.invalidateQueries({ queryKey: ['teacher-published-slots'] })
       setEditingSlotId(null)
     },
     onError: (e: Error) => notify.error(e.message || 'Failed to update slot'),
@@ -1900,6 +1924,27 @@ export default function AcademicEnginePage() {
                               </div>
                             ))}
                           </div>
+                        )}
+                        {teacherPublishedSlots.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 h-8 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                            disabled={deleteTeacherPublishedSlots.isPending}
+                            onClick={() => {
+                              const teacherName = teachers.find((teacher) => teacher.id === slotForm.teacherId)
+                              const label = teacherName ? `${teacherName.firstName} ${teacherName.lastName}` : 'this teacher'
+                              const confirmed = window.confirm(
+                                `Remove all ${teacherPublishedSlots.length} published slot(s) for ${label}?\n\n` +
+                                'This immediately removes them from the teacher and enrolled students’ timetable views. Draft slots are not affected. You can create and publish replacement slots afterward.'
+                              )
+                              if (!confirmed || !activeYear?.id) return
+                              deleteTeacherPublishedSlots.mutate({ teacherId: slotForm.teacherId, academicYearId: activeYear.id })
+                            }}
+                          >
+                            {deleteTeacherPublishedSlots.isPending ? 'Removing published slots…' : 'Remove all published slots'}
+                          </Button>
                         )}
                       </div>
                     )}
