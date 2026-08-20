@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { errors, successResponse, errorResponse } from '@/lib/api-response'
 import { requireSession, requirePermission } from '@/lib/academic/api-helpers'
 import { generateTimetableTemplateSchema, timetableTemplateBlockSchema } from '@/lib/validation/academic'
-import { isWithinShiftWindow, timesOverlap } from '@/lib/academic/engine'
+import { isWithinShiftWindow, timesOverlap, validateTimetableSlot } from '@/lib/academic/engine'
 import { subjectOfferingUniqueWhere } from '@/lib/academic/timetable-keys'
 import { timetablePersistenceError } from '@/lib/academic/timetable-schema'
 import type { Role } from '@prisma/client'
@@ -161,6 +161,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           slotType: block.slotType,
         })
       }
+    }
+  }
+
+  // Re-run the shared engine validator for subject slots immediately before
+  // writing. The template preview has additional planned-slot checks, while
+  // this call keeps teacher/room/section/shift rules identical to single-slot,
+  // bulk, update, and publish requests. Period blocks use reserved offerings
+  // created inside the transaction and are already covered by the structural
+  // checks above.
+  for (const slot of planned.filter((entry) => entry.slotType === 'SUBJECT')) {
+    const validatorConflicts = await validateTimetableSlot({
+      academicYearId: slot.academicYearId,
+      classSectionId: slot.classSectionId,
+      subjectOfferingId: slot.subjectOfferingId,
+      teacherId: slot.teacherId,
+      roomId: slot.roomId,
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      ...(parsedRequest.data.replaceDrafts ? { ignoreTemplateId: templateId } : {}),
+    })
+    const slotField = `${slot.classSectionId}.${slot.dayOfWeek}.${slot.startTime}-${slot.endTime}`
+    if (validatorConflicts.length > 0 && !conflicts.some((item) => item.field === slotField)) {
+      conflicts.push(...validatorConflicts.map((item) => conflict(item.message, slot.classSectionId, slot.dayOfWeek, slot.startTime, slot.endTime)))
     }
   }
 

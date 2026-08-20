@@ -7,6 +7,8 @@ import { createTimetableSchema } from '@/lib/validation/timetable'
 import { sessionShiftSchema } from '@/lib/validation/shift'
 import type { Prisma, Role } from '@prisma/client'
 import { guardLegacyClassMutation } from '@/lib/academic/legacy-guard'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getTeacherAssignedSectionIds } from '@/lib/academic/teacher-assignments'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -25,52 +27,146 @@ export async function GET(request: NextRequest) {
     return errors.validation(shiftParsed.error)
   }
 
-  // Scoping: ADMIN is scoped to their campusId
-  const isSuperAdmin = role === 'SUPER_ADMIN'
+  // TimetableSlot is the canonical source for every portal. The old
+  // Timetable table is retained for migration/compatibility only and must not
+  // be used for current portal reads; doing so previously surfaced stale or
+  // unrelated records after an engine slot was published.
+  const activeYear = await getActiveAcademicYear()
+  if (!activeYear) return successResponse([])
+
   const campusId = session.user.campusId
+  let sectionIds: string[] = []
 
-  const where: any = {
-    isActive: true,
-    ...(classId && { classId }),
-    ...(teacherId && { teacherId }),
-    ...(dayOfWeek && { dayOfWeek: parseInt(dayOfWeek, 10) }),
-    ...(shiftParsed?.success && { shift: shiftParsed.data }),
+  if (classId) {
+    const directSection = await prisma.classSection.findUnique({
+      where: { id: classId },
+      select: { id: true, campusId: true, isActive: true },
+    })
+
+    if (directSection) {
+      sectionIds = directSection.isActive ? [directSection.id] : []
+    } else {
+      // Legacy callers may still send a Class ID. Resolve it only to the
+      // matching active-year ClassSection; never read legacy timetable rows.
+      const legacyClass = await prisma.class.findUnique({
+        where: { id: classId },
+        select: { grade: true, section: true, campusId: true, batchId: true, shift: true },
+      })
+      if (legacyClass) {
+        const sections = await prisma.classSection.findMany({
+          where: {
+            isActive: true,
+            campusId: legacyClass.campusId,
+            ...(legacyClass.batchId ? { batchId: legacyClass.batchId } : {}),
+            ...(legacyClass.section ? { sectionName: legacyClass.section } : {}),
+            ...(legacyClass.grade ? { grade: legacyClass.grade } : {}),
+            shift: { code: legacyClass.shift },
+          },
+          select: { id: true },
+        })
+        sectionIds = sections.map((section) => section.id)
+      }
+    }
   }
 
-  // Enforce campus boundaries
-  if (!isSuperAdmin && campusId) {
-    where.class = { campusId }
+  if (teacherId) {
+    const requestedTeacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { id: true, campusId: true, userId: true },
+    })
+    if (!requestedTeacher) return successResponse([])
+
+    if (role === 'TEACHER') {
+      const ownTeacher = await prisma.teacher.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true },
+      })
+      if (!ownTeacher || ownTeacher.id !== requestedTeacher.id) {
+        return errors.forbidden('Teachers can only view their own timetable')
+      }
+    }
+    if (role === 'ADMIN' && campusId && requestedTeacher.campusId !== campusId) {
+      return errors.forbidden('Cannot view a teacher from another campus')
+    }
+
+    const assignedSections = await getTeacherAssignedSectionIds(requestedTeacher.id, activeYear.id)
+    sectionIds = sectionIds.length > 0
+      ? sectionIds.filter((id) => assignedSections.includes(id))
+      : assignedSections
   }
 
-  const slots = await prisma.timetable.findMany({
-    where,
+  if (role === 'TEACHER' && !teacherId) {
+    const ownTeacher = await prisma.teacher.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    sectionIds = ownTeacher
+      ? await getTeacherAssignedSectionIds(ownTeacher.id, activeYear.id)
+      : []
+  }
+
+  if (role === 'STUDENT') {
+    const student = await prisma.student.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    const enrollments = student
+      ? await prisma.studentEnrollment.findMany({
+          where: { studentId: student.id, academicYearId: activeYear.id, status: 'ACTIVE' },
+          select: { classSectionId: true },
+        })
+      : []
+    const enrolledSectionIds = enrollments.map((enrollment) => enrollment.classSectionId)
+    sectionIds = sectionIds.length > 0
+      ? sectionIds.filter((id) => enrolledSectionIds.includes(id))
+      : enrolledSectionIds
+  }
+
+  if (sectionIds.length === 0) return successResponse([])
+
+  const classSectionFilter = {
+    ...(shiftParsed?.success ? { shift: { code: shiftParsed.data } } : {}),
+    ...(role === 'ADMIN' && campusId ? { campusId } : {}),
+  }
+
+  const slots = await prisma.timetableSlot.findMany({
+    where: {
+      academicYearId: activeYear.id,
+      classSectionId: { in: sectionIds },
+      isPublished: true,
+      ...(teacherId && { teacherId }),
+      ...(dayOfWeek && { dayOfWeek: parseInt(dayOfWeek, 10) }),
+      ...(Object.keys(classSectionFilter).length > 0 ? { classSection: classSectionFilter } : {}),
+    },
     include: {
-      class: {
+      classSection: {
         select: {
           id: true,
-          name: true,
+          className: true,
+          sectionName: true,
           grade: true,
-          section: true,
-          shift: true,
           campusId: true,
+          shift: { select: { code: true, name: true } },
         },
       },
       teacher: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          designation: true,
-        },
+        select: { id: true, firstName: true, lastName: true, designation: true },
       },
+      subjectOffering: { include: { subject: true } },
     },
-    orderBy: [
-      { dayOfWeek: 'asc' },
-      { startTime: 'asc' },
-    ],
+    orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
   })
 
-  return successResponse(slots)
+  return successResponse(slots.map((slot) => ({
+    ...slot,
+    // Keep the legacy display fields used by the timetable page while making
+    // the underlying record unambiguously engine/published data.
+    source: 'engine' as const,
+    classId: slot.classSectionId,
+    subjectName: slot.subjectOffering.subject.name,
+    shift: slot.classSection.shift.code,
+    academicYear: activeYear.name,
+  })))
 }
 
 export async function POST(request: NextRequest) {

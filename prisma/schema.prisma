@@ -38,6 +38,11 @@ enum TimetableSlotType {
   ACTIVITY
 }
 
+enum TeacherSectionAssignmentStatus {
+  ACTIVE
+  REVOKED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -750,9 +755,9 @@ model Teacher {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campus                 Campus                   @relation(fields: [campusId], references: [id])
-  batch                  Batch?                   @relation(fields: [batchId], references: [id])
+  user                   User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campus                 Campus                     @relation(fields: [campusId], references: [id])
+  batch                  Batch?                     @relation(fields: [batchId], references: [id])
   classes                ClassTeacher[]
   subjects               SubjectTeacher[]
   attendance             TeacherAttendance[]
@@ -767,6 +772,7 @@ model Teacher {
   availabilities         TeacherAvailability[]
   subjectOfferings       SubjectOffering[]
   timetableSlots         TimetableSlot[]
+  sectionAssignments     TeacherSectionAssignment[]
   teacherDocuments       TeacherDocument[]
   TermResult             TermResult[]
 
@@ -1707,12 +1713,13 @@ model AcademicYear {
   isLocked  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  enrollments        StudentEnrollment[]
-  timetableSlots     TimetableSlot[]
-  gradingSchemes     AcademicGradingScheme[]
-  subjectOfferings   SubjectOffering[]
-  promotions         PromotionRecord[]
-  timetableTemplates TimetableTemplate[]
+  enrollments               StudentEnrollment[]
+  timetableSlots            TimetableSlot[]
+  gradingSchemes            AcademicGradingScheme[]
+  subjectOfferings          SubjectOffering[]
+  promotions                PromotionRecord[]
+  timetableTemplates        TimetableTemplate[]
+  teacherSectionAssignments TeacherSectionAssignment[]
 
   @@index([isActive])
 }
@@ -1762,18 +1769,19 @@ model ClassSection {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  campus                   Campus                    @relation(fields: [campusId], references: [id])
-  batch                    Batch                     @relation(fields: [batchId], references: [id])
-  shift                    Shift                     @relation(fields: [shiftId], references: [id])
-  enrollments              StudentEnrollment[]
-  subjectOfferings         SubjectOffering[]
-  timetableSlots           TimetableSlot[]
-  gradingSchemes           AcademicGradingScheme[]
-  electiveGroups           ElectiveGroup[]
-  examDateSheets           ExamDateSheet[]
-  termResults              TermResult[]
-  monthlyMonitoringReports MonthlyMonitoringReport[]
-  tasks                    ClassTask[]
+  campus                    Campus                     @relation(fields: [campusId], references: [id])
+  batch                     Batch                      @relation(fields: [batchId], references: [id])
+  shift                     Shift                      @relation(fields: [shiftId], references: [id])
+  enrollments               StudentEnrollment[]
+  subjectOfferings          SubjectOffering[]
+  timetableSlots            TimetableSlot[]
+  teacherSectionAssignments TeacherSectionAssignment[]
+  gradingSchemes            AcademicGradingScheme[]
+  electiveGroups            ElectiveGroup[]
+  examDateSheets            ExamDateSheet[]
+  termResults               TermResult[]
+  monthlyMonitoringReports  MonthlyMonitoringReport[]
+  tasks                     ClassTask[]
 
   @@unique([campusId, batchId, shiftId, className, sectionName])
   @@index([campusId])
@@ -1846,6 +1854,29 @@ model SubjectOffering {
   @@index([teacherId])
 }
 
+/// Canonical section-level teacher scope for the active academic year.
+/// SubjectOffering remains the authority for subject-level ownership; this
+/// relation prevents historical tasks, results, or legacy bridge rows from
+/// granting current section access by themselves.
+model TeacherSectionAssignment {
+  id             String                         @id @default(cuid())
+  teacherId      String
+  classSectionId String
+  academicYearId String
+  isClassTeacher Boolean                        @default(false)
+  status         TeacherSectionAssignmentStatus @default(ACTIVE)
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+
+  teacher      Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classSection ClassSection @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, classSectionId, academicYearId])
+  @@index([teacherId, academicYearId, status])
+  @@index([classSectionId, academicYearId, status])
+}
+
 model AcademicSubject {
   id          String   @id @default(cuid())
   name        String
@@ -1913,6 +1944,8 @@ model TimetableSlot {
   @@index([academicYearId])
   @@index([classSectionId])
   @@index([teacherId])
+  @@index([teacherId, academicYearId, isPublished, dayOfWeek])
+  @@index([academicYearId, classSectionId, isPublished, dayOfWeek])
   @@index([dayOfWeek])
   @@index([templateId])
 }

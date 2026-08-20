@@ -172,6 +172,7 @@ export const addClassAssignmentSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 export const timetableQuerySchema = z.object({
   academicYear: z.string().optional(),
+  academicYearId: z.string().min(1).optional(),
   shift: sessionShiftSchema.optional(),
   // WHY: Schema uses 0=Monday…5=Saturday. max(6) reserved for Sunday.
   dayOfWeek: z.coerce.number().int().min(0).max(6).optional(),
@@ -237,4 +238,3 @@ export const teacherAnnouncementSchema = z.object({
   classId: z.string().cuid().optional().or(z.literal('')),
   batchId: z.string().cuid().optional().or(z.literal('')),
 })
-

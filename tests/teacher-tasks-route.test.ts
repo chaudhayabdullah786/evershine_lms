@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const { mockAuth, mockPrisma } = vi.hoisted(() => {
+const { mockAuth, mockPrisma, mockActiveAcademicYear } = vi.hoisted(() => {
   const mockAuth = vi.fn()
+  const mockActiveAcademicYear = vi.fn()
   const mockPrisma = {
     teacher: { findUnique: vi.fn() },
     class: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -10,6 +11,7 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
     shift: { findFirst: vi.fn() },
     timetableSlot: { findFirst: vi.fn() },
     subjectOffering: { findFirst: vi.fn() },
+    teacherSectionAssignment: { findUnique: vi.fn() },
     subjectTeacher: { findFirst: vi.fn() },
     academicSubject: { findUnique: vi.fn() },
     subject: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
@@ -17,12 +19,12 @@ const { mockAuth, mockPrisma } = vi.hoisted(() => {
     classTask: { create: vi.fn(), count: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   }
-  return { mockAuth, mockPrisma }
+  return { mockAuth, mockPrisma, mockActiveAcademicYear }
 })
 
 vi.mock('@/lib/auth', () => ({ auth: mockAuth }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
-vi.mock('@/lib/academic/engine', () => ({ getActiveAcademicYear: vi.fn() }))
+vi.mock('@/lib/academic/engine', () => ({ getActiveAcademicYear: mockActiveAcademicYear }))
 
 import { POST } from '../app/api/teacher-portal/tasks/route'
 
@@ -32,6 +34,8 @@ describe('POST /api/teacher-portal/tasks', () => {
     mockAuth.mockResolvedValue({ user: { id: 'user-teacher-1', role: 'TEACHER' } })
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-1' })
     mockPrisma.subjectOffering.findFirst.mockResolvedValue(null)
+    mockPrisma.teacherSectionAssignment.findUnique.mockResolvedValue(null)
+    mockActiveAcademicYear.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
     mockPrisma.subjectTeacher.findFirst.mockResolvedValue(null)
     mockPrisma.academicSubject.findUnique.mockResolvedValue(null)
     mockPrisma.subject.findUnique.mockResolvedValue(null)
@@ -65,6 +69,7 @@ describe('POST /api/teacher-portal/tasks', () => {
   })
 
   it('creates a task for an assigned academic subject offering after resolving the legacy subject', async () => {
+    mockPrisma.teacherSectionAssignment.findUnique.mockResolvedValue({ status: 'ACTIVE', isClassTeacher: false })
     mockPrisma.subjectOffering.findFirst.mockResolvedValue({ id: 'offering-1' })
     mockPrisma.subject.findUnique.mockResolvedValue(null)
     mockPrisma.academicSubject.findUnique.mockResolvedValue({ code: 'PHY', name: 'Physics' })
@@ -89,6 +94,7 @@ describe('POST /api/teacher-portal/tasks', () => {
     expect(response.status).toBe(201)
     expect(mockPrisma.subjectOffering.findFirst).toHaveBeenCalledWith({
       where: {
+        academicYearId: 'year-1',
         teacherId: 'teacher-1',
         classSectionId: 'section-1',
         OR: [
@@ -114,6 +120,7 @@ describe('POST /api/teacher-portal/tasks', () => {
   })
 
   it('does not authorize a subject offering that belongs to another section', async () => {
+    mockPrisma.teacherSectionAssignment.findUnique.mockResolvedValue({ status: 'ACTIVE', isClassTeacher: false })
     mockPrisma.subjectOffering.findFirst
       .mockResolvedValueOnce(null) // section-specific offering lookup
       .mockResolvedValueOnce({ id: 'offering-in-another-section' }) // cross-section offering
@@ -137,6 +144,7 @@ describe('POST /api/teacher-portal/tasks', () => {
   })
 
   it('returns an actionable schema error when the task section column is missing', async () => {
+    mockPrisma.teacherSectionAssignment.findUnique.mockResolvedValue({ status: 'ACTIVE', isClassTeacher: false })
     mockPrisma.subjectOffering.findFirst.mockResolvedValue({ id: 'offering-1' })
     mockPrisma.subject.findUnique.mockResolvedValue(null)
     mockPrisma.academicSubject.findUnique.mockResolvedValue({ code: 'BIO', name: 'Biology' })

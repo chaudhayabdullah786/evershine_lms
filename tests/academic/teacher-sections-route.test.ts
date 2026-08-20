@@ -53,7 +53,7 @@ describe('teacher-portal/sections', () => {
     ])
   })
 
-  it('includes authorized migrated sections that still have active enrollments', async () => {
+  it('returns only active sections from the canonical assignment scope', async () => {
     const response = await GET()
     const json = await response.json()
 
@@ -64,16 +64,7 @@ describe('teacher-portal/sections', () => {
       expect.objectContaining({
         where: {
           id: { in: ['section-1'] },
-          OR: [
-            { isActive: true },
-            {
-              enrollments: {
-                some: {
-                  status: 'ACTIVE',
-                },
-              },
-            },
-          ],
+          isActive: true,
         },
       })
     )

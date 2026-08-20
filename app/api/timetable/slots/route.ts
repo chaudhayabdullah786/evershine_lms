@@ -17,13 +17,33 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const academicYearId = searchParams.get('academicYearId')
   const classSectionId = searchParams.get('classSectionId')
+  const teacherId = searchParams.get('teacherId')
+  const excludeSlotId = searchParams.get('excludeSlotId')
   const publishedOnly = searchParams.get('published') === 'true'
+
+  if (teacherId && session.user.role === 'TEACHER') {
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { userId: true },
+    })
+    if (!teacher || teacher.userId !== session.user.id) return errors.forbidden()
+  }
+
+  if (teacherId && session.user.role === 'ADMIN') {
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { campusId: true },
+    })
+    if (!teacher || teacher.campusId !== session.user.campusId) return errors.forbidden()
+  }
 
   try {
     const slots = await prisma.timetableSlot.findMany({
       where: {
         ...(academicYearId && { academicYearId }),
         ...(classSectionId && { classSectionId }),
+        ...(teacherId && { teacherId }),
+        ...(excludeSlotId && { id: { not: excludeSlotId } }),
         ...(publishedOnly && { isPublished: true }),
       },
       include: {
@@ -117,6 +137,32 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
+    const slotsToPublish = await prisma.timetableSlot.findMany({
+      where: {
+        academicYearId: parsed.data.academicYearId,
+        ...(parsed.data.classSectionId ? { classSectionId: parsed.data.classSectionId } : {}),
+      },
+      select: {
+        id: true,
+        academicYearId: true,
+        classSectionId: true,
+        subjectOfferingId: true,
+        teacherId: true,
+        roomId: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+      },
+    })
+
+    for (const slot of slotsToPublish) {
+      const conflicts = await validateTimetableSlot({
+        ...slot,
+        excludeSlotId: slot.id,
+      })
+      if (conflicts.length > 0) return errorResponseConflicts(conflicts)
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.timetableSlot.updateMany({
         where: {

@@ -29,22 +29,7 @@ export async function GET() {
     const sections = await prisma.classSection.findMany({
       where: {
         id: { in: allowedSectionIds },
-        // A migrated section can be marked inactive while still carrying
-        // active enrollments. Keep it available to its already-authorized
-        // teacher until the enrollment data is reconciled; historical empty
-        // sections remain excluded.
-        OR: [
-          { isActive: true },
-          // WHY any-year fallback: sections with prior-year enrollments (e.g. 2025-2026
-          // data when active year is 2026-2027) must still be visible to assigned
-          // teachers. The isActive flag is the primary gate; this catches inactive
-          // sections that still carry live students pending year-rollover.
-          {
-            enrollments: {
-              some: { status: 'ACTIVE' as const },
-            },
-          },
-        ],
+        isActive: true,
       },
       select: {
         id: true,

@@ -29,136 +29,38 @@ const querySchema = z.object({
 
 async function teacherCanCreateTaskForSubject(params: {
   teacherId: string
-  legacyClassId: string
   classSectionId: string | null
   subjectId: string
-  academicYearName?: string | null
+  academicYearId: string | null
 }) {
-  // 1. Direct SubjectOffering check by classSectionId + subjectId
-  if (params.classSectionId) {
-    const offering = await prisma.subjectOffering.findFirst({
-      where: {
+  if (!params.classSectionId || !params.academicYearId) return false
+
+  const assignment = await prisma.teacherSectionAssignment.findUnique({
+    where: {
+      teacherId_classSectionId_academicYearId: {
         teacherId: params.teacherId,
         classSectionId: params.classSectionId,
-        OR: [
-          { subjectId: params.subjectId },
-          { id: params.subjectId },
-        ],
+        academicYearId: params.academicYearId,
       },
-      select: { id: true },
-    })
-    if (offering) return true
+    },
+    select: { isClassTeacher: true, status: true },
+  })
+  if (!assignment || assignment.status !== 'ACTIVE') return false
+  if (assignment.isClassTeacher) return true
 
-  }
-
-  // 2. Direct SubjectTeacher check by legacyClassId + subjectId
-  const directSubject = await prisma.subjectTeacher.findFirst({
+  // Subject teachers may create a task only for an offering owned by them in
+  // this exact active-year section. SubjectOffering and the canonical section
+  // assignment are both required; timetable or legacy rows never grant access.
+  const offering = await prisma.subjectOffering.findFirst({
     where: {
+      academicYearId: params.academicYearId,
       teacherId: params.teacherId,
-      subjectId: params.subjectId,
-      subject: { classId: params.legacyClassId },
+      classSectionId: params.classSectionId,
+      OR: [{ subjectId: params.subjectId }, { id: params.subjectId }],
     },
     select: { id: true },
   })
-  if (directSubject) return true
-
-  // 3. Match by academic subject code or legacy subject code
-  const academicSubject = await prisma.academicSubject.findUnique({
-    where: { id: params.subjectId },
-    select: { id: true, code: true, name: true },
-  })
-  if (academicSubject) {
-    const mappedLegacySubject = await prisma.subject.findFirst({
-      where: {
-        classId: params.legacyClassId,
-        // MySQL Prisma clients do not support Prisma's `mode` string filter.
-        // The production collation is case-insensitive; explicit variants
-        // below also keep this lookup portable across existing records.
-        OR: [
-          { code: academicSubject.code },
-          { code: academicSubject.code.toLowerCase() },
-          { code: academicSubject.code.toUpperCase() },
-          { name: academicSubject.name },
-        ],
-      },
-      select: { id: true },
-    })
-
-    if (mappedLegacySubject) {
-      const mappedSubjectAssignment = await prisma.subjectTeacher.findFirst({
-        where: {
-          teacherId: params.teacherId,
-          subjectId: mappedLegacySubject.id,
-        },
-        select: { id: true },
-      })
-      if (mappedSubjectAssignment) return true
-    }
-  }
-
-  // 4. Legacy Subject lookup (if subjectId is a legacy Subject ID)
-  const legacySub = await prisma.subject.findUnique({
-    where: { id: params.subjectId },
-    select: { code: true, name: true },
-  })
-  if (legacySub) {
-    const acadSub = await prisma.academicSubject.findFirst({
-      where: {
-        // Keep this compatible with the MySQL Prisma client (no `mode` filter).
-        OR: [
-          { code: legacySub.code },
-          { code: legacySub.code.toLowerCase() },
-          { code: legacySub.code.toUpperCase() },
-          { name: legacySub.name },
-        ]
-      },
-      select: { id: true },
-    })
-    if (acadSub && params.classSectionId) {
-      const offering = await prisma.subjectOffering.findFirst({
-        where: {
-          teacherId: params.teacherId,
-          classSectionId: params.classSectionId,
-          subjectId: acadSub.id,
-        },
-        select: { id: true },
-      })
-      if (offering) return true
-    }
-  }
-
-  // 5. Class Teacher check
-  const classTeacher = await prisma.classTeacher.findFirst({
-    where: {
-      teacherId: params.teacherId,
-      classId: params.legacyClassId,
-      isClassTeacher: true,
-      ...(params.academicYearName ? { academicYear: params.academicYearName } : {}),
-    },
-    select: { id: true },
-  })
-  if (classTeacher) return true
-
-  // 6. TimetableSlot fallback
-  if (params.classSectionId) {
-    const slot = await prisma.timetableSlot.findFirst({
-      where: {
-        teacherId: params.teacherId,
-        classSectionId: params.classSectionId,
-        OR: [
-          { subjectOfferingId: params.subjectId },
-          { subjectOffering: { subjectId: params.subjectId } },
-        ],
-      },
-      select: { id: true },
-    })
-    if (slot) return true
-  }
-
-  // Do not fall back to an offering in another section. A teacher may teach
-  // the same subject elsewhere, but that must never authorize task creation
-  // for this section without a section-specific assignment.
-  return false
+  return Boolean(offering)
 }
 
 export async function GET(request: NextRequest) {
@@ -337,10 +239,9 @@ export async function POST(request: NextRequest) {
     const activeYear = await getActiveAcademicYear()
     const isAssigned = isSuperOrAdmin || await teacherCanCreateTaskForSubject({
       teacherId: teacher.id,
-      legacyClassId: resolvedClassId,
       classSectionId: resolvedClassSectionId,
       subjectId,
-      academicYearName: activeYear?.name,
+      academicYearId: activeYear?.id ?? null,
     })
 
     if (!isAssigned) {

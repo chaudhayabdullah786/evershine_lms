@@ -1,196 +1,117 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { NextRequest } from 'next/server'
 
-const {
-  authMock,
-  teacherFindUniqueMock,
-  academicYearFindFirstMock,
-  classTeacherFindManyMock,
-  subjectTeacherFindManyMock,
-  timetableSlotFindManyMock,
-  subjectOfferingFindManyMock,
-  classFindFirstMock,
-  classSectionFindManyMock,
-  teacherClassSectionIdsMock,
-} = vi.hoisted(() => ({
+const { authMock, teacherFindUniqueMock, activeYearMock, assignmentFindManyMock, subjectOfferingFindManyMock, classSectionFindManyMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   teacherFindUniqueMock: vi.fn(),
-  academicYearFindFirstMock: vi.fn(),
-  classTeacherFindManyMock: vi.fn(),
-  subjectTeacherFindManyMock: vi.fn(),
-  timetableSlotFindManyMock: vi.fn(),
+  activeYearMock: vi.fn(),
+  assignmentFindManyMock: vi.fn(),
   subjectOfferingFindManyMock: vi.fn(),
-  classFindFirstMock: vi.fn(),
   classSectionFindManyMock: vi.fn(),
-  teacherClassSectionIdsMock: vi.fn(),
 }))
 
-vi.mock('@/lib/auth', () => ({
-  auth: authMock,
-}))
-
-vi.mock('@/lib/academic/engine', () => ({
-  getActiveAcademicYear: academicYearFindFirstMock,
-}))
-
-vi.mock('@/lib/academic/teacher-scope', () => ({
-  getTeacherClassSectionIds: teacherClassSectionIdsMock,
-}))
-
+vi.mock('@/lib/auth', () => ({ auth: authMock }))
+vi.mock('@/lib/academic/engine', () => ({ getActiveAcademicYear: activeYearMock }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     teacher: { findUnique: teacherFindUniqueMock },
-    academicYear: { findFirst: academicYearFindFirstMock },
-    classTeacher: { findMany: classTeacherFindManyMock },
-    subjectTeacher: { findMany: subjectTeacherFindManyMock },
-    timetableSlot: { findMany: timetableSlotFindManyMock },
+    teacherSectionAssignment: { findMany: assignmentFindManyMock },
     subjectOffering: { findMany: subjectOfferingFindManyMock },
-    class: { findFirst: classFindFirstMock },
     classSection: { findMany: classSectionFindManyMock },
   },
 }))
 
 import { GET } from '@/app/api/teacher-portal/classes/route'
 
+const section = (id: string, className = 'Class 10', sectionName = 'A') => ({
+  id,
+  className,
+  sectionName,
+  grade: 10,
+  campusId: 'campus-1',
+  batchId: 'batch-1',
+  deliveryMode: 'PHYSICAL',
+  campus: { id: 'campus-1', name: 'Main Campus', code: 'MC' },
+  batch: { id: 'batch-1', name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
+  shift: { name: 'Morning', code: 'MORNING' },
+  _count: { enrollments: 11 },
+})
+
 describe('teacher-portal/classes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('returns only the active academic year classes for the logged-in teacher', async () => {
     authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
     teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
-    academicYearFindFirstMock.mockResolvedValue({ id: 'year-current', name: '2025-2026' })
-
-    classTeacherFindManyMock.mockResolvedValue([
-      {
-        isClassTeacher: true,
-        class: {
-          id: 'legacy-class-1',
-          name: 'Class 10-A',
-          section: 'A',
-          grade: 10,
-          shift: 'MORNING',
-          batchId: 'batch-1',
-          campusId: 'campus-1',
-          academicYear: '2025-2026',
-          campus: { name: 'Main Campus', code: 'MC' },
-          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
-        },
-      },
-      {
-        isClassTeacher: false,
-        class: {
-          id: 'legacy-class-old',
-          name: 'Class 10-A',
-          section: 'A',
-          grade: 10,
-          shift: 'MORNING',
-          batchId: 'batch-1',
-          campusId: 'campus-1',
-          academicYear: '2024-2025',
-          campus: { name: 'Main Campus', code: 'MC' },
-          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
-        },
-      },
-    ])
-    subjectTeacherFindManyMock.mockResolvedValue([])
-    timetableSlotFindManyMock.mockResolvedValue([])
+    activeYearMock.mockResolvedValue({ id: 'year-current', name: '2025-2026' })
+    assignmentFindManyMock.mockResolvedValue([])
     subjectOfferingFindManyMock.mockResolvedValue([])
-
-    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
-    const json = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(json.success).toBe(true)
-    expect(json.data).toHaveLength(1)
-    expect(json.data[0].legacyClassId).toBe('legacy-class-1')
-    expect(classTeacherFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ teacherId: 'teacher-1', academicYear: '2025-2026' }),
-      })
-    )
+    classSectionFindManyMock.mockResolvedValue([])
   })
 
-  it('preserves the current ClassSection ID when it merges with a legacy assignment', async () => {
-    authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
-    teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
-    academicYearFindFirstMock.mockResolvedValue({ id: 'year-current', name: '2025-2026' })
-    classTeacherFindManyMock.mockResolvedValue([
+  it('returns only active canonical assignments for the logged-in teacher', async () => {
+    assignmentFindManyMock.mockResolvedValue([
       {
+        id: 'assignment-1',
+        teacherId: 'teacher-1',
+        classSectionId: 'section-10-a',
+        academicYearId: 'year-current',
         isClassTeacher: true,
-        class: {
-          id: 'legacy-class-1', name: 'Class 10-A', section: 'A', grade: 10,
-          shift: 'MORNING', batchId: 'batch-1', campusId: 'campus-1', academicYear: '2025-2026',
-          campus: { name: 'Main Campus', code: 'MC' },
-          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
-        },
+        status: 'ACTIVE',
+        classSection: section('section-10-a'),
       },
     ])
-    subjectTeacherFindManyMock.mockResolvedValue([])
-    timetableSlotFindManyMock.mockResolvedValue([])
     subjectOfferingFindManyMock.mockResolvedValue([
-      {
-        subject: { id: 'subject-1', name: 'Physics', code: 'PHY' },
-        classSection: {
-          id: 'section-10-a', className: 'Class 10', sectionName: 'A', grade: 10,
-          shiftId: 'shift-1', batchId: 'batch-1', campusId: 'campus-1',
-          shift: { name: 'Morning', code: 'MORNING' },
-          campus: { name: 'Main Campus', code: 'MC' },
-          batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
-        },
-      },
+      { classSectionId: 'section-10-a', teacherId: 'teacher-1', subject: { id: 'subject-1', name: 'Physics', code: 'PHY' } },
     ])
-    classFindFirstMock.mockResolvedValue(null)
-
-    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
-    const json = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(json.data).toHaveLength(1)
-    expect(json.data[0]).toMatchObject({
-      legacyClassId: 'legacy-class-1',
-      classSectionId: 'section-10-a',
-    })
-  })
-
-  it('falls back to canonical section assignments when legacy class rows are unavailable', async () => {
-    authMock.mockResolvedValue({ user: { id: 'user-1', role: 'TEACHER' } })
-    teacherFindUniqueMock.mockResolvedValue({ id: 'teacher-1' })
-    academicYearFindFirstMock.mockResolvedValue({ id: 'year-current', name: '2025-2026' })
-    classTeacherFindManyMock.mockResolvedValue([])
-    subjectTeacherFindManyMock.mockResolvedValue([])
-    timetableSlotFindManyMock.mockResolvedValue([])
-    subjectOfferingFindManyMock
-      .mockResolvedValueOnce([]) // teacher-owned offerings
-      .mockResolvedValueOnce([]) // all-offerings fallback
-      .mockResolvedValueOnce([{ // canonical active-year offerings
-        classSectionId: 'section-11-a',
-        subject: { id: 'subject-bio', name: 'Biology', code: 'BIO' },
-      }])
-    classFindFirstMock.mockResolvedValue(null)
-    teacherClassSectionIdsMock.mockResolvedValue(['section-11-a'])
-    classSectionFindManyMock.mockResolvedValue([{
-      id: 'section-11-a',
-      className: 'Class 11',
-      sectionName: 'A',
-      grade: 11,
-      campusId: 'campus-1',
-      batchId: 'batch-1',
-      shift: { name: 'Morning', code: 'MORNING' },
-      campus: { name: 'Main Campus', code: 'MC' },
-      batch: { name: 'Regular', code: 'REG', academicLevel: 'SECONDARY' },
-    }])
 
     const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
     const json = await response.json()
 
     expect(response.status).toBe(200)
     expect(json.data).toEqual([expect.objectContaining({
-      id: 'section-11-a',
-      classSectionId: 'section-11-a',
-      legacyClassId: null,
-      subjects: [{ id: 'subject-bio', name: 'Biology', code: 'BIO' }],
+      id: 'section-10-a',
+      classSectionId: 'section-10-a',
+      academicYear: '2025-2026',
+      isClassTeacher: true,
+      subjects: [{ id: 'subject-1', name: 'Physics', code: 'PHY' }],
     })])
+    expect(assignmentFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ teacherId: 'teacher-1', academicYearId: 'year-current', status: 'ACTIVE' }),
+    }))
+  })
+
+  it('does not return historical subject offerings without a current assignment', async () => {
+    subjectOfferingFindManyMock.mockResolvedValue([
+      { classSectionId: 'old-section', teacherId: 'teacher-1', subject: { id: 'subject-old', name: 'Old', code: 'OLD' } },
+    ])
+
+    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
+    const json = await response.json()
+
+    expect(json.data).toEqual([])
+    expect(assignmentFindManyMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps subject visibility section-scoped for a subject teacher', async () => {
+    assignmentFindManyMock.mockResolvedValue([
+      {
+        id: 'assignment-2',
+        teacherId: 'teacher-1',
+        classSectionId: 'section-11-b',
+        academicYearId: 'year-current',
+        isClassTeacher: false,
+        status: 'ACTIVE',
+        classSection: section('section-11-b', 'Class 11', 'B'),
+      },
+    ])
+    subjectOfferingFindManyMock.mockResolvedValue([
+      { classSectionId: 'section-11-b', teacherId: 'teacher-2', subject: { id: 'subject-other', name: 'Chemistry', code: 'CHEM' } },
+      { classSectionId: 'section-11-b', teacherId: 'teacher-1', subject: { id: 'subject-own', name: 'Biology', code: 'BIO' } },
+    ])
+
+    const response = await GET(new Request('http://localhost/api/teacher-portal/classes') as unknown as NextRequest)
+    const json = await response.json()
+
+    expect(json.data[0].subjects).toEqual([{ id: 'subject-own', name: 'Biology', code: 'BIO' }])
   })
 })

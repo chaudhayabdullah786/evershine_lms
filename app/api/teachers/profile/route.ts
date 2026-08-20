@@ -1,7 +1,15 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { errors, successResponse } from '@/lib/api-response'
+import { getActiveAcademicYear } from '@/lib/academic/engine'
+import { getTeacherSectionAssignments } from '@/lib/academic/teacher-assignments'
+
+const normalizeShift = (value?: string | null) => {
+  const normalized = value?.trim().toUpperCase().replace(/\s+/g, '') ?? ''
+  return normalized.endsWith('SHIFT')
+    ? normalized.slice(0, -'SHIFT'.length)
+    : normalized
+}
 
 export async function GET() {
   try {
@@ -15,19 +23,6 @@ export async function GET() {
       include: {
         campus: { select: { name: true, code: true } },
         batch: { select: { name: true } },
-        classes: { include: { class: { select: { name: true, grade: true, section: true, shift: true } } } },
-        // WHY: classSections is needed so the timetable page can derive the teacher's
-        // shift (MORNING/EVENING/NIGHT) and pass it as a query param to the
-        // timetable API, ensuring night-shift slots are not silently filtered out.
-        timetableSlots: {
-          where: { isPublished: true },
-          take: 1,
-          include: {
-            classSection: {
-              select: { shift: { select: { code: true } } }
-            }
-          }
-        }
       }
     })
 
@@ -35,7 +30,63 @@ export async function GET() {
       return errors.notFound('Teacher profile')
     }
 
-    return successResponse(teacher)
+    // The profile endpoint is consumed by the dashboard and timetable page.
+    // It must use the same canonical, active-year assignment source as every
+    // teacher workflow; legacy ClassTeacher rows and old timetable slots are
+    // intentionally not used for authorization or display.
+    const activeYear = await getActiveAcademicYear()
+    const sectionAssignments = activeYear
+      ? await getTeacherSectionAssignments(teacher.id, activeYear.id)
+      : []
+    const sectionIds = sectionAssignments.map((assignment) => assignment.classSectionId)
+
+    const publishedTimetableSlot = activeYear && sectionIds.length > 0
+      ? await prisma.timetableSlot.findFirst({
+          where: {
+            teacherId: teacher.id,
+            academicYearId: activeYear.id,
+            classSectionId: { in: sectionIds },
+            isPublished: true,
+          },
+          select: {
+            id: true,
+            classSection: {
+              select: { shift: { select: { code: true } } },
+            },
+          },
+          orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+        })
+      : null
+
+    const classes = sectionAssignments.map((assignment) => {
+      const section = assignment.classSection
+      const shift = normalizeShift(section.shift?.code ?? section.shift?.name)
+      return {
+        id: assignment.id,
+        classId: section.id,
+        academicYear: activeYear?.name ?? null,
+        isClassTeacher: assignment.isClassTeacher,
+        class: {
+          id: section.id,
+          name: section.className,
+          grade: section.grade,
+          section: section.sectionName,
+          shift: shift || 'MORNING',
+        },
+      }
+    })
+
+    return successResponse({
+      ...teacher,
+      academicYear: activeYear
+        ? { id: activeYear.id, name: activeYear.name }
+        : null,
+      sectionAssignments,
+      // Compatibility shape for existing dashboard/timetable consumers. The
+      // values are derived from canonical assignments and active-year slots.
+      classes,
+      timetableSlots: publishedTimetableSlot ? [publishedTimetableSlot] : [],
+    })
   } catch (error) {
     console.error('[TEACHER_PROFILE_GET]', error)
     return errors.internal()

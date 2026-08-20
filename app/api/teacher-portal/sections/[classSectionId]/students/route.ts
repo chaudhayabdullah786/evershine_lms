@@ -32,10 +32,15 @@ export async function GET(
     const canAccess = await teacherCanAccessClassSection(teacher.id, classSectionId)
     if (!canAccess) return errors.forbidden('You are not assigned to this class section')
 
+    const activeYear = await getActiveAcademicYear()
+    if (!activeYear) return successResponse([])
+
     let enrollments = await prisma.studentEnrollment.findMany({
       where: {
         classSectionId,
+        academicYearId: activeYear.id,
         status: 'ACTIVE',
+        classSection: { isActive: true },
       },
       include: {
         student: {
@@ -55,7 +60,6 @@ export async function GET(
     // attendance/daily scores so every teacher workflow sees the same roster
     // and the enrollment is safely synchronized to the active year.
     if (enrollments.length === 0) {
-      const activeYear = await getActiveAcademicYear()
       const resolved = await getOrSyncSectionEnrollments(classSectionId, activeYear?.id)
       enrollments = resolved.enrollments as typeof enrollments
     }
