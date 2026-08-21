@@ -119,13 +119,13 @@ export async function exportPreviewDocument(
   // computed dimensions — these are the authoritative physical page dimensions.
   const targetWidth = captureTarget.getAttribute('data-pdf-width')
     ? `${captureTarget.getAttribute('data-pdf-width')}px`
-    : captureTarget.style.width || (rendered.width ? `${Math.round(rendered.width)}px` : computed.width || '595px')
+    : captureTarget.style.width || (rendered.width ? `${Math.round(rendered.width)}px` : computed.width || '794px')
   const targetHeight = captureTarget.getAttribute('data-pdf-height')
     ? `${captureTarget.getAttribute('data-pdf-height')}px`
-    : captureTarget.style.height || (rendered.height ? `${Math.round(rendered.height)}px` : computed.height || '842px')
+    : captureTarget.style.height || (rendered.height ? `${Math.round(rendered.height)}px` : computed.height || '1123px')
 
-  const widthNum = parseInt(targetWidth, 10) || 595
-  const heightNum = parseInt(targetHeight, 10) || 842
+  const widthNum = parseInt(targetWidth, 10) || 794
+  const heightNum = parseInt(targetHeight, 10) || 1123
   const orientation = widthNum > heightNum ? 'landscape' : 'portrait'
 
   const savedWidth = captureTarget.style.width

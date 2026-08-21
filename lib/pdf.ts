@@ -486,7 +486,7 @@ export async function generatePdfBlob({
           ? parseInt(explicitWidth, 10)
           : Math.max(
               scrollW || Math.round(rect.width) || pdfWidth,
-              595, // A4 minimum
+              794, // A4 standard width (210mm @ 96 DPI)
             )
         // Force the element's own explicit width so the clone renders at exactly
         // captureWidth, not at whatever the parent container constrains it to.
@@ -550,13 +550,9 @@ export async function generatePdfBlob({
             backgroundColor: '#ffffff',
             width: captureWidth,
             height: captureHeight,
-            // WHY 1440: html2canvas uses windowWidth to evaluate CSS media queries
-            // during capture. Setting it to captureWidth (e.g. 595) would fire
-            // Tailwind's mobile breakpoints, collapsing flex rows and shrinking
-            // font sizes. 1440 simulates a full desktop viewport — matching what
-            // the user actually sees in the preview.
-            windowWidth: 1440,
-            windowHeight: 900,
+            // Match windowWidth exactly to captureWidth so media queries evaluate at the exact canvas container width
+            windowWidth: captureWidth,
+            windowHeight: captureHeight,
             foreignObjectRendering: false,
             imageTimeout: 20000,
             scrollX: 0,
@@ -575,8 +571,8 @@ export async function generatePdfBlob({
             backgroundColor: '#ffffff',
             width: captureWidth,
             height: captureHeight,
-            windowWidth: 1440,
-            windowHeight: 900,
+            windowWidth: captureWidth,
+            windowHeight: captureHeight,
             foreignObjectRendering: !isCanvasPatternError,
             imageTimeout: 20000,
             scrollX: 0,

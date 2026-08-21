@@ -38,8 +38,8 @@ describe('document export regression', () => {
     const wrapper = document.createElement('div')
     const page = document.createElement('div')
     page.setAttribute('data-document-page', '')
-    page.style.width = '595px'
-    page.style.height = '842px'
+    page.style.width = '794px'
+    page.style.height = '1123px'
     page.style.overflow = 'hidden'
     wrapper.appendChild(page)
 
@@ -60,8 +60,8 @@ describe('document export regression', () => {
     const page = document.createElement('div')
     page.setAttribute('data-document-page', '')
     page.setAttribute('data-export-ready', 'false')
-    page.style.width = '595px'
-    page.style.height = '842px'
+    page.style.width = '794px'
+    page.style.height = '1123px'
     page.getBoundingClientRect = () => ({ width: 595, height: 842 } as DOMRect)
     wrapper.appendChild(page)
 
@@ -94,8 +94,8 @@ describe('document export regression', () => {
     const wrapper = document.createElement('div')
     const page = document.createElement('div')
     page.setAttribute('data-pdf-page', '')
-    page.style.width = '595px'
-    page.style.height = '842px'
+    page.style.width = '794px'
+    page.style.height = '1123px'
     wrapper.appendChild(page)
 
     await exportPreviewDocument(wrapper, 'STU-1234-roll-slip')

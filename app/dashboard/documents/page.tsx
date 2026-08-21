@@ -1778,16 +1778,16 @@ export default function DocumentsPage() {
                   <div
                     data-document-page
                     data-document-kind="result-card"
-                    data-pdf-width="595"
-                    data-pdf-height="842"
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
                     data-export-ready={resultCardExportReady ? 'true' : 'false'}
                     data-result-subject-count={subjectsToRender.length}
-                    className="w-[595px] bg-white flex flex-col items-start relative shrink-0"
+                    className="w-[794px] bg-white flex flex-col items-start relative shrink-0"
                     style={{
                       fontFamily: 'Arial, sans-serif',
                       color: '#111827',
                       boxSizing: 'border-box',
-                      height: '842px',
+                      height: '1123px',
                       // overflow is NOT set here intentionally — export-preview.ts sets
                       // overflow:'visible' during PDF capture to unclip the 842px canvas.
                       border: '4px solid #1e3a8a',
