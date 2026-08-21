@@ -1553,98 +1553,101 @@ export default function DocumentsPage() {
                 {docType === 'birthday' && selectedStudent && (
                   <div
                     data-document-page
-                    className="w-[595px] min-h-[842px] bg-[#eff6ff] border-[12px] border-solid border-[#1e3a8a] flex flex-col items-center relative overflow-hidden shrink-0"
-                    style={{ fontFamily: 'Georgia, serif', minHeight: '842px', boxSizing: 'border-box', boxShadow: 'inset 0 0 40px rgba(30,58,138,0.15)' }}
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-[#eff6ff] border-[14px] border-solid border-[#1e3a8a] flex flex-col items-center relative overflow-hidden shrink-0"
+                    style={{ fontFamily: 'Georgia, serif', minHeight: '1123px', height: '1123px', boxSizing: 'border-box', boxShadow: 'inset 0 0 40px rgba(30,58,138,0.15)' }}
                   >
-                    <div className="absolute inset-x-0 top-24 flex justify-center pointer-events-none opacity-5">
-                      <div className="w-[300px] h-[300px]">
+                    <div className="absolute inset-x-0 top-32 flex justify-center pointer-events-none opacity-5">
+                      <div className="w-[360px] h-[360px]">
                         <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full" />
                       </div>
                     </div>
                     
                     {/* Student-blue ornamental inner borders */}
-                    <div className="absolute inset-[6px] border border-[#1e3a8a]/40 pointer-events-none" />
-                    <div className="absolute inset-[10px] border border-[#1e3a8a]/20 pointer-events-none" />
+                    <div className="absolute inset-[8px] border border-[#1e3a8a]/40 pointer-events-none" />
+                    <div className="absolute inset-[14px] border border-[#1e3a8a]/20 pointer-events-none" />
 
                     {/* Corner Ornaments */}
-                    <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-[#1e3a8a]" />
-                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-[#1e3a8a]" />
-                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-[#1e3a8a]" />
-                    <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-[#1e3a8a]" />
+                    <div className="absolute top-4 left-4 w-10 h-10 border-t-2 border-l-2 border-[#1e3a8a]" />
+                    <div className="absolute top-4 right-4 w-10 h-10 border-t-2 border-r-2 border-[#1e3a8a]" />
+                    <div className="absolute bottom-4 left-4 w-10 h-10 border-b-2 border-l-2 border-[#1e3a8a]" />
+                    <div className="absolute bottom-4 right-4 w-10 h-10 border-b-2 border-r-2 border-[#1e3a8a]" />
 
                     {/* Logo & Header */}
-                    <div className="mt-8 w-full max-w-xs rounded-2xl border border-[#1e3a8a]/30 bg-white/90 p-3 shadow-md flex flex-col items-center gap-1 relative z-10">
-                      <div className="rounded-full border border-[#1e3a8a]/40 bg-white p-1.5 flex items-center justify-center shadow-inner">
-                        <AcademyLogo className="w-8 h-8 text-[#1e3a8a]" />
+                    <div className="mt-12 w-full max-w-md rounded-2xl border border-[#1e3a8a]/30 bg-white/90 p-4 shadow-md flex flex-col items-center gap-1.5 relative z-10 text-center">
+                      <div className="rounded-full border border-[#1e3a8a]/40 bg-white p-2 flex items-center justify-center shadow-inner">
+                        <AcademyLogo className="w-10 h-10 text-[#1e3a8a]" />
                       </div>
-                      <div className="text-center">
-                        <h2 className="text-[#1e3a8a] text-[16px] font-black uppercase tracking-[0.2em]">EverShine Academy</h2>
-                        <p className="text-[7.5px] text-gray-500 uppercase tracking-widest font-black mt-0.5">We Make Your Children More Valuable</p>
-                        <p className="text-[6.5px] text-gray-600 font-bold leading-normal mt-0.5 max-w-[240px] mx-auto">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
-                        <p className="text-[7.5px] text-[#1e3a8a] font-black mt-0.5">📱 Boys: 0328-4010522 · Girls: 0324-8985526</p>
+                      <div className="text-center w-full">
+                        <h2 className="text-[#1e3a8a] text-[20px] font-black uppercase tracking-[0.2em] leading-tight">EverShine Academy</h2>
+                        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-black mt-1">We Make Your Children More Valuable</p>
+                        <p className="text-[8px] text-gray-600 font-bold leading-normal mt-0.5 max-w-[300px] mx-auto">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
+                        <p className="text-[9px] text-[#1e3a8a] font-black mt-1">📱 Boys: 0328-4010522 · Girls: 0324-8985526</p>
                       </div>
                     </div>
 
-                    <div className="w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#1e3a8a] to-transparent my-4 relative z-10" />
+                    <div className="w-3/4 h-[2px] bg-gradient-to-r from-transparent via-[#1e3a8a] to-transparent my-6 relative z-10" />
 
                     {/* Student Photo */}
-                    <div className="w-20 h-20 rounded-full border-4 border-[#1e3a8a] overflow-hidden bg-white flex items-center justify-center shadow-md relative z-10">
+                    <div className="w-28 h-28 rounded-full border-4 border-[#1e3a8a] overflow-hidden bg-white flex items-center justify-center shadow-md relative z-10 shrink-0">
                       <img
                         src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#1e3a8a')}
                         alt={`${selectedStudent.firstName} ${selectedStudent.lastName}`}
-                        className="w-full h-full"
-                        style={{ objectFit: 'cover' }}
+                        width={112}
+                        height={112}
+                        className="w-full h-full object-cover object-center shrink-0"
+                        style={{ objectFit: 'cover', objectPosition: 'center' }}
                       />
                     </div>
 
                     {/* Title */}
-                    <div className="relative z-10 mt-3 text-center">
-                      <h1 className="text-[24px] font-black text-gray-900 uppercase tracking-widest leading-tight">
+                    <div className="relative z-10 mt-5 w-full flex flex-col items-center text-center px-6">
+                      <h1 className="text-[32px] font-black text-gray-900 uppercase tracking-widest leading-tight text-center w-full">
                         Birthday Certificate
                       </h1>
-                      <p className="text-[11px] italic text-gray-500 mt-2 font-medium leading-snug">This certificate of blessing is joyfully awarded to</p>
+                      <p className="text-[13px] italic text-gray-500 mt-2 font-medium leading-snug text-center">This certificate of blessing is joyfully awarded to</p>
                     </div>
 
                     {/* Student Name */}
-                    <div className="relative z-10 mt-4 w-full flex flex-col items-center">
-                      <div className="text-center">
-                        <h2 className="text-[22px] sm:text-[24px] font-black text-[#1e3a8a] tracking-[0.08em] leading-tight">
+                    <div className="relative z-10 mt-5 w-full flex flex-col items-center text-center px-6">
+                      <div className="text-center w-full">
+                        <h2 className="text-[28px] font-black text-[#1e3a8a] tracking-[0.08em] leading-tight text-center inline-block pb-1 border-b-2 border-[#1e3a8a]">
                           {formatPersonNameLocal(selectedStudent.firstName, selectedStudent.lastName)}
                         </h2>
-                        <div className="mt-3 h-[2px] w-32 sm:w-40 md:w-48 lg:w-56 bg-[#1e3a8a] rounded-full mx-auto" />
                       </div>
-                      <p className="text-[9px] text-gray-500 font-bold uppercase mt-3 tracking-[0.2em] bg-gray-50/80 px-3 py-1 rounded-full border border-gray-200 whitespace-nowrap">
-                        Class: {selectedStudentClassSection} <span className="mx-1 text-[#1e3a8a]">•</span> Roll No: {selectedStudentRollNumber}
+                      <p className="text-[11px] text-gray-600 font-bold uppercase mt-4 tracking-[0.2em] bg-white/90 px-4 py-1.5 rounded-full border border-gray-200 whitespace-nowrap shadow-sm">
+                        Class: {selectedStudentClassSection} <span className="mx-2 text-[#1e3a8a]">•</span> Roll No: {selectedStudentRollNumber}
                       </p>
                     </div>
 
                     {/* Message Body */}
-                    <p className="text-[11px] text-gray-700 max-w-sm text-center leading-relaxed mt-4 px-4 font-medium relative z-10">
+                    <p className="text-[13px] text-gray-700 max-w-lg text-center leading-relaxed mt-6 px-6 font-medium relative z-10">
                       On this beautiful day, the administration and faculty of EverShine Academy come together to celebrate your life and academic progress. We wish you an abundance of joy, wisdom, sound health, and spectacular future endeavors. Keep shining and climbing high!
                     </p>
 
                     {/* Date Details */}
-                    <div className="mt-4 flex flex-col items-center bg-white px-6 py-3 rounded-lg border border-[#1e3a8a]/20 shadow-sm relative z-10">
-                      <span className="text-[9px] uppercase font-bold text-gray-500 tracking-[0.2em]">Date of Birth</span>
-                      <span className="text-[14px] font-black text-gray-900 mt-1 uppercase tracking-[0.12em] leading-tight text-center whitespace-nowrap">
+                    <div className="mt-6 flex flex-col items-center bg-white px-8 py-3.5 rounded-xl border border-[#1e3a8a]/20 shadow-sm relative z-10">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-[0.2em]">Date of Birth</span>
+                      <span className="text-[16px] font-black text-gray-900 mt-1 uppercase tracking-[0.12em] leading-tight text-center whitespace-nowrap">
                         {selectedStudent.dateOfBirth && !isNaN(new Date(selectedStudent.dateOfBirth).getTime()) ? new Date(selectedStudent.dateOfBirth).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Unknown Date'}
                       </span>
                     </div>
 
-                    <div className="flex-1 min-h-[16px]" />
-                    <div className="w-full px-8 flex items-end justify-between mb-6 relative z-10">
-                      <div className="flex gap-6 flex-nowrap shrink-0">
+                    <div className="flex-1 min-h-[24px]" />
+                    <div className="w-full px-12 flex items-end justify-between mb-8 relative z-10">
+                      <div className="flex gap-12 flex-nowrap shrink-0">
                         <div className="flex flex-col items-center">
-                          <div className="w-28 border-b border-gray-400 pb-1 flex items-end justify-center h-10">
-                            <span className="font-serif italic text-[11px] text-gray-300 whitespace-nowrap">Principal Stamp</span>
+                          <div className="w-36 border-b-2 border-gray-400 pb-1 flex items-end justify-center h-12">
+                            <span className="font-serif italic text-[12px] text-gray-300 whitespace-nowrap">Principal Stamp</span>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-gray-500 mt-1 tracking-widest whitespace-nowrap">Academy Principal</span>
+                          <span className="text-[10px] uppercase font-bold text-gray-600 mt-1.5 tracking-widest whitespace-nowrap">Academy Principal</span>
                         </div>
                         <div className="flex flex-col items-center">
-                          <div className="w-28 border-b border-gray-400 pb-1 flex items-end justify-center h-10">
-                              <span className="font-serif italic text-[11px] text-gray-300 whitespace-nowrap">Teacher Seal</span>
-                            </div>
-                            <span className="text-[9px] uppercase font-bold text-gray-500 mt-1 tracking-widest whitespace-nowrap">Class Teacher</span>
+                          <div className="w-36 border-b-2 border-gray-400 pb-1 flex items-end justify-center h-12">
+                            <span className="font-serif italic text-[12px] text-gray-300 whitespace-nowrap">Teacher Seal</span>
+                          </div>
+                          <span className="text-[10px] uppercase font-bold text-gray-600 mt-1.5 tracking-widest whitespace-nowrap">Class Teacher</span>
                         </div>
                       </div>
                     </div>
@@ -1655,88 +1658,92 @@ export default function DocumentsPage() {
                 {docType === 'bonafide' && selectedStudent && (
                   <div
                     data-document-page
-                    className="w-[595px] min-h-[842px] bg-white flex flex-col items-start relative overflow-hidden shrink-0"
-                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-white flex flex-col items-start relative overflow-hidden shrink-0"
+                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box', minHeight: '1123px', height: '1123px' }}
                   >
-                    <div className="absolute inset-0 border-[12px] border-[#1e3a8a] pointer-events-none z-20" />
-                    <div className="absolute inset-0 border-[16px] border-white pointer-events-none z-20" />
+                    <div className="absolute inset-0 border-[14px] border-[#1e3a8a] pointer-events-none z-20" />
+                    <div className="absolute inset-0 border-[18px] border-white pointer-events-none z-20" />
 
                     {/* Watermark */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-10">
-                      <div className="w-[300px] h-[300px]">
+                      <div className="w-[360px] h-[360px]">
                         <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full" />
                       </div>
                     </div>
 
-                    <div className="w-full px-10 pt-8 flex flex-col h-full relative z-10">
+                    <div className="w-full px-12 pt-10 flex flex-col h-full relative z-10">
                       {/* Header Letterhead */}
                       <div className="w-full flex items-center justify-between border-b-[3px] border-[#1e3a8a] pb-4">
-                        <div className="flex items-center gap-3">
-                          <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
+                        <div className="flex items-center gap-4">
+                          <AcademyLogo className="w-16 h-16 text-[#1e3a8a] shrink-0" />
                           <div>
-                            <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
-                            <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
+                            <h2 className="text-[24px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
+                            <p className="text-[9.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1.5">We Make Your Children More Valuable</p>
+                            <p className="text-[8.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                           </div>
                         </div>
-                        <div className="text-right text-[8px] text-gray-500 font-bold space-y-0.5">
+                        <div className="text-right text-[9px] text-gray-500 font-bold space-y-0.5">
                           <p>📱 Boys: 0328-4010522</p>
                           <p>📱 Girls: 0324-8985526</p>
-                          <p className="mt-1.5 text-indigo-600 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          <p className="mt-2 text-indigo-600 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         </div>
                       </div>
 
                       {/* Metadata Serial No */}
-                      <div className="w-full flex justify-between items-center mt-3 text-[9px] font-bold text-gray-500">
+                      <div className="w-full flex justify-between items-center mt-4 text-[10px] font-bold text-gray-500">
                         <span>Ref No: ESA/BON/{selectedStudent.registrationNumber.split('/').pop()}/{new Date().getFullYear()}</span>
                       </div>
 
                       {/* Document Title */}
-                      <div className="w-full flex items-center mt-4 mb-5 px-10">
+                      <div className="w-full flex items-center justify-center mt-6 mb-6 px-6 text-center">
                         <div className="flex-1 h-px bg-gray-300" />
-                        <h1 className="text-[28px] font-black uppercase tracking-[0.15em] text-[#0f172a] px-6 text-center leading-[1.1]">
-                          BONAFIDE<br/>CERTIFICATE
+                        <h1 className="text-[32px] font-black uppercase tracking-[0.18em] text-[#0f172a] px-8 text-center leading-[1.1]">
+                          BONAFIDE CERTIFICATE
                         </h1>
                         <div className="flex-1 h-px bg-gray-300" />
                       </div>
 
                       {/* Student quick-reference bar */}
-                      <div className="w-full bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-3 flex items-center gap-4 shadow-sm relative z-10">
+                      <div className="w-full bg-[#eff6ff] border border-[#bfdbfe] rounded-2xl p-4 flex items-center gap-5 shadow-sm relative z-10">
                         {/* Student Photo */}
-                        <div className="w-16 h-16 rounded-lg border-2 border-[#1e3a8a] overflow-hidden shadow flex-shrink-0 bg-white">
+                        <div className="w-20 h-20 rounded-xl border-2 border-[#1e3a8a] overflow-hidden shadow flex-shrink-0 bg-white">
                           <img
                             src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#1e3a8a')}
                             alt={`${selectedStudent.firstName} ${selectedStudent.lastName}`}
-                            className="w-full h-full"
-                            style={{ objectFit: 'cover' }}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover object-center shrink-0"
+                            style={{ objectFit: 'cover', objectPosition: 'center' }}
                           />
                         </div>
                         {/* Meta */}
-                        <div className="flex flex-wrap text-[11px] leading-tight text-gray-800 flex-1 justify-between">
+                        <div className="flex flex-wrap text-[12px] leading-tight text-gray-800 flex-1 justify-between">
                           <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Student Name</span>
-                            <span className="font-black text-gray-900 text-[13px] block">{selectedStudent.firstName} {selectedStudent.lastName}</span>
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Student Name</span>
+                            <span className="font-black text-gray-900 text-[14px] block">{selectedStudent.firstName} {selectedStudent.lastName}</span>
                           </div>
                           <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Father Name</span>
-                            <span className="font-black text-gray-900 text-[13px] block">{selectedStudent.fatherName}</span>
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Father Name</span>
+                            <span className="font-black text-gray-900 text-[14px] block">{selectedStudent.fatherName}</span>
                           </div>
-                          <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Class Section</span>
-                            <span className="font-black text-gray-900 text-[12px] block">{selectedStudentClassSection}</span>
+                          <div className="block w-[45%]">
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Class Section</span>
+                            <span className="font-black text-gray-900 text-[13px] block">{selectedStudentClassSection}</span>
                           </div>
-                          <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Roll / Reg ID</span>
-                            <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
+                          <div className="block w-[45%]">
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Roll / Reg ID</span>
+                            <span className="font-bold text-gray-900 text-[13px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
                           </div>
                         </div>
                       </div>
 
                       {/* Formal Text Paragraph */}
-                      <div className="w-full text-[12px] text-gray-800 space-y-3 leading-relaxed text-left mt-4 relative z-10 font-medium">
+                      <div className="w-full text-[13px] text-gray-800 space-y-4 leading-relaxed text-left mt-6 relative z-10 font-medium">
                         <p>
-                          This is to certify that <strong className="font-black text-[#1e3a8a] text-[13px] border-b border-[#1e3a8a]/30">{selectedStudent.firstName} {selectedStudent.lastName}</strong>,{' '}
-                          son / daughter of Mr. <strong className="font-black text-[#1e3a8a] text-[13px] border-b border-[#1e3a8a]/30">{selectedStudent.fatherName || '__________________'}</strong>, bearing B-Form / CNIC number{' '}
+                          This is to certify that <strong className="font-black text-[#1e3a8a] text-[14px] underline decoration-2 underline-offset-4 decoration-[#1e3a8a]">{selectedStudent.firstName} {selectedStudent.lastName}</strong>,{' '}
+                          son / daughter of Mr. <strong className="font-black text-[#1e3a8a] text-[14px] underline decoration-2 underline-offset-4 decoration-[#1e3a8a]">{selectedStudent.fatherName || '__________________'}</strong>, bearing B-Form / CNIC number{' '}
                           <strong className="font-black text-gray-900">{selectedStudent.cnicBForm || 'on file'}</strong>, is a bonafide student of EverShine Academy, Madina Town Campus.
                         </p>
                         <p>
@@ -1758,15 +1765,14 @@ export default function DocumentsPage() {
                         </p>
                       </div>
 
-                      <div className="flex-1 min-h-[16px]" />
+                      <div className="flex-1 min-h-[32px]" />
                       {/* Verification Block */}
-                      <div className="w-full flex justify-between items-end mb-4 relative z-10">
-                        {/* Signature block */}
+                      <div className="w-full flex justify-between items-end mb-8 relative z-10">
                         <div className="block text-center">
-                          <div className="w-44 border-b border-gray-400 pb-2 mx-auto mb-2">
-                            <span className="font-black text-[12px] text-gray-900 block">Principal Signature</span>
+                          <div className="w-48 border-b-2 border-gray-400 pb-2 mx-auto mb-2">
+                            <span className="font-black text-[13px] text-gray-900 block">Principal Signature</span>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">Authorized Seal &amp; Signature</span>
+                          <span className="text-[10px] uppercase font-bold text-gray-600 tracking-widest block">Authorized Seal &amp; Signature</span>
                         </div>
                       </div>
                     </div>
@@ -1978,70 +1984,75 @@ export default function DocumentsPage() {
                   return (
                     <div
                       data-document-page
-                      className="w-[595px] min-h-[842px] bg-white flex flex-col items-start relative overflow-hidden shrink-0"
-                      style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
+                      data-pdf-width="794"
+                      data-pdf-height="1123"
+                      className="w-[794px] bg-white flex flex-col items-start relative overflow-hidden shrink-0"
+                      style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box', minHeight: '1123px', height: '1123px' }}
                     >
-                      <div className="absolute inset-0 border-[12px] border-[#1e3a8a] pointer-events-none z-20" />
-                      <div className="absolute inset-0 border-[16px] border-white pointer-events-none z-20" />
+                      <div className="absolute inset-0 border-[14px] border-[#1e3a8a] pointer-events-none z-20" />
+                      <div className="absolute inset-0 border-[18px] border-white pointer-events-none z-20" />
 
                       {/* Watermark */}
                       <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-10">
-                        <div className="w-[300px] h-[300px]">
+                        <div className="w-[360px] h-[360px]">
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full" />
                         </div>
                       </div>
 
-                      <div className="w-full px-10 pt-8 flex flex-col h-full relative z-10">
+                      <div className="w-full px-12 pt-10 flex flex-col h-full relative z-10">
                         {/* Header Letterhead */}
                         <div className="w-full flex items-center justify-between border-b-[3px] border-[#1e3a8a] pb-4">
-                          <div className="flex items-center gap-3">
-                            <AcademyLogo className="w-14 h-14 text-[#1e3a8a] shrink-0" />
+                          <div className="flex items-center gap-4">
+                            <AcademyLogo className="w-16 h-16 text-[#1e3a8a] shrink-0" />
                             <div>
-                              <h2 className="text-[20px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                              <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
-                              <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
+                              <h2 className="text-[24px] font-black uppercase text-[#1e3a8a] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
+                              <p className="text-[9.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1.5">We Make Your Children More Valuable</p>
+                              <p className="text-[8.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near to Labor Gulshan Colony</p>
                             </div>
                           </div>
-                          <div className="text-right text-[8px] text-gray-500 font-bold space-y-0.5">
+                          <div className="text-right text-[9px] text-gray-500 font-bold space-y-0.5">
                             <p>📱 Boys: 0328-4010522</p>
                             <p>📱 Girls: 0324-8985526</p>
-                            <p className="mt-1.5 text-indigo-600 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="mt-2 text-indigo-600 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                           </div>
                         </div>
 
                         {/* Document Title */}
-                        <div className="w-full text-center mt-4 mb-4 relative">
+                        <div className="w-full text-center mt-5 mb-5 relative">
                           <div className="absolute inset-x-10 top-1/2 h-px bg-gray-200 -z-10" />
-                          <h1 className="text-[26px] font-black uppercase tracking-[0.15em] text-[#0f172a] leading-tight bg-white px-6 inline-block">
-                            STUDENT<br/>PERFORMANCE &amp;<br/>CONDUCT CARD
+                          <h1 className="text-[30px] font-black uppercase tracking-[0.18em] text-[#0f172a] leading-tight bg-white px-8 inline-block">
+                            STUDENT PERFORMANCE &amp; CONDUCT CARD
                           </h1>
                         </div>
 
                         {/* Profile Info Strip */}
-                        <div className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50/80 flex items-center gap-4 shadow-sm relative z-10">
-                          <div className="w-16 h-16 rounded-lg border-2 border-[#1e3a8a] overflow-hidden shadow flex-shrink-0 bg-white">
+                        <div className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50/80 flex items-center gap-5 shadow-sm relative z-10">
+                          <div className="w-20 h-20 rounded-xl border-2 border-[#1e3a8a] overflow-hidden shadow flex-shrink-0 bg-white">
                             <img
                               src={profilePictureDataUrl || getAvatarDataUrl(selectedStudent.firstName, selectedStudent.lastName, '#1e3a8a')}
                               alt={`${selectedStudent.firstName} ${selectedStudent.lastName}`}
-                              className="w-full h-full object-cover"
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-cover object-center shrink-0"
+                              style={{ objectFit: 'cover', objectPosition: 'center' }}
                             />
                           </div>
-                          <div className="flex flex-wrap text-[11px] leading-tight text-gray-800 flex-1 justify-between">
+                          <div className="flex flex-wrap text-[12px] leading-tight text-gray-800 flex-1 justify-between">
                             <div className="block w-[45%] mb-3">
-                              <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Student Name</span>
-                              <span className="font-black text-gray-900 text-[13px] block">{selectedStudent.firstName} {selectedStudent.lastName}</span>
+                              <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Student Name</span>
+                              <span className="font-black text-gray-900 text-[14px] block">{selectedStudent.firstName} {selectedStudent.lastName}</span>
                             </div>
                             <div className="block w-[45%] mb-3">
-                              <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Roll No / Reg ID</span>
-                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
+                              <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Roll No / Reg ID</span>
+                              <span className="font-bold text-gray-900 text-[13px] block">{selectedStudentRollNumber} / <span className="font-mono text-[#1e3a8a]">{selectedStudent.registrationNumber}</span></span>
                             </div>
-                            <div className="block w-[45%] mb-3">
-                              <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Class Section</span>
-                              <span className="font-bold text-gray-900 text-[12px] block">{selectedStudentClassSection}</span>
+                            <div className="block w-[45%]">
+                              <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Class Section</span>
+                              <span className="font-bold text-gray-900 text-[13px] block">{selectedStudentClassSection}</span>
                             </div>
-                            <div className="block w-[45%] mb-3">
-                              <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">House Affiliation</span>
-                              <span className="text-white font-black text-[9px] uppercase rounded px-1.5 py-0.5 shadow-sm inline-block mt-1" style={{ backgroundColor: houseColor }}>
+                            <div className="block w-[45%]">
+                              <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">House Affiliation</span>
+                              <span className="text-white font-black text-[10px] uppercase rounded px-2 py-0.5 shadow-sm inline-block mt-0.5" style={{ backgroundColor: houseColor }}>
                                 {houseName}
                               </span>
                             </div>
@@ -2049,33 +2060,33 @@ export default function DocumentsPage() {
                         </div>
 
                         {/* Performance Metric Cards */}
-                        <div className="w-full flex justify-between mt-3 z-10 relative">
+                        <div className="w-full flex justify-between mt-5 z-10 relative gap-3">
                           {[
                             {label:'Academic Avg',value:`${academicPct}%`,sub:`Grade: ${academicGrade}`,bg:'bg-blue-50/80',border:'border-blue-200',color:'text-blue-900'},
                             {label:'Attendance',value:attendanceVal,sub:'Status: Regular',bg:'bg-emerald-50/80',border:'border-emerald-200',color:'text-emerald-900'},
                             {label:'Sports & Phys',value:sportsGrade,sub:'Grade: Elite',bg:'bg-amber-50/80',border:'border-amber-200',color:'text-amber-900'},
                             {label:'Conduct',value:conductGrade,sub:'Exemplary',bg:'bg-rose-50/80',border:'border-rose-200',color:'text-rose-900'},
                           ].map((m,i) => (
-                            <div key={i} className={`border ${m.border} rounded-lg p-2 ${m.bg} block text-center shadow-sm w-[110px] min-w-[110px] flex-shrink-0`}>
-                              <div className="text-[8px] uppercase font-black text-gray-500 tracking-widest block">{m.label}</div>
-                              <div className={`text-[16px] font-black ${m.color} mt-1 mb-1 leading-none block`}>{m.value}</div>
-                              <div className="text-[8px] font-bold text-gray-600 block">{m.sub}</div>
+                            <div key={i} className={`border ${m.border} rounded-xl p-3 ${m.bg} block text-center shadow-sm flex-1`}>
+                              <div className="text-[9px] uppercase font-black text-gray-500 tracking-widest block">{m.label}</div>
+                              <div className={`text-[20px] font-black ${m.color} mt-1 mb-1 leading-none block`}>{m.value}</div>
+                              <div className="text-[9px] font-bold text-gray-600 block">{m.sub}</div>
                             </div>
                           ))}
                         </div>
 
                         {/* Evaluation Table */}
-                        <div className="w-full mt-4 border rounded-lg overflow-hidden shadow-sm border-gray-300 relative z-10">
+                        <div className="w-full mt-6 border rounded-xl overflow-hidden shadow-sm border-gray-300 relative z-10">
                           <table className="w-full text-left border-collapse border border-gray-300" style={{ borderCollapse: 'collapse' }}>
                             <thead>
-                              <tr className="bg-[#1e3a8a] text-white border-b border-gray-300 text-[8px] uppercase font-black tracking-widest">
-                                <th className="px-3 py-2 border-r border-gray-300">Evaluation Metric</th>
-                                <th className="px-3 py-2 border-r border-gray-300">Score</th>
-                                <th className="px-3 py-2 border-r border-gray-300">Band</th>
-                                <th className="px-3 py-2 text-right">Remarks</th>
+                              <tr className="bg-[#1e3a8a] text-white border-b border-gray-300 text-[9px] uppercase font-black tracking-widest">
+                                <th className="px-4 py-2.5 border-r border-gray-300">Evaluation Metric</th>
+                                <th className="px-4 py-2.5 border-r border-gray-300">Score</th>
+                                <th className="px-4 py-2.5 border-r border-gray-300">Band</th>
+                                <th className="px-4 py-2.5 text-right">Remarks</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 text-[10px] text-gray-800 bg-white">
+                            <tbody className="divide-y divide-gray-200 text-[11px] text-gray-800 bg-white">
                               {[
                                 ['Cognitive & Academic Mastery',`${academicPct}%`,academicGrade,'Excellent curriculum understanding'],
                                 ['Punctuality & Presence Quotient',attendanceVal,'A+','Consistently punctual and focused'],
@@ -2083,10 +2094,10 @@ export default function DocumentsPage() {
                                 ['Behavioral Standard & Respect Quotient','Excellent','A+','Demonstrates leadership & respect'],
                               ].map((row,i) => (
                                 <tr key={i} className="hover:bg-blue-50 transition-colors">
-                                  <td className="px-3 py-2 font-bold text-gray-900 border-r-2 border-gray-300">{row[0]}</td>
-                                  <td className="px-3 py-2 font-black text-[#1e3a8a] border-r-2 border-gray-300">{row[1]}</td>
-                                  <td className="px-3 py-2 font-mono font-black border-r-2 border-gray-300">{row[2]}</td>
-                                  <td className="px-3 py-2 text-right font-medium text-gray-600">{row[3]}</td>
+                                  <td className="px-4 py-2.5 font-bold text-gray-900 border-r-2 border-gray-300">{row[0]}</td>
+                                  <td className="px-4 py-2.5 font-black text-[#1e3a8a] border-r-2 border-gray-300">{row[1]}</td>
+                                  <td className="px-4 py-2.5 font-mono font-black border-r-2 border-gray-300">{row[2]}</td>
+                                  <td className="px-4 py-2.5 text-right font-medium text-gray-600">{row[3]}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2094,22 +2105,22 @@ export default function DocumentsPage() {
                         </div>
 
                         {/* Remarks */}
-                        <div className="w-full mt-4 border border-gray-200 rounded-lg p-3 bg-gray-50/80 shadow-sm relative z-10">
-                          <div className="text-[9px] font-black text-[#1e3a8a] uppercase tracking-widest mb-1.5 border-b border-gray-200 pb-0.5">Class Advisor Final Comments</div>
-                          <div className="text-[11px] text-gray-700 leading-relaxed font-medium">
+                        <div className="w-full mt-6 border border-gray-200 rounded-xl p-4 bg-gray-50/80 shadow-sm relative z-10">
+                          <div className="text-[10px] font-black text-[#1e3a8a] uppercase tracking-widest mb-1.5 border-b border-gray-200 pb-1">Class Advisor Final Comments</div>
+                          <div className="text-[12px] text-gray-700 leading-relaxed font-medium">
                             <strong className="text-gray-900">{selectedStudent.firstName}</strong> exhibits exceptional dedication to academic pursuits and serves as a stellar role model for fellow peers. Their conduct is exemplary, displaying superior manners and responsibility in all academy environments. Highly recommended for continued advanced placements.
                           </div>
                         </div>
 
-                        <div className="flex-1 min-h-[16px]" />
+                        <div className="flex-1 min-h-[32px]" />
                         {/* QR + Signature Footer */}
-                        <div className="w-full flex justify-between items-end mb-4 relative z-10">
+                        <div className="w-full flex justify-between items-end mb-8 relative z-10">
                           {/* Signature block */}
                           <div className="block text-center">
-                            <div className="w-44 border-b border-gray-400 pb-2 mx-auto mb-2">
-                              <span className="font-black text-[12px] text-gray-900 block">Principal</span>
+                            <div className="w-48 border-b-2 border-gray-400 pb-2 mx-auto mb-2">
+                              <span className="font-black text-[13px] text-gray-900 block">Principal</span>
                             </div>
-                            <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">Academy Principal</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-600 tracking-widest block">Academy Principal</span>
                           </div>
                         </div>
 
@@ -2122,8 +2133,10 @@ export default function DocumentsPage() {
                 {docType === 'reports' && (
                   <div 
                     data-document-page
-                    className="w-[595px] min-h-[842px] h-auto bg-white flex flex-col items-start relative overflow-hidden shrink-0"
-                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-white flex flex-col items-start relative overflow-hidden shrink-0"
+                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box', minHeight: '1123px', height: '1123px' }}
                   >
                     <div className="absolute inset-0 border-[8px] border-[#1e3a8a] pointer-events-none z-20" />
                     
@@ -2619,95 +2632,99 @@ export default function DocumentsPage() {
                 {docType === 'teacher_experience' && selectedTeacher && (
                   <div 
                     data-document-page 
-                    className="w-[595px] min-h-[842px] h-auto bg-white flex flex-col items-start relative overflow-visible shrink-0"
-                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-white flex flex-col items-start relative overflow-visible shrink-0"
+                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box', minHeight: '1123px', height: '1123px' }}
                   >
-                    <div className="absolute inset-0 border-[12px] border-[#065F46] pointer-events-none z-20" />
-                    <div className="absolute inset-0 border-[16px] border-white pointer-events-none z-20" />
+                    <div className="absolute inset-0 border-[14px] border-[#065F46] pointer-events-none z-20" />
+                    <div className="absolute inset-0 border-[18px] border-white pointer-events-none z-20" />
 
                     {/* Watermark */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-10">
-                      <div className="w-[300px] h-[300px]">
+                      <div className="w-[360px] h-[360px]">
                         <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full" />
                       </div>
                     </div>
 
-                    <div className="w-full px-10 pt-8 flex flex-col h-full relative z-10">
+                    <div className="w-full px-12 pt-10 flex flex-col h-full relative z-10">
                       {/* Header Letterhead */}
                       <div className="w-full flex items-center justify-between border-b-[3px] border-[#065F46] pb-4">
-                        <div className="flex items-center gap-3">
-                          <AcademyLogo className="w-14 h-14 text-[#065F46] shrink-0" />
+                        <div className="flex items-center gap-4">
+                          <AcademyLogo className="w-16 h-16 text-[#065F46] shrink-0" />
                           <div>
-                            <h2 className="text-[20px] font-black uppercase text-[#065F46] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
-                            <p className="text-[8.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">We Make Your Children More Valuable</p>
-                            <p className="text-[7.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near Labor Gulshan Colony</p>
+                            <h2 className="text-[24px] font-black uppercase text-[#065F46] leading-none tracking-tight">EVERSHINE ACADEMY</h2>
+                            <p className="text-[9.5px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1.5">We Make Your Children More Valuable</p>
+                            <p className="text-[8.5px] text-gray-600 mt-0.5">Madina Town near Mandiala Warraich Road, Near Labor Gulshan Colony</p>
                           </div>
                         </div>
-                        <div className="text-right text-[8px] text-gray-500 font-bold space-y-0.5">
+                        <div className="text-right text-[9px] text-gray-500 font-bold space-y-0.5">
                           <p>📱 Boys: 0328-4010522</p>
                           <p>📱 Girls: 0324-8985526</p>
-                          <p className="mt-1.5 text-emerald-700 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          <p className="mt-2 text-emerald-700 font-mono">Date: {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         </div>
                       </div>
 
                       {/* Metadata Serial No */}
-                      <div className="w-full flex justify-between items-center mt-3 text-[9px] font-bold text-gray-500">
+                      <div className="w-full flex justify-between items-center mt-4 text-[10px] font-bold text-gray-500">
                         <span>Ref No: ESA/EXP/{selectedTeacher.employeeId}/{new Date().getFullYear()}</span>
                       </div>
 
                       {/* Document Title */}
-                      <div className="w-full flex items-center mt-4 mb-6 px-10">
+                      <div className="w-full flex items-center justify-center mt-6 mb-6 px-6 text-center">
                         <div className="flex-1 h-px bg-gray-300" />
-                        <h1 className="text-[24px] font-black uppercase tracking-[0.15em] text-[#0f172a] px-6 text-center leading-[1.1]">
-                          EXPERIENCE<br/>CERTIFICATE
+                        <h1 className="text-[32px] font-black uppercase tracking-[0.18em] text-[#0f172a] px-8 text-center leading-[1.1]">
+                          EXPERIENCE CERTIFICATE
                         </h1>
                         <div className="flex-1 h-px bg-gray-300" />
                       </div>
 
                       {/* Teacher quick-reference bar */}
-                      <div className="w-full bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl p-3 flex items-center gap-4 shadow-sm relative z-10 mb-4">
+                      <div className="w-full bg-[#ecfdf5] border border-[#a7f3d0] rounded-2xl p-4 flex items-center gap-5 shadow-sm relative z-10 mb-6">
                         {/* Teacher Photo placeholder / Avatar */}
-                        <div className="w-16 h-16 rounded-lg border-2 border-[#065F46] overflow-hidden shadow flex-shrink-0 bg-white flex items-center justify-center">
+                        <div className="w-20 h-20 rounded-xl border-2 border-[#065F46] overflow-hidden shadow flex-shrink-0 bg-white flex items-center justify-center">
                           <img
                             src={teacherProfileDataUrl || getAvatarDataUrl(selectedTeacher.firstName, selectedTeacher.lastName, '#065F46')}
                             alt={`${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
-                            className="w-full h-full"
-                            style={{ objectFit: 'cover' }}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover object-center shrink-0"
+                            style={{ objectFit: 'cover', objectPosition: 'center' }}
                           />
                         </div>
                         {/* Meta */}
-                        <div className="flex flex-wrap text-[11px] leading-tight text-gray-800 flex-1 justify-between">
+                        <div className="flex flex-wrap text-[12px] leading-tight text-gray-800 flex-1 justify-between">
                           <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Staff Name</span>
-                            <span className="font-black text-gray-900 text-[13px] block">{selectedTeacher.firstName} {selectedTeacher.lastName}</span>
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Staff Name</span>
+                            <span className="font-black text-gray-900 text-[14px] block">{selectedTeacher.firstName} {selectedTeacher.lastName}</span>
                           </div>
                           <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Employee ID</span>
-                            <span className="font-black text-[#065F46] text-[13px] block font-mono">{selectedTeacher.employeeId}</span>
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Employee ID</span>
+                            <span className="font-black text-[#065F46] text-[14px] block font-mono">{selectedTeacher.employeeId}</span>
                           </div>
-                          <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Designation</span>
-                            <span className="font-black text-gray-900 text-[12px] block">{selectedTeacher.designation}</span>
+                          <div className="block w-[45%]">
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Designation</span>
+                            <span className="font-black text-gray-900 text-[13px] block">{selectedTeacher.designation}</span>
                           </div>
-                          <div className="block w-[45%] mb-3">
-                            <span className="font-bold text-gray-400 uppercase text-[8px] tracking-wider mb-1 block">Department</span>
-                            <span className="font-bold text-gray-900 text-[12px] block">{selectedTeacher.specialization ?? 'Academic'}</span>
+                          <div className="block w-[45%]">
+                            <span className="font-bold text-gray-400 uppercase text-[9px] tracking-wider mb-1 block">Department</span>
+                            <span className="font-bold text-gray-900 text-[13px] block">{selectedTeacher.specialization ?? 'Academic'}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Body */}
-                      <div className="w-full text-[12px] text-gray-800 space-y-4 leading-relaxed text-left relative z-10 font-medium">
+                      <div className="w-full text-[13px] text-gray-800 space-y-4 leading-relaxed text-left relative z-10 font-medium">
                         <p>
-                          This is to certify that <strong className="font-black text-[#065F46] text-[13px] border-b border-[#065F46]/30">{selectedTeacher.firstName} {selectedTeacher.lastName}</strong>, holding Employee ID <strong className="font-black text-gray-900">{selectedTeacher.employeeId}</strong>, has served as <strong className="font-black text-gray-900">{selectedTeacher.designation}</strong> in the <strong className="font-black text-gray-900">{selectedTeacher.specialization ?? 'Academic'}</strong> Department at EverShine Academy, {selectedTeacher.campus?.name ?? 'Madina Town Campus'}, since <strong className="font-black text-gray-900">{selectedTeacher.joiningDate ? new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</strong>
+                          This is to certify that <strong className="font-black text-[#065F46] text-[14px] underline decoration-2 underline-offset-4 decoration-[#065F46]">{selectedTeacher.firstName} {selectedTeacher.lastName}</strong>, holding Employee ID <strong className="font-black text-gray-900">{selectedTeacher.employeeId}</strong>, has served as <strong className="font-black text-gray-900">{selectedTeacher.designation}</strong> in the <strong className="font-black text-gray-900">{selectedTeacher.specialization ?? 'Academic'}</strong> Department at EverShine Academy, {selectedTeacher.campus?.name ?? 'Madina Town Campus'}, since <strong className="font-black text-gray-900">{selectedTeacher.joiningDate ? new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</strong>
                           {expEndDate ? ` to ${new Date(expEndDate).toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' })}` : ' and is currently serving in this role'}.
                         </p>
                         <p>
                           During this tenure, <strong className="font-black text-gray-900">{selectedTeacher.firstName}</strong> has performed the following responsibilities with dedication and professionalism:
                         </p>
-                        <div className="pl-4 space-y-2">
+                        <div className="pl-5 space-y-2">
                           {expResponsibilities.split('\n').filter(r => r.trim()).slice(0, 6).map((r, i) => (
-                            <p key={i} className="text-[11px] flex items-start gap-2">
+                            <p key={i} className="text-[12px] flex items-start gap-2">
                               <span className="text-[#065F46] mt-0.5 font-bold">•</span>
                               <span className="flex-1">{r.trim()}</span>
                             </p>
@@ -2718,34 +2735,34 @@ export default function DocumentsPage() {
                         </p>
                       </div>
                       
-                      <div className="flex-1 min-h-[16px]" />
-                      <p className="text-[9px] text-gray-400 text-center mb-6 font-bold uppercase tracking-widest">
+                      <div className="flex-1 min-h-[32px]" />
+                      <p className="text-[10px] text-gray-400 text-center mb-6 font-bold uppercase tracking-widest">
                           This certificate is issued on official request and is valid for verification purposes only.
                       </p>
 
                       {/* Verification Block */}
-                      <div className="w-full flex justify-between items-end mb-4 relative z-10">
+                      <div className="w-full flex justify-between items-end mb-8 relative z-10">
                         {/* HR block */}
                         <div className="block text-center">
-                          <div className="w-32 border-b border-gray-400 pb-2 mx-auto mb-2">
-                            <span className="font-black text-[12px] text-gray-900 block">HR Administrator</span>
+                          <div className="w-40 border-b-2 border-gray-400 pb-2 mx-auto mb-2">
+                            <span className="font-black text-[13px] text-gray-900 block">HR Administrator</span>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">EverShine Academy</span>
+                          <span className="text-[10px] uppercase font-bold text-gray-600 tracking-widest block">EverShine Academy</span>
                         </div>
 
                         {/* Seal / QR placeholder */}
                         <div className="flex flex-col items-center gap-1.5">
-                           <div className="w-16 h-16 rounded-full border-[3px] border-[#065F46] flex flex-col items-center justify-center bg-emerald-50 shrink-0">
-                             <div className="text-[7px] font-black text-[#065F46] text-center leading-[1.2]">OFFICIAL<br />SEAL</div>
+                           <div className="w-18 h-18 rounded-full border-[3px] border-[#065F46] flex flex-col items-center justify-center bg-emerald-50 shrink-0">
+                             <div className="text-[8px] font-black text-[#065F46] text-center leading-[1.2]">OFFICIAL<br />SEAL</div>
                            </div>
                         </div>
 
                         {/* Signature block */}
                         <div className="block text-center">
-                          <div className="w-32 border-b border-gray-400 pb-2 mx-auto mb-2">
-                            <span className="font-black text-[12px] text-gray-900 block">{expPrincipalName}</span>
+                          <div className="w-40 border-b-2 border-gray-400 pb-2 mx-auto mb-2">
+                            <span className="font-black text-[13px] text-gray-900 block">{expPrincipalName}</span>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-gray-600 tracking-widest block">{expPrincipalTitle}</span>
+                          <span className="text-[10px] uppercase font-bold text-gray-600 tracking-widest block">{expPrincipalTitle}</span>
                         </div>
                       </div>
                     </div>
@@ -2756,78 +2773,81 @@ export default function DocumentsPage() {
                 {docType === 'student_profile' && selectedStudent && (
                   <div
                     data-document-page
-                    className="w-[595px] bg-white flex flex-col relative shrink-0 overflow-hidden"
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-white flex flex-col relative shrink-0 overflow-hidden"
                     style={{
                       fontFamily: 'Arial, sans-serif',
                       color: '#111827',
                       boxSizing: 'border-box',
-                      height: '842px',
-                      border: '4px solid #1e3a8a',
+                      minHeight: '1123px',
+                      height: '1123px',
+                      border: '6px solid #1e3a8a',
                       outline: '1px solid #1e3a8a',
-                      outlineOffset: '-10px',
+                      outlineOffset: '-12px',
                     }}
                   >
 
-                    <div className="w-full px-7 pt-4 pb-6 flex flex-col h-full relative z-10" style={{ gap: '7px' }}>
+                    <div className="w-full px-10 pt-6 pb-8 flex flex-col h-full relative z-10" style={{ gap: '10px' }}>
                       {/* Header */}
                       <div className="w-full flex items-center justify-between">
-                        <div className="w-16 h-16 shrink-0">
+                        <div className="w-20 h-20 shrink-0">
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-[#1e3a8a]" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[18px] font-black uppercase tracking-wider text-[#1e3a8a] leading-tight mb-1.5">EVERSHINE ACADEMY</h1>
-                          <div className="w-56 h-[2px] bg-[#1e3a8a] mx-auto"></div>
-                          <p className="text-[8px] font-bold tracking-widest mt-1.5 uppercase text-gray-600">Pakistan Education System</p>
-                          <div className="mt-1 text-[11px] font-black uppercase border border-[#1e3a8a] inline-block px-3 py-0.5 bg-[#eff6ff] text-[#1e3a8a]">Admission / Student Profile</div>
+                          <h1 className="text-[22px] font-black uppercase tracking-wider text-[#1e3a8a] leading-tight mb-1.5">EVERSHINE ACADEMY</h1>
+                          <div className="w-64 h-[2px] bg-[#1e3a8a] mx-auto"></div>
+                          <p className="text-[9px] font-bold tracking-widest mt-1.5 uppercase text-gray-600">Pakistan Education System</p>
+                          <div className="mt-1.5 text-[12px] font-black uppercase border border-[#1e3a8a] inline-block px-4 py-1 bg-[#eff6ff] text-[#1e3a8a]">Admission / Student Profile</div>
                         </div>
-                        <div className="w-20 h-24 shrink-0 border-2 border-[#1e3a8a] p-0.5 flex items-center justify-center bg-[#eff6ff]">
+                        <div className="w-24 h-28 shrink-0 border-2 border-[#1e3a8a] p-1 flex items-center justify-center bg-[#eff6ff]">
                           {profilePictureDataUrl ? (
-                            <img src={profilePictureDataUrl} alt="Photo" className="w-full h-full object-cover" />
+                            <img src={profilePictureDataUrl} alt="Photo" width={88} height={104} className="w-full h-full object-cover object-center shrink-0" style={{ objectFit: 'cover', objectPosition: 'center' }} />
                           ) : (
-                            <span className="text-[8px] text-gray-400 font-bold uppercase text-center leading-tight">Passport<br/>Photo</span>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase text-center leading-tight">Passport<br/>Photo</span>
                           )}
                         </div>
                       </div>
 
                       <div className="w-full border-2 border-[#1e3a8a] bg-white">
-                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-0.5 text-[10.5px] font-black uppercase text-center tracking-wide text-[#1e3a8a]">Student Information</div>
-                        <table className="w-full text-left text-[10px]" style={{ borderCollapse: 'collapse' }}>
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-3 py-1 text-[12px] font-black uppercase text-center tracking-wide text-[#1e3a8a]">Student Information</div>
+                        <table className="w-full text-left text-[11px]" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Registration No:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-mono font-black text-blue-900">{selectedStudent.registrationNumber}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Roll No:</td>
-                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudentRollNumber}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Registration No:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2 font-mono font-black text-blue-900">{selectedStudent.registrationNumber}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Roll No:</td>
+                              <td className="w-[22%] px-3 py-2 font-bold">{selectedStudentRollNumber}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Student Name:</td>
-                              <td colSpan={3} className="px-2 py-1.5 font-bold">{selectedStudent.firstName} {selectedStudent.lastName}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Student Name:</td>
+                              <td colSpan={3} className="px-3 py-2 font-bold text-gray-900">{selectedStudent.firstName} {selectedStudent.lastName}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Class / Batch:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{selectedStudentClassSection}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Date of Birth:</td>
-                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.dateOfBirth ? new Date(selectedStudent.dateOfBirth).toLocaleDateString('en-PK') : '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Class / Batch:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2 font-bold">{selectedStudentClassSection}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Date of Birth:</td>
+                              <td className="w-[22%] px-3 py-2 font-bold">{selectedStudent.dateOfBirth ? new Date(selectedStudent.dateOfBirth).toLocaleDateString('en-PK') : '—'}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Gender:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-bold">{selectedStudent.gender || '—'}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Blood Group:</td>
-                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.bloodGroup || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Gender:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2 font-bold">{selectedStudent.gender || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Blood Group:</td>
+                              <td className="w-[22%] px-3 py-2 font-bold">{selectedStudent.bloodGroup || '—'}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">CNIC / Form-B:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-1.5 font-mono font-bold">{selectedStudent.cnicBForm}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Religion:</td>
-                              <td className="w-[22%] px-2 py-1.5 font-bold">{selectedStudent.religion || 'Islam'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">CNIC / Form-B:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2 font-mono font-bold">{selectedStudent.cnicBForm}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Religion:</td>
+                              <td className="w-[22%] px-3 py-2 font-bold">{selectedStudent.religion || 'Islam'}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Present Address:</td>
-                              <td colSpan={3} className="px-2 py-1.5 font-bold">{selectedStudent.address || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Present Address:</td>
+                              <td colSpan={3} className="px-3 py-2 font-bold">{selectedStudent.address || '—'}</td>
                             </tr>
                             <tr>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-1.5 font-bold uppercase">Permanent Address:</td>
-                              <td colSpan={3} className="px-2 py-1.5 font-bold">{selectedStudent.permanentAddress || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2 font-bold uppercase">Permanent Address:</td>
+                              <td colSpan={3} className="px-3 py-2 font-bold">{selectedStudent.permanentAddress || '—'}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -2835,33 +2855,33 @@ export default function DocumentsPage() {
 
                       {/* Main Grid: Guardian Info */}
                       <div className="w-full border-2 border-[#1e3a8a] mt-2 bg-white">
-                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-1 text-[12px] font-black uppercase text-center text-[#1e3a8a]">
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-3 py-1.5 text-[13px] font-black uppercase text-center text-[#1e3a8a]">
                           Parent / Guardian Information
                         </div>
-                        <table className="w-full text-left text-[11px] font-medium" style={{ borderCollapse: 'collapse' }}>
+                        <table className="w-full text-left text-[11.5px] font-medium" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             {selectedStudent.guardians && selectedStudent.guardians.length > 0 ? (
                               <>
                                 <tr className="border-b border-gray-400">
-                                  <td className="w-[28%] border-r border-gray-400 px-2 py-2 font-bold uppercase">Guardian Name:</td>
-                                  <td className="w-[22%] border-r border-gray-400 px-2 py-2 font-bold">{selectedStudent.guardians[0].firstName} {selectedStudent.guardians[0].lastName}</td>
-                                  <td className="w-[28%] border-r border-gray-400 px-2 py-2 font-bold uppercase">Relationship:</td>
-                                  <td className="w-[22%] px-2 py-2 font-bold">{selectedStudent.guardians[0].relationship}</td>
+                                  <td className="w-[28%] border-r border-gray-400 px-3 py-2.5 font-bold uppercase">Guardian Name:</td>
+                                  <td className="w-[22%] border-r border-gray-400 px-3 py-2.5 font-bold">{selectedStudent.guardians[0].firstName} {selectedStudent.guardians[0].lastName}</td>
+                                  <td className="w-[28%] border-r border-gray-400 px-3 py-2.5 font-bold uppercase">Relationship:</td>
+                                  <td className="w-[22%] px-3 py-2.5 font-bold">{selectedStudent.guardians[0].relationship}</td>
                                 </tr>
                                 <tr className="border-b border-gray-400">
-                                  <td className="w-[28%] border-r border-gray-400 px-2 py-2 font-bold uppercase">Guardian CNIC:</td>
-                                  <td className="w-[22%] border-r border-gray-400 px-2 py-2 font-mono font-bold">{selectedStudent.guardians[0].cnic || '—'}</td>
-                                  <td className="w-[28%] border-r border-gray-400 px-2 py-2 font-bold uppercase">Contact No:</td>
-                                  <td className="w-[22%] px-2 py-2 font-bold font-mono">{selectedStudent.guardians[0].phoneNumber}</td>
+                                  <td className="w-[28%] border-r border-gray-400 px-3 py-2.5 font-bold uppercase">Guardian CNIC:</td>
+                                  <td className="w-[22%] border-r border-gray-400 px-3 py-2.5 font-mono font-bold">{selectedStudent.guardians[0].cnic || '—'}</td>
+                                  <td className="w-[28%] border-r border-gray-400 px-3 py-2.5 font-bold uppercase">Contact No:</td>
+                                  <td className="w-[22%] px-3 py-2.5 font-bold font-mono">{selectedStudent.guardians[0].phoneNumber}</td>
                                 </tr>
                                 <tr>
-                                  <td className="w-[28%] border-r border-gray-400 px-2 py-2 font-bold uppercase">Father Occupation:</td>
-                                  <td colSpan={3} className="px-2 py-2 font-bold">{selectedStudent.fatherOccupation || '—'}</td>
+                                  <td className="w-[28%] border-r border-gray-400 px-3 py-2.5 font-bold uppercase">Father Occupation:</td>
+                                  <td colSpan={3} className="px-3 py-2.5 font-bold">{selectedStudent.fatherOccupation || '—'}</td>
                                 </tr>
                               </>
                             ) : (
                                 <tr>
-                                  <td colSpan={4} className="px-2 py-4 text-center font-bold text-gray-400">No guardian details on file.</td>
+                                  <td colSpan={4} className="px-3 py-4 text-center font-bold text-gray-400">No guardian details on file.</td>
                                 </tr>
                             )}
                           </tbody>
@@ -2869,28 +2889,28 @@ export default function DocumentsPage() {
                       </div>
 
                       {/* Declaration */}
-                      <div className="w-full border-2 border-[#1e3a8a] mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '150px' }}>
-                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-2 py-1 text-[12px] font-black uppercase text-center text-[#1e3a8a]">
+                      <div className="w-full border-2 border-[#1e3a8a] mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '180px' }}>
+                        <div className="bg-[#eff6ff] border-b-2 border-[#1e3a8a] px-3 py-1.5 text-[13px] font-black uppercase text-center text-[#1e3a8a]">
                           Declaration & Undertaking
                         </div>
-                        <div className="px-6 py-3 text-[10.5px] text-justify leading-relaxed font-medium">
+                        <div className="px-8 py-4 text-[11.5px] text-justify leading-relaxed font-medium">
                           <p>
                             I solemnly declare that the information provided is accurate. I agree to abide by the rules, regulations, and disciplinary policies of EverShine Academy. I commit to maintaining regular attendance and paying all dues on time.
                           </p>
                         </div>
                         
                         {/* Signatures using Absolute Positioning for perfect html2canvas capture */}
-                        <div className="absolute bottom-4 left-0 right-0 px-10 flex justify-between items-end w-full">
+                        <div className="absolute bottom-6 left-0 right-0 px-12 flex justify-between items-end w-full">
                           <div className="block text-center" style={{ width: '38%' }}>
-                            <div className="w-full border-b-[1.5px] border-[#1e3a8a] h-6 mb-2"></div>
-                            <span className="text-[10px] font-bold uppercase block">Signature of Parent / Guardian</span>
+                            <div className="w-full border-b-[2px] border-[#1e3a8a] h-8 mb-2"></div>
+                            <span className="text-[11px] font-bold uppercase block">Signature of Parent / Guardian</span>
                           </div>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid rgba(30,58,138,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', fontSize: '6px', fontWeight: '900', color: 'rgba(30,58,138,0.55)', textAlign: 'center', lineHeight: '1.3', flexShrink: 0 }}>
+                          <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '1.5px solid rgba(30,58,138,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', fontSize: '7px', fontWeight: '900', color: 'rgba(30,58,138,0.65)', textAlign: 'center', lineHeight: '1.3', flexShrink: 0 }}>
                             OFFICIAL<br />SEAL
                           </div>
                           <div className="block text-center" style={{ width: '38%' }}>
-                            <div className="w-full border-b-[1.5px] border-[#1e3a8a] h-6 mb-2"></div>
-                            <span className="text-[10px] font-bold uppercase block">Principal / Administrator</span>
+                            <div className="w-full border-b-[2px] border-[#1e3a8a] h-8 mb-2"></div>
+                            <span className="text-[11px] font-bold uppercase block">Principal / Administrator</span>
                           </div>
                         </div>
                       </div>
@@ -2902,31 +2922,33 @@ export default function DocumentsPage() {
                 {docType === 'teacher_profile' && selectedTeacher && (
                   <div
                     data-document-page
-                    className="w-[595px] min-h-[842px] bg-white flex flex-col relative overflow-hidden shrink-0 border border-gray-100"
-                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box' }}
+                    data-pdf-width="794"
+                    data-pdf-height="1123"
+                    className="w-[794px] bg-white flex flex-col relative overflow-hidden shrink-0 border border-gray-100"
+                    style={{ fontFamily: 'Arial, sans-serif', color: '#111827', boxSizing: 'border-box', minHeight: '1123px', height: '1123px' }}
                   >
                     {/* Outer Border */}
-                    <div className="absolute inset-2 border-[4px] border-[#065F46] pointer-events-none z-20" />
-                    <div className="absolute inset-3 border border-[#065F46] pointer-events-none z-20" />
+                    <div className="absolute inset-3 border-[5px] border-[#065F46] pointer-events-none z-20" />
+                    <div className="absolute inset-4 border border-[#065F46] pointer-events-none z-20" />
 
-                    <div className="w-full px-8 py-8 flex flex-col h-full relative z-10 space-y-4">
+                    <div className="w-full px-10 py-10 flex flex-col h-full relative z-10 space-y-5">
                       {/* Header Section */}
                       <div className="w-full flex items-center justify-between mt-2">
                         <div className="w-24 h-24 shrink-0">
                           <AcademyLogo variant="icon" theme="mono-black" className="w-full h-full text-[#065F46]" />
                         </div>
                         <div className="flex-1 text-center">
-                          <h1 className="text-[20px] font-black uppercase tracking-wider text-[#065F46] leading-tight border-b-2 border-[#065F46] inline-block pb-1 px-4">
+                          <h1 className="text-[24px] font-black uppercase tracking-wider text-[#065F46] leading-tight border-b-2 border-[#065F46] inline-block pb-1 px-6">
                             EVERSHINE ACADEMY
                           </h1>
-                          <p className="text-[10px] font-bold tracking-widest mt-2 uppercase text-gray-600">Pakistan Education System</p>
-                          <div className="mt-2 text-[14px] font-black uppercase border border-[#065F46] inline-block px-4 py-1 bg-emerald-50 text-[#065F46]">
+                          <p className="text-[11px] font-bold tracking-widest mt-2 uppercase text-gray-600">Pakistan Education System</p>
+                          <div className="mt-2 text-[14px] font-black uppercase border border-[#065F46] inline-block px-5 py-1 bg-emerald-50 text-[#065F46]">
                             Staff / Faculty Profile
                           </div>
                         </div>
                         <div className="w-24 h-32 shrink-0 border-2 border-[#065F46] p-1 flex items-center justify-center bg-gray-50">
                           {teacherProfileDataUrl ? (
-                            <img src={teacherProfileDataUrl} alt="Photo" className="w-full h-full object-cover" />
+                            <img src={teacherProfileDataUrl} alt="Photo" width={88} height={120} className="w-full h-full object-cover object-center shrink-0" style={{ objectFit: 'cover', objectPosition: 'center' }} />
                           ) : (
                             <span className="text-[10px] text-gray-400 font-bold uppercase text-center">Photograph<br/>(Passport Size)</span>
                           )}
@@ -2935,40 +2957,40 @@ export default function DocumentsPage() {
 
                       {/* Main Grid: Staff Info */}
                       <div className="w-full border-2 border-[#065F46] mt-2 bg-white">
-                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-2 py-1 text-[12px] font-black uppercase text-center text-[#065F46]">
+                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-3 py-1.5 text-[13px] font-black uppercase text-center text-[#065F46]">
                           Personal Information
                         </div>
-                        <table className="w-full text-left text-[11px] font-medium" style={{ borderCollapse: 'collapse' }}>
+                        <table className="w-full text-left text-[12px] font-medium" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Employee ID:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-mono font-black text-[#065F46]">{selectedTeacher.employeeId}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Joining Date:</td>
-                              <td className="w-[22%] px-2 py-2 font-bold">{new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK')}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Employee ID:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2.5 font-mono font-black text-[#065F46]">{selectedTeacher.employeeId}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Joining Date:</td>
+                              <td className="w-[22%] px-3 py-2.5 font-bold">{new Date(selectedTeacher.joiningDate).toLocaleDateString('en-PK')}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Full Name:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.firstName} {selectedTeacher.lastName}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Full Name:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold text-gray-900">{selectedTeacher.firstName} {selectedTeacher.lastName}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Gender:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-bold">{selectedTeacher.gender || '—'}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Date of Birth:</td>
-                              <td className="w-[22%] px-2 py-2 font-bold">{selectedTeacher.dateOfBirth ? new Date(selectedTeacher.dateOfBirth).toLocaleDateString('en-PK') : '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Gender:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2.5 font-bold">{selectedTeacher.gender || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Date of Birth:</td>
+                              <td className="w-[22%] px-3 py-2.5 font-bold">{selectedTeacher.dateOfBirth ? new Date(selectedTeacher.dateOfBirth).toLocaleDateString('en-PK') : '—'}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">CNIC No:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-mono font-black">{selectedTeacher.cnic || '—'}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Contact No:</td>
-                              <td className="w-[22%] px-2 py-2 font-bold font-mono">{selectedTeacher.phoneNumber}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">CNIC No:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2.5 font-mono font-black">{selectedTeacher.cnic || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Contact No:</td>
+                              <td className="w-[22%] px-3 py-2.5 font-bold font-mono">{selectedTeacher.phoneNumber}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Email Address:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.email || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Email Address:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold">{selectedTeacher.email || '—'}</td>
                             </tr>
                             <tr>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Residential Address:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.address || '—'} {selectedTeacher.city ? `, ${selectedTeacher.city}` : ''}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Residential Address:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold">{selectedTeacher.address || '—'} {selectedTeacher.city ? `, ${selectedTeacher.city}` : ''}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -2976,62 +2998,62 @@ export default function DocumentsPage() {
 
                       {/* Main Grid: Professional Info */}
                       <div className="w-full border-2 border-[#065F46] mt-2 bg-white">
-                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-2 py-1 text-[12px] font-black uppercase text-center text-[#065F46]">
+                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-3 py-1.5 text-[13px] font-black uppercase text-center text-[#065F46]">
                           Professional Information
                         </div>
-                        <table className="w-full text-left text-[11px] font-medium" style={{ borderCollapse: 'collapse' }}>
+                        <table className="w-full text-left text-[12px] font-medium" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Designation:</td>
-                              <td className="w-[22%] border-r border-gray-300 px-2 py-2 font-bold">{selectedTeacher.designation}</td>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Experience:</td>
-                              <td className="w-[22%] px-2 py-2 font-bold">{selectedTeacher.experienceYears} Years</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Designation:</td>
+                              <td className="w-[22%] border-r border-gray-300 px-3 py-2.5 font-bold">{selectedTeacher.designation}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Experience:</td>
+                              <td className="w-[22%] px-3 py-2.5 font-bold">{selectedTeacher.experienceYears} Years</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Highest Qualification:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.qualification}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Highest Qualification:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold">{selectedTeacher.qualification}</td>
                             </tr>
                             <tr className="border-b border-gray-300">
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Specialization:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">{selectedTeacher.specialization || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Specialization:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold">{selectedTeacher.specialization || '—'}</td>
                             </tr>
                             <tr>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Assigned Classes:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold">
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Assigned Classes:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold">
                                 {selectedTeacher.classes?.length
                                   ? selectedTeacher.classes.map((assignment) => `${assignment.class.name}${assignment.class.section ? ` - ${assignment.class.section}` : ''}`).join(', ')
                                   : '—'}
                               </td>
                             </tr>
                             <tr>
-                              <td className="w-[28%] border-r border-gray-300 px-2 py-2 font-bold uppercase text-[#065F46]">Emergency Contact:</td>
-                              <td colSpan={3} className="px-2 py-2 font-bold font-mono">{selectedTeacher.emergencyContact || '—'}</td>
+                              <td className="w-[28%] border-r border-gray-300 px-3 py-2.5 font-bold uppercase text-[#065F46]">Emergency Contact:</td>
+                              <td colSpan={3} className="px-3 py-2.5 font-bold font-mono">{selectedTeacher.emergencyContact || '—'}</td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
 
                       {/* Declaration */}
-                      <div className="w-full border-2 border-[#065F46] mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '150px' }}>
-                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-2 py-1 text-[12px] font-black uppercase text-center text-[#065F46]">
+                      <div className="w-full border-2 border-[#065F46] mt-2 bg-white relative mb-1 shrink-0 overflow-hidden flex-1" style={{ minHeight: '180px' }}>
+                        <div className="bg-emerald-50 border-b-2 border-[#065F46] px-3 py-1.5 text-[13px] font-black uppercase text-center text-[#065F46]">
                           Staff Undertaking
                         </div>
-                        <div className="p-4 py-3 text-[10px] text-justify leading-relaxed font-medium space-y-1">
+                        <div className="p-5 py-4 text-[11px] text-justify leading-relaxed font-medium space-y-1">
                           <p>
                             I declare that the particulars furnished in this profile are true and complete. I shall perform my duties with dedication, maintain confidentiality, and uphold the academic standards of EverShine Academy.
                           </p>
                         </div>
                         
                         {/* Signatures using Absolute Positioning for perfect html2canvas capture */}
-                        <div className="absolute bottom-4 left-0 right-0 px-8 flex justify-between items-end w-full">
-                          <div className="text-center w-40 border-t border-[#065F46] pt-2">
-                            <span className="font-bold text-[10px] uppercase text-[#065F46]">Employee Signature</span>
+                        <div className="absolute bottom-6 left-0 right-0 px-10 flex justify-between items-end w-full">
+                          <div className="text-center w-48 border-t-2 border-[#065F46] pt-2">
+                            <span className="font-bold text-[11px] uppercase text-[#065F46]">Employee Signature</span>
                           </div>
-                          <div className="text-center w-40 border-t border-[#065F46] pt-2 relative">
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full border-[2px] border-[#065F46]/20 flex flex-col items-center justify-center bg-emerald-50 shrink-0">
-                               <div className="text-[6px] font-black text-[#065F46]/40 text-center leading-[1.2]">OFFICIAL<br />SEAL</div>
+                          <div className="text-center w-48 border-t-2 border-[#065F46] pt-2 relative">
+                            <div className="absolute -top-14 left-1/2 -translate-x-1/2 w-18 h-18 rounded-full border-[2px] border-[#065F46]/30 flex flex-col items-center justify-center bg-emerald-50 shrink-0">
+                               <div className="text-[7px] font-black text-[#065F46]/60 text-center leading-[1.2]">OFFICIAL<br />SEAL</div>
                             </div>
-                            <span className="font-bold text-[10px] uppercase text-[#065F46]">Director / Principal</span>
+                            <span className="font-bold text-[11px] uppercase text-[#065F46]">Director / Principal</span>
                           </div>
                         </div>
                       </div>
