@@ -34,7 +34,7 @@ describe('GET /api/teacher-portal/result-sessions', () => {
     expect(response.status).toBe(200)
     expect(json.data).toEqual([expect.objectContaining({
       id: 'year-1',
-      name: '2026-2027 — Annual Result',
+      name: '2026-2027 — Annual Result (Active)',
       type: 'ANNUAL',
       status: 'OPEN',
       sectionCount: 1,

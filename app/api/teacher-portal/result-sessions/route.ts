@@ -35,7 +35,7 @@ export async function GET() {
 
     if (allYears.length === 0) return successResponse([])
 
-    const resultCycles = await Promise.all(
+    const resultCycles = (await Promise.all(
       allYears.map(async (year) => {
         const sectionIds = await getTeacherClassSectionIds(teacher.id, year.id)
         return {
@@ -48,7 +48,7 @@ export async function GET() {
           sectionCount: sectionIds.length,
         }
       })
-    )
+    )).filter((cycle) => cycle.sectionCount > 0)
 
     return successResponse(resultCycles)
   } catch (error) {
