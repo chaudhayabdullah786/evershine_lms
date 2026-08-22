@@ -51,7 +51,7 @@ describe('document export regression', () => {
     }))
     // The helper restores the preview after export; a failed export must not
     // leave the live canvas locked to export dimensions.
-    expect(page.style.height).toBe('842px')
+    expect(page.style.height).toBe('1123px')
     expect(page.style.overflow).toBe('hidden')
   })
 

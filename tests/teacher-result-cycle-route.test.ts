@@ -4,7 +4,10 @@ const { mockAuth, mockGetActiveAcademicYear, mockGetTeacherSections, mockPrisma 
   mockAuth: vi.fn(),
   mockGetActiveAcademicYear: vi.fn(),
   mockGetTeacherSections: vi.fn(),
-  mockPrisma: { teacher: { findUnique: vi.fn() } },
+  mockPrisma: { 
+    teacher: { findUnique: vi.fn() },
+    academicYear: { findMany: vi.fn() }
+  },
 }))
 
 vi.mock('@/lib/auth', () => ({ auth: mockAuth }))
@@ -20,6 +23,7 @@ describe('GET /api/teacher-portal/result-sessions', () => {
     mockAuth.mockResolvedValue({ user: { id: 'teacher-user-1', role: 'TEACHER' } })
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-1' })
     mockGetActiveAcademicYear.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
+    mockPrisma.academicYear.findMany.mockResolvedValue([{ id: 'year-1', name: '2026-2027', isActive: true }])
     mockGetTeacherSections.mockResolvedValue(['section-1'])
   })
 
