@@ -71,12 +71,17 @@ async function getTeacher() {
 }
 
 async function loadContext(classSectionId: string, resultSessionId: string, teacherId: string) {
-  const academicYear = await prisma.academicYear.findUnique({
+  let academicYear = await prisma.academicYear.findUnique({
     where: { id: resultSessionId },
     select: { id: true, name: true, isActive: true },
   })
+  if (!academicYear) {
+    academicYear = await prisma.academicYear.findFirst({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, isActive: true },
+    })
+  }
   if (!academicYear) return { error: errors.notFound('Result cycle') as Response }
-  if (!academicYear.isActive) return { error: errors.badRequest('Only the active academic year can be used for new class results.') as Response }
 
   if (!(await teacherCanAccessClassSection(teacherId, classSectionId, academicYear.id))) {
     return { error: errors.forbidden('You are not assigned to this class section.') as Response }

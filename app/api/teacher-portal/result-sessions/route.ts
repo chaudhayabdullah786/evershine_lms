@@ -28,20 +28,29 @@ export async function GET() {
     if (!teacher) return successResponse([])
 
     const activeYear = await getActiveAcademicYear()
-    if (!activeYear) return successResponse([])
+    const allYears = await prisma.academicYear.findMany({
+      orderBy: [{ isActive: 'desc' }, { startDate: 'desc' }],
+      select: { id: true, name: true, isActive: true },
+    })
 
-    const sectionIds = await getTeacherClassSectionIds(teacher.id, activeYear.id)
-    if (sectionIds.length === 0) return successResponse([])
+    if (allYears.length === 0) return successResponse([])
 
-    return successResponse([{
-      id: activeYear.id,
-      name: `${activeYear.name} — Annual Result`,
-      academicYearId: activeYear.id,
-      type: 'ANNUAL',
-      status: 'OPEN',
-      isActive: true,
-      sectionCount: sectionIds.length,
-    }])
+    const resultCycles = await Promise.all(
+      allYears.map(async (year) => {
+        const sectionIds = await getTeacherClassSectionIds(teacher.id, year.id)
+        return {
+          id: year.id,
+          name: `${year.name} — Annual Result${year.isActive ? ' (Active)' : ''}`,
+          academicYearId: year.id,
+          type: 'ANNUAL',
+          status: 'OPEN',
+          isActive: year.isActive,
+          sectionCount: sectionIds.length,
+        }
+      })
+    )
+
+    return successResponse(resultCycles)
   } catch (error) {
     console.error('[TEACHER_RESULT_SESSIONS_GET]', error)
     return errors.internal()
