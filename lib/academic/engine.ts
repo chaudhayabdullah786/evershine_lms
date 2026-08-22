@@ -33,7 +33,9 @@ export async function assertAcademicYearEditable(academicYearId: string): Promis
 }
 
 export async function getActiveAcademicYear() {
-  return prisma.academicYear.findFirst({ where: { isActive: true } })
+  const active = await prisma.academicYear.findFirst({ where: { isActive: true } })
+  if (active) return active
+  return prisma.academicYear.findFirst({ orderBy: { startDate: 'desc' } })
 }
 
 export type TimetableConflict = {

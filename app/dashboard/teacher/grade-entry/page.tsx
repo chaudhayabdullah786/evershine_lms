@@ -543,22 +543,40 @@ function TeacherResultEntryInner() {
       {/* Step 2 — Subject Marks */}
       {studentId && classSectionId && examSessionId && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-base">2. Enter Subject Marks</CardTitle>
+              <CardTitle className="text-base">2. Enter Subject Marks &amp; Configure Total Marks</CardTitle>
               <CardDescription>
-                Blank subjects stay pending and cannot be declared. Enter marks, or mark Absent/N/A before declaration.
+                Customize total marks per subject (e.g. 100, 75, 50) or use presets. Blank subjects stay pending.
               </CardDescription>
             </div>
-            {computedPct > 0 && (
-              <div className="text-right">
-                <p className="text-xs text-slate-400">Live preview</p>
-                <p className="text-2xl font-bold text-slate-900">{computedPct}%</p>
-                <Badge className={`mt-1 text-xs ${batchColor(autoPerformanceBatch)}`}>
-                  {autoPerformanceBatch}
-                </Badge>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-slate-500 font-medium">Quick Total:</span>
+                {[100, 75, 50].map((total) => (
+                  <button
+                    key={total}
+                    type="button"
+                    className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    onClick={() => {
+                      setSubjectEntries((prev) => prev.map((e) => ({ ...e, totalMarks: total })))
+                      notify.success(`Set total marks to ${total} for all subjects`)
+                    }}
+                  >
+                    {total}
+                  </button>
+                ))}
               </div>
-            )}
+              {computedPct > 0 && (
+                <div className="text-right pl-3 border-l border-slate-200">
+                  <p className="text-xs text-slate-400">Live preview</p>
+                  <p className="text-2xl font-bold text-slate-900">{computedPct}%</p>
+                  <Badge className={`mt-1 text-xs ${batchColor(autoPerformanceBatch)}`}>
+                    {autoPerformanceBatch}
+                  </Badge>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {sectionOfferings?.length === 0 && !isEditing && (

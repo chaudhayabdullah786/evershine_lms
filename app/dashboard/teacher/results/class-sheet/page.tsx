@@ -90,11 +90,20 @@ function ClassResultSheetInner() {
     enabled: Boolean(classSectionId && resultSessionId),
   })
 
+  const [subjectTotals, setSubjectTotals] = useState<Record<string, number>>({})
+  const [customColumns, setCustomColumns] = useState<Array<{ id: string; label: string; totalMarks: number; type: 'MARKS' | 'TEXT' }>>([])
+  const [customValues, setCustomValues] = useState<Record<string, Record<string, string>>>({})
+
   const contextKey = `${classSectionId}:${resultSessionId}`
   useEffect(() => {
     if (!sheet || initializedKey.current === contextKey) return
     initializedKey.current = contextKey
     const next: Record<string, Record<string, Cell>> = {}
+    const initialTotals: Record<string, number> = {}
+    for (const subject of sheet.subjects) {
+      initialTotals[subject.id] = subject.totalMarks
+    }
+    setSubjectTotals(initialTotals)
     for (const student of sheet.students) {
       const scoreMap = new Map((student.result?.subjectResults ?? []).map((score) => [score.subjectOfferingId, score]))
       next[student.id] = Object.fromEntries(sheet.subjects.map((subject) => [subject.id, createCell(scoreMap.get(subject.id))]))
@@ -127,22 +136,30 @@ function ClassResultSheetInner() {
         body: JSON.stringify({
           classSectionId,
           resultSessionId,
-              rows: sheet.students.map((student) => ({
-                studentId: student.id,
-                manualPosition: cardConfig.positionMode === 'MANUAL' && manualPositions[student.id]?.trim()
-                  ? Number(manualPositions[student.id])
-                  : null,
-            subjectResults: sheet.subjects.map((subject) => {
-              const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
-              return {
-                subjectOfferingId: subject.id,
-                totalMarks: subject.totalMarks,
-                obtainedMarks: cell.status === 'MARKS' && cell.value.trim() !== '' ? Number(cell.value) : null,
-                isAbsent: cell.status === 'ABSENT',
-                isNotApplicable: cell.status === 'NA',
-              }
-            }),
-          })),
+          rows: sheet.students.map((student) => {
+            const studentCustomFields = customColumns.map((col) => ({
+              label: col.label,
+              value: customValues[student.id]?.[col.id] ?? '',
+            })).filter((f) => f.label.trim().length > 0)
+
+            return {
+              studentId: student.id,
+              manualPosition: cardConfig.positionMode === 'MANUAL' && manualPositions[student.id]?.trim()
+                ? Number(manualPositions[student.id])
+                : null,
+              customFields: studentCustomFields.length > 0 ? studentCustomFields : undefined,
+              subjectResults: sheet.subjects.map((subject) => {
+                const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
+                return {
+                  subjectOfferingId: subject.id,
+                  totalMarks: subjectTotals[subject.id] ?? subject.totalMarks,
+                  obtainedMarks: cell.status === 'MARKS' && cell.value.trim() !== '' ? Number(cell.value) : null,
+                  isAbsent: cell.status === 'ABSENT',
+                  isNotApplicable: cell.status === 'NA',
+                }
+              }),
+            }
+          }),
         }),
       })
     },
@@ -302,10 +319,37 @@ function ClassResultSheetInner() {
         <Card>
           <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-base">3. Enter class marks</CardTitle>
+              <CardTitle className="text-base">3. Enter class marks &amp; custom evaluation fields</CardTitle>
               <CardDescription>{sheet.section.className} — {sheet.section.sectionName} · {sheet.students.length} active students · {sheet.subjects.length} courses</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                onClick={() => {
+                  const colId = `custom_marks_${Date.now()}`
+                  const label = prompt('Enter custom marks column name (e.g. Oral Exam, Practical, Assignment):')
+                  if (!label?.trim()) return
+                  const maxMarks = parseInt(prompt('Enter total marks for this custom column:', '50') || '50') || 50
+                  setCustomColumns((prev) => [...prev, { id: colId, label: label.trim(), totalMarks: maxMarks, type: 'MARKS' }])
+                }}
+              >
+                + Add Marks Column
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 border-slate-300 text-slate-700 hover:bg-slate-50"
+                onClick={() => {
+                  const colId = `custom_field_${Date.now()}`
+                  const label = prompt('Enter custom field column name (e.g. Conduct, Discipline, Remarks):')
+                  if (!label?.trim()) return
+                  setCustomColumns((prev) => [...prev, { id: colId, label: label.trim(), totalMarks: 0, type: 'TEXT' }])
+                }}
+              >
+                + Add Custom Field
+              </Button>
               <Badge variant="secondary">Saved: {summary.saved}/{sheet.students.length}</Badge>
               <Badge className={summary.pending > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}>Pending cells: {summary.pending}</Badge>
             </div>
@@ -315,7 +359,7 @@ function ClassResultSheetInner() {
               <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
             ) : sheet.students.length === 0 ? (
               <p className="py-10 text-center text-sm text-slate-500">No active students are enrolled in this section.</p>
-            ) : sheet.subjects.length === 0 ? (
+            ) : sheet.subjects.length === 0 && customColumns.length === 0 ? (
               <p className="py-10 text-center text-sm text-amber-700">No offered courses are assigned for this section. Ask administration to configure the section subjects first.</p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -324,7 +368,48 @@ function ClassResultSheetInner() {
                     <tr>
                       <th className="sticky left-0 z-10 bg-slate-50 px-3 py-3">Student</th>
                       {cardConfig.showClassPosition && cardConfig.positionMode === 'MANUAL' && <th className="min-w-[120px] px-3 py-3">Position</th>}
-                      {sheet.subjects.map((subject) => <th key={subject.id} className="min-w-[150px] px-3 py-3">{subject.name}<span className="block normal-case text-[10px] font-normal">{subject.code} · /{subject.totalMarks}</span></th>)}
+                      {sheet.subjects.map((subject) => (
+                        <th key={subject.id} className="min-w-[160px] px-3 py-3">
+                          <div className="flex items-center justify-between gap-1 font-semibold text-slate-800">
+                            <span>{subject.name}</span>
+                            <span className="text-[10px] text-slate-400">({subject.code})</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="text-[10px] text-slate-500 font-normal">Total:</span>
+                            <input
+                              type="number"
+                              min={1}
+                              className="w-14 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-center text-xs font-bold text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none"
+                              value={subjectTotals[subject.id] ?? subject.totalMarks}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1
+                                setSubjectTotals((prev) => ({ ...prev, [subject.id]: Math.max(1, val) }))
+                              }}
+                              title="Click to edit custom subject total marks for all students"
+                            />
+                          </div>
+                        </th>
+                      ))}
+                      {customColumns.map((col) => (
+                        <th key={col.id} className="min-w-[160px] px-3 py-3 bg-indigo-50/40">
+                          <div className="flex items-center justify-between font-semibold text-indigo-900">
+                            <span>{col.label}</span>
+                            <button
+                              className="text-xs text-rose-500 hover:text-rose-700 ml-1 font-bold"
+                              title="Remove custom column"
+                              onClick={() => setCustomColumns((prev) => prev.filter((c) => c.id !== col.id))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                          {col.type === 'MARKS' && (
+                            <span className="block normal-case text-[10px] font-normal text-indigo-700">Custom Marks · /{col.totalMarks}</span>
+                          )}
+                          {col.type === 'TEXT' && (
+                            <span className="block normal-case text-[10px] font-normal text-slate-500">Custom Evaluation</span>
+                          )}
+                        </th>
+                      ))}
                       <th className="px-3 py-3">Details</th>
                     </tr>
                   </thead>
@@ -342,10 +427,11 @@ function ClassResultSheetInner() {
                           </td>}
                           {sheet.subjects.map((subject) => {
                             const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
+                            const currentTotal = subjectTotals[subject.id] ?? subject.totalMarks
                             return (
                               <td key={subject.id} className="space-y-1 px-3 py-3">
                                 <Input
-                                  type="number" min={0} max={subject.totalMarks} placeholder={cell.status === 'MARKS' ? 'Pending' : cell.status}
+                                  type="number" min={0} max={currentTotal} placeholder={cell.status === 'MARKS' ? 'Pending' : cell.status}
                                   value={cell.value} disabled={declared || cell.status !== 'MARKS'}
                                   onChange={(event) => updateCell(student.id, subject.id, { value: event.target.value })}
                                   className="h-9"
@@ -361,6 +447,29 @@ function ClassResultSheetInner() {
                               </td>
                             )
                           })}
+                          {customColumns.map((col) => (
+                            <td key={col.id} className="px-3 py-3 bg-indigo-50/20">
+                              <Input
+                                type={col.type === 'MARKS' ? 'number' : 'text'}
+                                min={0}
+                                max={col.type === 'MARKS' ? col.totalMarks : undefined}
+                                placeholder={col.type === 'MARKS' ? `Max ${col.totalMarks}` : 'Enter value...'}
+                                value={customValues[student.id]?.[col.id] ?? ''}
+                                disabled={declared}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setCustomValues((prev) => ({
+                                    ...prev,
+                                    [student.id]: {
+                                      ...(prev[student.id] ?? {}),
+                                      [col.id]: val,
+                                    },
+                                  }))
+                                }}
+                                className="h-9 text-xs"
+                              />
+                            </td>
+                          ))}
                           <td className="px-3 py-3">
                             {student.result?.id ? <Link className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline" href={`/dashboard/teacher/grade-entry?resultId=${student.result.id}`}><ExternalLink className="h-3 w-3" />Details</Link> : <span className="text-xs text-slate-400">Save first</span>}
                           </td>

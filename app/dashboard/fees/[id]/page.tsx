@@ -23,6 +23,16 @@ interface FeeItem {
   amount: string | number
 }
 
+interface EnrollmentSection {
+  status: string
+  rollNumber?: string | null
+  classSection?: {
+    className?: string | null
+    sectionName?: string | null
+    shift?: { name?: string | null; code?: string | null } | null
+  } | null
+}
+
 interface StudentDetails {
   id: string
   firstName: string
@@ -33,6 +43,7 @@ interface StudentDetails {
   campus: { name: string; code: string }
   batch?: { name: string }
   class?: { name: string; grade: number }
+  enrollments?: EnrollmentSection[]
 }
 
 interface FeeInvoice {
@@ -209,6 +220,33 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   const courseFee = invoice.items.reduce((sum, item) => /course(?:s)? fee/i.test(item.description) ? sum + Number(item.amount) : sum, 0)
   const academicFeeTotal = admissionFee + courseFee
 
+  // Safe date parser — handles both ISO timestamp strings and plain date strings
+  // to avoid Invalid Date when the DB stores a full UTC timestamp.
+  const parseSafeDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null
+    // If raw is already a date-only string (YYYY-MM-DD), appending T00:00:00 is safe.
+    // If it includes a 'T' it is a full ISO string — parse directly.
+    const d = raw.includes('T') ? new Date(raw) : new Date(`${raw}T00:00:00`)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  const dueDateObj = parseSafeDate(invoice.dueDate)
+  const dueDateDisplay = dueDateObj
+    ? dueDateObj.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—'
+
+  // Resolve class + section + shift from the active enrollment (most specific) or fall back to student.class
+  const activeEnrollment = invoice.student.enrollments?.[0]
+  const enrolledClassName   = activeEnrollment?.classSection?.className   || invoice.student.class?.name || null
+  const enrolledSectionName = activeEnrollment?.classSection?.sectionName || null
+  const enrolledShiftName   = activeEnrollment?.classSection?.shift?.name || null
+
+  const classSectionDisplay = [
+    enrolledClassName,
+    enrolledSectionName,
+    enrolledShiftName,
+  ].filter(Boolean).join(' — ') || 'Not Assigned'
+
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     const amountNum = parseFloat(payAmount)
@@ -284,25 +322,112 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const handleDownloadPdf = async () => {
-    const el = document.getElementById('challan-container')
-    if (!el) {
-      notify.error('Could not find challan content to generate PDF')
+    // Capture each challan copy (Bank / Office / Student) as a separate A4
+    // portrait page. Attempting to capture the 3-column grid in one shot
+    // squashes all three copies into a ~300px-wide column — the root cause
+    // of the distortion reported by users.
+    const copies = Array.from(
+      document.querySelectorAll<HTMLElement>('#challan-container > div[class]')
+    )
+    if (copies.length === 0) {
+      notify.error('Could not find challan copies to generate PDF')
       return
     }
-    
+
     setIsDownloadingPdf(true)
     try {
-      const { downloadPdf } = await import('@/lib/pdf')
-      await downloadPdf({
-        element: el,
-        filename: `Challan_${invoice?.challanNumber || 'Slip'}`,
-        orientation: 'landscape',
-        format: 'a4',
-        scale: 2 // High quality
-      })
+      const [{ default: jsPDF }, html2canvas] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas').then((m) => m.default),
+      ])
+
+      // A4 portrait at 96 DPI → 794 × 1123 px
+      const A4_W_PX = 794
+      const A4_H_PX = 1123
+      // jsPDF A4 points (72 DPI): 595.28 × 841.89
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pdfW = pdf.internal.pageSize.getWidth()   // 595.28 pt
+      const pdfH = pdf.internal.pageSize.getHeight()  // 841.89 pt
+
+      for (let i = 0; i < copies.length; i++) {
+        const copy = copies[i]
+
+        // Temporarily fix size so html2canvas sees the correct viewport
+        const savedWidth  = copy.style.width
+        const savedMinW   = copy.style.minWidth
+        const savedMaxW   = copy.style.maxWidth
+        const savedHeight = copy.style.height
+        const savedMinH   = copy.style.minHeight
+        const savedMaxH   = copy.style.maxHeight
+        const savedPos    = copy.style.position
+        const savedZIdx   = copy.style.zIndex
+        const savedLeft   = copy.style.left
+        const savedTop    = copy.style.top
+        const savedBR     = copy.style.borderRadius
+        const savedShadow = copy.style.boxShadow
+
+        copy.style.width     = `${A4_W_PX}px`
+        copy.style.minWidth  = `${A4_W_PX}px`
+        copy.style.maxWidth  = `${A4_W_PX}px`
+        copy.style.minHeight = `${A4_H_PX}px`
+        copy.style.position  = 'fixed'
+        copy.style.left      = '-9999px'
+        copy.style.top       = '0px'
+        copy.style.zIndex    = '99999'
+        copy.style.borderRadius = '0px'
+        copy.style.boxShadow    = 'none'
+
+        // Wait for layout recalc
+        await new Promise<void>((r) => requestAnimationFrame(() => r()))
+        await new Promise<void>((r) => setTimeout(r, 80))
+
+        const renderHeight = Math.max(copy.scrollHeight, A4_H_PX)
+        copy.style.height    = `${renderHeight}px`
+        copy.style.maxHeight = `${renderHeight}px`
+
+        const canvas = await html2canvas(copy, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: A4_W_PX,
+          height: renderHeight,
+          windowWidth: A4_W_PX,
+          windowHeight: renderHeight,
+          scrollX: 0,
+          scrollY: 0,
+          logging: false,
+        })
+
+        // Restore original styles
+        copy.style.width        = savedWidth
+        copy.style.minWidth     = savedMinW
+        copy.style.maxWidth     = savedMaxW
+        copy.style.height       = savedHeight
+        copy.style.minHeight    = savedMinH
+        copy.style.maxHeight    = savedMaxH
+        copy.style.position     = savedPos
+        copy.style.zIndex       = savedZIdx
+        copy.style.left         = savedLeft
+        copy.style.top          = savedTop
+        copy.style.borderRadius = savedBR
+        copy.style.boxShadow    = savedShadow
+
+        // Scale the captured canvas proportionally to fill the PDF page
+        const canvasAspect = canvas.height / canvas.width
+        const imgW = pdfW
+        const imgH = Math.min(imgW * canvasAspect, pdfH)
+        const imgData = canvas.toDataURL('image/jpeg', 0.95)
+
+        if (i > 0) pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH)
+      }
+
+      const challanNo = invoice?.challanNumber?.replace(/[^A-Za-z0-9_-]/g, '_') || 'Challan'
+      pdf.save(`Challan_${challanNo}.pdf`)
       notify.success('Challan PDF downloaded successfully!')
     } catch (err) {
-      console.error(err)
+      console.error('[Challan PDF]', err)
       notify.error('Failed to generate PDF. Please try using the Print option instead.')
     } finally {
       setIsDownloadingPdf(false)
@@ -550,8 +675,8 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
                 <p className="font-bold text-gray-900">{new Date(invoice.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
               </div>
               <div className="space-y-0.5 text-right">
-                <p className="text-gray-500 text-red-600 font-bold">Due Date:</p>
-                <p className="font-bold text-red-600">{new Date(invoice.dueDate + 'T00:00:00').toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                <p className="text-red-600 font-bold text-[9px]">Due Date:</p>
+                <p className="font-bold text-red-600">{dueDateDisplay}</p>
               </div>
             </div>
 
@@ -571,8 +696,14 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="grid grid-cols-2">
                 <p className="text-gray-500">Class / Section:</p>
-                <p className="font-medium text-right truncate">{invoice.student.class?.name ?? 'No class'}</p>
+                <p className="font-medium text-right truncate">{classSectionDisplay}</p>
               </div>
+              {enrolledShiftName && (
+                <div className="grid grid-cols-2">
+                  <p className="text-gray-500">Shift:</p>
+                  <p className="font-medium text-right truncate">{enrolledShiftName}</p>
+                </div>
+              )}
             </div>
 
             {(admissionFee > 0 || courseFee > 0) && (
@@ -626,12 +757,12 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
                 </div>
               )}
               {lateFee > 0 && (
-                <div className="flex justify-between text-red-600 text-[9px]">
-                  <span>Late Fee (After Due):</span>
+                <div className="flex justify-between text-red-600 text-[9px] font-bold">
+                  <span>⚠ Late Fee / Penalty:</span>
                   <span className="font-mono">+ Rs {lateFee.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between font-extrabold text-[11px] text-blue-900 border-t pt-1.5 mt-1 bg-gray-50 px-1 py-0.5 rounded">
+              <div className="flex justify-between font-extrabold text-[11px] text-blue-900 border-t-2 border-blue-200 pt-1.5 mt-1 bg-blue-50 px-1 py-0.5 rounded">
                 <span>Grand Total:</span>
                 <span className="font-mono">Rs {total.toLocaleString()}</span>
               </div>
@@ -640,7 +771,7 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
                 <span className="font-mono">Rs {paid.toLocaleString()}</span>
               </div>
               {balance > 0 && (
-                <div className="flex justify-between text-[9px] text-red-600 font-bold">
+                <div className="flex justify-between text-[9px] text-red-700 font-extrabold bg-red-50 px-1 py-0.5 rounded mt-0.5">
                   <span>Outstanding Balance:</span>
                   <span className="font-mono">Rs {balance.toLocaleString()}</span>
                 </div>
