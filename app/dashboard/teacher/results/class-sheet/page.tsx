@@ -136,9 +136,11 @@ function ClassResultSheetInner() {
         body: JSON.stringify({
           classSectionId,
           resultSessionId,
-          rows: sheet.students.map((student) => {
-            const studentCustomFields = customColumns.map((col) => ({
-              label: col.label,
+          rows: sheet.students
+            .filter((student) => student.result?.declarationStatus !== 'DECLARED')
+            .map((student) => {
+              const studentCustomFields = customColumns.map((col) => ({
+                label: col.label,
               value: customValues[student.id]?.[col.id] ?? '',
             })).filter((f) => f.label.trim().length > 0)
 
@@ -165,6 +167,58 @@ function ClassResultSheetInner() {
     },
     onSuccess: () => {
       notify.success('Class result drafts saved')
+      queryClient.invalidateQueries({ queryKey: ['teacher-class-result-sheet', classSectionId, resultSessionId] })
+    },
+    onError: (error: Error) => notify.error(error.message),
+  })
+
+  const saveAndDeclare = useMutation({
+    mutationFn: async (studentId: string) => {
+      if (!sheet) throw new Error('Select a class section and result cycle first.')
+      const student = sheet.students.find(s => s.id === studentId)
+      if (!student) throw new Error('Student not found.')
+
+      const studentCustomFields = customColumns.map((col) => ({
+        label: col.label,
+        value: customValues[student.id]?.[col.id] ?? '',
+      })).filter((f) => f.label.trim().length > 0)
+
+      const row = {
+        studentId: student.id,
+        manualPosition: cardConfig.positionMode === 'MANUAL' && manualPositions[student.id]?.trim()
+          ? Number(manualPositions[student.id])
+          : null,
+        customFields: studentCustomFields.length > 0 ? studentCustomFields : undefined,
+        subjectResults: sheet.subjects.map((subject) => {
+          const cell = cells[student.id]?.[subject.id] ?? { value: '', status: 'MARKS' as const }
+          return {
+            subjectOfferingId: subject.id,
+            totalMarks: subjectTotals[subject.id] ?? subject.totalMarks,
+            obtainedMarks: cell.status === 'MARKS' && cell.value.trim() !== '' ? Number(cell.value) : null,
+            isAbsent: cell.status === 'ABSENT',
+            isNotApplicable: cell.status === 'NA',
+          }
+        }),
+      }
+
+      const saveRes = await fetchApi<{ savedCount: number, results: Array<{ studentId: string, resultId: string }> }>('/api/teacher-portal/results/class-sheet', {
+        method: 'POST',
+        body: JSON.stringify({
+          classSectionId,
+          resultSessionId,
+          rows: [row],
+        }),
+      })
+
+      const savedResult = saveRes.results?.find(r => r.studentId === studentId)
+      if (!savedResult) throw new Error('Failed to save draft.')
+
+      await fetchApi(`/api/teacher-portal/results/${savedResult.resultId}/declare`, {
+        method: 'POST',
+      })
+    },
+    onSuccess: () => {
+      notify.success('Result successfully saved and declared')
       queryClient.invalidateQueries({ queryKey: ['teacher-class-result-sheet', classSectionId, resultSessionId] })
     },
     onError: (error: Error) => notify.error(error.message),
@@ -470,8 +524,31 @@ function ClassResultSheetInner() {
                               />
                             </td>
                           ))}
-                          <td className="px-3 py-3">
-                            {student.result?.id ? <Link className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline" href={`/dashboard/teacher/grade-entry?resultId=${student.result.id}`}><ExternalLink className="h-3 w-3" />Details</Link> : <span className="text-xs text-slate-400">Save first</span>}
+                          <td className="px-3 py-3 w-48 shrink-0">
+                            {declared ? (
+                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Declared
+                              </span>
+                            ) : (
+                              <div className="flex flex-col gap-1.5">
+                                {student.result?.id ? (
+                                  <Link className="inline-flex w-fit items-center gap-1 text-xs font-medium text-indigo-600 hover:underline" href={`/dashboard/teacher/grade-entry?resultId=${student.result.id}`}>
+                                    <ExternalLink className="h-3 w-3" /> Details / Edit Card
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-slate-400">Save first for details</span>
+                                )}
+                                <button 
+                                  onClick={() => saveAndDeclare.mutate(student.id)} 
+                                  disabled={saveAndDeclare.isPending}
+                                  className="inline-flex w-fit items-center gap-1 text-xs font-medium text-emerald-600 hover:underline disabled:opacity-50"
+                                  title="Save current marks for this student and immediately declare the result"
+                                >
+                                  {saveAndDeclare.isPending && saveAndDeclare.variables === student.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                  Save &amp; Declare
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
