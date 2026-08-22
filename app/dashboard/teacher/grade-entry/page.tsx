@@ -325,6 +325,22 @@ function TeacherResultEntryInner() {
     onError: (e: Error) => notify.error(formatApiError(e)),
   })
 
+  const undeclareResult = useMutation({
+    mutationFn: (resId: string) =>
+      fetchApi<{ declarationStatus: string }>(`/api/teacher-portal/results/${resId}/undeclare`, { method: 'POST' }),
+    onSuccess: (undeclaredResult) => {
+      qc.setQueryData(
+        ['existing-result', studentId, classSectionId, examSessionId],
+        (current: ExistingResult | null | undefined) =>
+          current ? { ...current, declarationStatus: 'DRAFT' } : current
+      )
+      notify.success('Result reverted to draft')
+      qc.invalidateQueries({ queryKey: ['existing-result', studentId, classSectionId, examSessionId] })
+      if (resultId) qc.invalidateQueries({ queryKey: ['result-detail', resultId] })
+    },
+    onError: (e: Error) => notify.error(formatApiError(e)),
+  })
+
   const addCustomField = useMutation({
     mutationFn: () =>
       fetchApi(`/api/teacher-portal/results/${existingResult?.id}/custom-fields`, {
@@ -754,7 +770,7 @@ function TeacherResultEntryInner() {
             </div>
 
             {/* Actions */}
-            {!isDeclared && (
+            {!isDeclared ? (
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={() => saveResult.mutate()}
@@ -764,7 +780,7 @@ function TeacherResultEntryInner() {
                   {saveResult.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save Draft
                 </Button>
-                {existingResult && !isDeclared && (
+                {existingResult && (
                   <AlertDialog open={showDeclareDialog} onOpenChange={setShowDeclareDialog}>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -780,7 +796,7 @@ function TeacherResultEntryInner() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Declare this result?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Once declared, the result becomes visible to the student on their portal. Class positions will be recalculated and notifications sent. This action cannot be undone without SuperAdmin access.
+                          Once declared, the result becomes visible to the student on their portal. Class positions will be recalculated and notifications sent.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -808,6 +824,40 @@ function TeacherResultEntryInner() {
                     </AlertDialogContent>
                   </AlertDialog>
                 )}
+              </div>
+            ) : (
+              <div className="flex gap-3 pt-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+                      Undeclare Result
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Undeclare this result?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Reverting this result to a draft will hide it from the student&apos;s portal until you declare it again. Are you sure you want to proceed?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={(event) => {
+                          event.preventDefault()
+                          if (existingResult?.id) {
+                            undeclareResult.mutate(existingResult.id)
+                          }
+                        }}
+                        disabled={undeclareResult.isPending}
+                        className="bg-rose-600 hover:bg-rose-700"
+                      >
+                        {undeclareResult.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Yes, Undeclare
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )}
           </CardContent>

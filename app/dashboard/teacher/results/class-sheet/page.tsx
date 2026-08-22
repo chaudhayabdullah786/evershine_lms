@@ -236,6 +236,17 @@ function ClassResultSheetInner() {
     onError: (error: Error) => notify.error(error.message),
   })
 
+  const undeclareResult = useMutation({
+    mutationFn: (resultId: string) => fetchApi(`/api/teacher-portal/results/${resultId}/undeclare`, {
+      method: 'POST',
+    }),
+    onSuccess: () => {
+      notify.success('Result reverted to draft')
+      queryClient.invalidateQueries({ queryKey: ['teacher-class-result-sheet', classSectionId, resultSessionId] })
+    },
+    onError: (error: Error) => notify.error(error.message),
+  })
+
   const summary = useMemo(() => {
     const students = sheet?.students ?? []
     const saved = students.filter((student) => Boolean(student.result)).length
@@ -526,9 +537,22 @@ function ClassResultSheetInner() {
                           ))}
                           <td className="px-3 py-3 w-48 shrink-0">
                             {declared ? (
-                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                                <CheckCircle2 className="w-3 h-3 mr-1" /> Declared
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" /> Declared
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Are you sure you want to undeclare this result? It will be hidden from the student.')) {
+                                      undeclareResult.mutate(student.result!.id)
+                                    }
+                                  }}
+                                  disabled={undeclareResult.isPending}
+                                  className="text-[10px] font-medium text-rose-500 hover:text-rose-700 hover:underline disabled:opacity-50"
+                                >
+                                  {undeclareResult.isPending && undeclareResult.variables === student.result?.id ? '...' : 'Undo'}
+                                </button>
+                              </div>
                             ) : (
                               <div className="flex flex-col gap-1.5">
                                 {student.result?.id ? (
