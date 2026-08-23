@@ -485,6 +485,29 @@ html {
     height: 54mm !important;
     page-break-after: always;
   }
+
+  /* ── Challan triplicate print layout ── */
+  .triplicate-container {
+    display: block !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+  .triplicate-container > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    border: 1px solid #ccc !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    page-break-after: always;
+    page-break-inside: avoid;
+    padding: 8mm 6mm !important;
+    margin: 0 !important;
+  }
+  .triplicate-container > div:last-child {
+    page-break-after: auto;
+  }
 }
 
 /* ============================================================

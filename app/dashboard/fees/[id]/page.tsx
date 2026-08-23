@@ -322,12 +322,10 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const handleDownloadPdf = async () => {
-    // Capture each challan copy (Bank / Office / Student) as a separate A4
-    // portrait page. Attempting to capture the 3-column grid in one shot
-    // squashes all three copies into a ~300px-wide column — the root cause
-    // of the distortion reported by users.
+    // Each challan copy (Bank / Office / Student) is rendered as a separate
+    // A4 portrait page using the proven lib/pdf downloadPdf utility.
     const copies = Array.from(
-      document.querySelectorAll<HTMLElement>('#challan-container > div[class]')
+      document.querySelectorAll<HTMLElement>('#challan-container [data-challan-copy]')
     )
     if (copies.length === 0) {
       notify.error('Could not find challan copies to generate PDF')
@@ -341,83 +339,62 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
         import('html2canvas').then((m) => m.default),
       ])
 
-      // A4 portrait at 96 DPI → 794 × 1123 px
-      const A4_W_PX = 794
-      const A4_H_PX = 1123
-      // jsPDF A4 points (72 DPI): 595.28 × 841.89
+      // A4 portrait at CSS px (96 DPI)
+      const COPY_W = 794
+      const COPY_MIN_H = 1123
+
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
       const pdfW = pdf.internal.pageSize.getWidth()   // 595.28 pt
       const pdfH = pdf.internal.pageSize.getHeight()  // 841.89 pt
 
       for (let i = 0; i < copies.length; i++) {
-        const copy = copies[i]
+        // Clone the challan copy into a clean off-screen container so the
+        // original page layout is never disrupted and the clone gets a
+        // guaranteed fixed-width viewport for html2canvas.
+        const clone = copies[i].cloneNode(true) as HTMLElement
+        const offscreen = document.createElement('div')
+        offscreen.style.cssText = `
+          position: fixed; left: -9999px; top: 0; z-index: 99999;
+          width: ${COPY_W}px; min-width: ${COPY_W}px; max-width: ${COPY_W}px;
+          background: #fff; padding: 0; margin: 0; overflow: visible;
+        `
+        // Reset the clone styles so it fills the container cleanly
+        clone.style.cssText = `
+          width: 100%; min-width: 100%; max-width: 100%;
+          min-height: ${COPY_MIN_H}px; padding: 28px 24px;
+          border: none; border-radius: 0; box-shadow: none;
+          background: #fff; font-size: 10px; color: #000;
+        `
+        offscreen.appendChild(clone)
+        document.body.appendChild(offscreen)
 
-        // Temporarily fix size so html2canvas sees the correct viewport
-        const savedWidth  = copy.style.width
-        const savedMinW   = copy.style.minWidth
-        const savedMaxW   = copy.style.maxWidth
-        const savedHeight = copy.style.height
-        const savedMinH   = copy.style.minHeight
-        const savedMaxH   = copy.style.maxHeight
-        const savedPos    = copy.style.position
-        const savedZIdx   = copy.style.zIndex
-        const savedLeft   = copy.style.left
-        const savedTop    = copy.style.top
-        const savedBR     = copy.style.borderRadius
-        const savedShadow = copy.style.boxShadow
-
-        copy.style.width     = `${A4_W_PX}px`
-        copy.style.minWidth  = `${A4_W_PX}px`
-        copy.style.maxWidth  = `${A4_W_PX}px`
-        copy.style.minHeight = `${A4_H_PX}px`
-        copy.style.position  = 'fixed'
-        copy.style.left      = '-9999px'
-        copy.style.top       = '0px'
-        copy.style.zIndex    = '99999'
-        copy.style.borderRadius = '0px'
-        copy.style.boxShadow    = 'none'
-
-        // Wait for layout recalc
+        // Allow browser to reflow the clone
         await new Promise<void>((r) => requestAnimationFrame(() => r()))
-        await new Promise<void>((r) => setTimeout(r, 80))
+        await new Promise<void>((r) => setTimeout(r, 120))
 
-        const renderHeight = Math.max(copy.scrollHeight, A4_H_PX)
-        copy.style.height    = `${renderHeight}px`
-        copy.style.maxHeight = `${renderHeight}px`
+        const renderH = Math.max(offscreen.scrollHeight, COPY_MIN_H)
 
-        const canvas = await html2canvas(copy, {
+        const canvas = await html2canvas(offscreen, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
-          width: A4_W_PX,
-          height: renderHeight,
-          windowWidth: A4_W_PX,
-          windowHeight: renderHeight,
+          width: COPY_W,
+          height: renderH,
+          windowWidth: COPY_W,
+          windowHeight: renderH,
           scrollX: 0,
           scrollY: 0,
           logging: false,
         })
 
-        // Restore original styles
-        copy.style.width        = savedWidth
-        copy.style.minWidth     = savedMinW
-        copy.style.maxWidth     = savedMaxW
-        copy.style.height       = savedHeight
-        copy.style.minHeight    = savedMinH
-        copy.style.maxHeight    = savedMaxH
-        copy.style.position     = savedPos
-        copy.style.zIndex       = savedZIdx
-        copy.style.left         = savedLeft
-        copy.style.top          = savedTop
-        copy.style.borderRadius = savedBR
-        copy.style.boxShadow    = savedShadow
+        // Remove the offscreen container immediately after capture
+        document.body.removeChild(offscreen)
 
-        // Scale the captured canvas proportionally to fill the PDF page
         const canvasAspect = canvas.height / canvas.width
         const imgW = pdfW
         const imgH = Math.min(imgW * canvasAspect, pdfH)
-        const imgData = canvas.toDataURL('image/jpeg', 0.95)
+        const imgData = canvas.toDataURL('image/jpeg', 0.92)
 
         if (i > 0) pdf.addPage()
         pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH)
@@ -643,11 +620,11 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
 
       {/* Main printable slip container */}
       {/* We display a triplicate challan: 1. Bank Copy, 2. Office Copy, 3. Student Copy */}
-      <div id="challan-container" className="triplicate-container grid grid-cols-1 xl:grid-cols-3 gap-6 p-1 bg-white rounded-xl min-w-[900px] xl:min-w-0" style={{ padding: '20px' }}>
+      <div id="challan-container" className="triplicate-container grid grid-cols-1 xl:grid-cols-3 gap-6 p-1 bg-white rounded-xl" style={{ padding: '20px' }}>
         
         {/* Render Bank, Office, and Student copies */}
         {(['BANK COPY', 'OFFICE COPY', 'STUDENT COPY'] as const).map((copyType) => (
-          <div key={copyType} className="bg-white p-5 border border-gray-300 rounded-lg shadow-sm font-sans relative flex flex-col justify-between min-h-[600px] w-full text-black">
+          <div key={copyType} data-challan-copy={copyType} className="bg-white p-5 border border-gray-300 rounded-lg shadow-sm font-sans relative flex flex-col justify-between min-h-[600px] w-full text-black">
             
             {/* Slip Header */}
             <div className="space-y-2 pb-3 border-b-2 border-dashed border-gray-400">
