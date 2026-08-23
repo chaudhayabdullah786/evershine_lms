@@ -322,86 +322,23 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const handleDownloadPdf = async () => {
-    // Each challan copy (Bank / Office / Student) is rendered as a separate
-    // A4 portrait page using the proven lib/pdf downloadPdf utility.
-    const copies = Array.from(
-      document.querySelectorAll<HTMLElement>('#challan-container [data-challan-copy]')
-    )
-    if (copies.length === 0) {
+    const container = document.getElementById('challan-container')
+    if (!container) {
       notify.error('Could not find challan copies to generate PDF')
       return
     }
 
     setIsDownloadingPdf(true)
     try {
-      const [{ default: jsPDF }, html2canvas] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas').then((m) => m.default),
-      ])
-
-      // A4 portrait at CSS px (96 DPI)
-      const COPY_W = 794
-      const COPY_MIN_H = 1123
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-      const pdfW = pdf.internal.pageSize.getWidth()   // 595.28 pt
-      const pdfH = pdf.internal.pageSize.getHeight()  // 841.89 pt
-
-      for (let i = 0; i < copies.length; i++) {
-        // Clone the challan copy into a clean off-screen container so the
-        // original page layout is never disrupted and the clone gets a
-        // guaranteed fixed-width viewport for html2canvas.
-        const clone = copies[i].cloneNode(true) as HTMLElement
-        const offscreen = document.createElement('div')
-        offscreen.style.cssText = `
-          position: fixed; left: -9999px; top: 0; z-index: 99999;
-          width: ${COPY_W}px; min-width: ${COPY_W}px; max-width: ${COPY_W}px;
-          background: #fff; padding: 0; margin: 0; overflow: visible;
-        `
-        // Reset the clone styles so it fills the container cleanly
-        clone.style.cssText = `
-          width: 100%; min-width: 100%; max-width: 100%;
-          min-height: ${COPY_MIN_H}px; padding: 28px 24px;
-          border: none; border-radius: 0; box-shadow: none;
-          background: #fff; font-size: 10px; color: #000;
-        `
-        offscreen.appendChild(clone)
-        document.body.appendChild(offscreen)
-
-        // Allow browser to reflow the clone
-        await new Promise<void>((r) => requestAnimationFrame(() => r()))
-        await new Promise<void>((r) => setTimeout(r, 120))
-
-        const renderH = Math.max(offscreen.scrollHeight, COPY_MIN_H)
-
-        const canvas = await html2canvas(offscreen, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          width: COPY_W,
-          height: renderH,
-          windowWidth: COPY_W,
-          windowHeight: renderH,
-          scrollX: 0,
-          scrollY: 0,
-          logging: false,
-        })
-
-        // Remove the offscreen container immediately after capture
-        document.body.removeChild(offscreen)
-
-        const canvasAspect = canvas.height / canvas.width
-        const imgW = pdfW
-        const imgH = Math.min(imgW * canvasAspect, pdfH)
-        const imgData = canvas.toDataURL('image/jpeg', 0.92)
-
-        if (i > 0) pdf.addPage()
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH)
-      }
-
+      const { downloadPdf } = await import('@/lib/pdf')
       const challanNo = invoice?.challanNumber?.replace(/[^A-Za-z0-9_-]/g, '_') || 'Challan'
-      pdf.save(`Challan_${challanNo}.pdf`)
+      await downloadPdf({
+        element: container,
+        filename: `Challan_${challanNo}`,
+        orientation: 'portrait',
+        format: 'a4',
+        scale: 2,
+      })
       notify.success('Challan PDF downloaded successfully!')
     } catch (err) {
       console.error('[Challan PDF]', err)
@@ -624,7 +561,7 @@ export default function FeeDetailPage({ params }: { params: Promise<{ id: string
         
         {/* Render Bank, Office, and Student copies */}
         {(['BANK COPY', 'OFFICE COPY', 'STUDENT COPY'] as const).map((copyType) => (
-          <div key={copyType} data-challan-copy={copyType} className="bg-white p-5 border border-gray-300 rounded-lg shadow-sm font-sans relative flex flex-col justify-between min-h-[600px] w-full text-black">
+          <div key={copyType} data-document-page data-challan-copy={copyType} className="bg-white p-5 border border-gray-300 rounded-lg shadow-sm font-sans relative flex flex-col justify-between min-h-[600px] w-full text-black">
             
             {/* Slip Header */}
             <div className="space-y-2 pb-3 border-b-2 border-dashed border-gray-400">
